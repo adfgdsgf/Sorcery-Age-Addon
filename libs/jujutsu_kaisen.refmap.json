@@ -1,0 +1,178 @@
+{
+  "mappings": {
+    "radon/jujutsu_kaisen/mixin/client/GameRendererMixin": {
+      "render": "Lnet/minecraft/client/renderer/GameRenderer;m_109093_(FJZ)V",
+      "Lcom/mojang/blaze3d/pipeline/RenderTarget;bindWrite(Z)V": "Lcom/mojang/blaze3d/pipeline/RenderTarget;m_83947_(Z)V"
+    },
+    "radon/jujutsu_kaisen/mixin/client/BufferBuilderAccessor": {
+      "format": "f_85658_:Lcom/mojang/blaze3d/vertex/VertexFormat;",
+      "buffer": "f_85648_:Ljava/nio/ByteBuffer;",
+      "nextElementByte": "f_85652_:I"
+    },
+    "radon/jujutsu_kaisen/mixin/client/HumanoidModelMixin": {
+      "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V": "Lnet/minecraft/client/model/HumanoidModel;m_6973_(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V"
+    },
+    "radon/jujutsu_kaisen/mixin/client/LevelRendererMixin": {
+      "renderLevel": "Lnet/minecraft/client/renderer/LevelRenderer;m_109599_(Lcom/mojang/blaze3d/vertex/PoseStack;FJZLnet/minecraft/client/Camera;Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;)V",
+      "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;endBatch(Lnet/minecraft/client/renderer/RenderType;)V": "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;m_109912_(Lnet/minecraft/client/renderer/RenderType;)V",
+      "Lnet/minecraft/client/multiplayer/ClientLevel;entitiesForRendering()Ljava/lang/Iterable;": "Lnet/minecraft/client/multiplayer/ClientLevel;m_104735_()Ljava/lang/Iterable;"
+    },
+    "radon/jujutsu_kaisen/mixin/client/ILivingEntityRendererAccessor": {
+      "getBob": "m_6930_(Lnet/minecraft/world/entity/LivingEntity;F)F"
+    },
+    "radon/jujutsu_kaisen/mixin/common/EnchantmentHelperMixin": {
+      "getEnchantmentLevel(Lnet/minecraft/world/item/enchantment/Enchantment;Lnet/minecraft/world/entity/LivingEntity;)I": "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;m_44836_(Lnet/minecraft/world/item/enchantment/Enchantment;Lnet/minecraft/world/entity/LivingEntity;)I"
+    },
+    "radon/jujutsu_kaisen/mixin/common/LivingEntityMixin": {
+      "aiStep": "Lnet/minecraft/world/entity/LivingEntity;m_8107_()V",
+      "jumpInLiquid": "Lnet/minecraft/world/entity/LivingEntity;m_203347_(Lnet/minecraft/tags/TagKey;)V",
+      "Lnet/minecraft/world/entity/LivingEntity;travel(Lnet/minecraft/world/phys/Vec3;)V": "Lnet/minecraft/world/entity/LivingEntity;m_7023_(Lnet/minecraft/world/phys/Vec3;)V",
+      "jumpFromGround": "Lnet/minecraft/world/entity/LivingEntity;m_6135_()V",
+      "travel": "Lnet/minecraft/world/entity/LivingEntity;m_7023_(Lnet/minecraft/world/phys/Vec3;)V",
+      "isFallFlying": "Lnet/minecraft/world/entity/LivingEntity;m_21255_()Z"
+    },
+    "radon/jujutsu_kaisen/mixin/client/HumanoidArmorLayerMixin": {
+      "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/world/entity/LivingEntity;FFFFFF)V": "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;m_6494_(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/world/entity/LivingEntity;FFFFFF)V",
+      "renderArmorPiece": "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;m_117118_(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;ILnet/minecraft/client/model/HumanoidModel;)V",
+      "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;setPartVisibility(Lnet/minecraft/client/model/HumanoidModel;Lnet/minecraft/world/entity/EquipmentSlot;)V": "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;m_117125_(Lnet/minecraft/client/model/HumanoidModel;Lnet/minecraft/world/entity/EquipmentSlot;)V"
+    },
+    "radon/jujutsu_kaisen/mixin/common/MeleeAttackGoalMixin": {
+      "canContinueToUse": "Lnet/minecraft/world/entity/ai/goal/MeleeAttackGoal;m_8045_()Z",
+      "canUse": "Lnet/minecraft/world/entity/ai/goal/MeleeAttackGoal;m_8036_()Z"
+    },
+    "radon/jujutsu_kaisen/mixin/client/EntityRenderDispatcherMixin": {
+      "getRenderer": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_114382_(Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/client/renderer/entity/EntityRenderer;",
+      "onResourceManagerReload": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_6213_(Lnet/minecraft/server/packs/resources/ResourceManager;)V",
+      "shouldRender": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_114397_(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/culling/Frustum;DDD)Z"
+    },
+    "radon/jujutsu_kaisen/mixin/client/IPostChainAccessor": {
+      "passes": "f_110009_:Ljava/util/List;"
+    },
+    "radon/jujutsu_kaisen/mixin/client/ClientSuggestionProviderMixin": {
+      "getCustomTabSugggestions": "Lnet/minecraft/client/multiplayer/ClientSuggestionProvider;m_240700_()Ljava/util/Collection;"
+    },
+    "radon/jujutsu_kaisen/mixin/common/ItemEntityMixin": {
+      "tick": "Lnet/minecraft/world/entity/item/ItemEntity;m_8119_()V"
+    },
+    "radon/jujutsu_kaisen/mixin/client/IItemInHandRendererAccessor": {
+      "mainHandHeight": "f_109302_:F",
+      "oMainHandHeight": "f_109303_:F"
+    },
+    "radon/jujutsu_kaisen/mixin/client/MinecraftMixin": {
+      "shouldEntityAppearGlowing": "Lnet/minecraft/client/Minecraft;m_91314_(Lnet/minecraft/world/entity/Entity;)Z",
+      "Lnet/minecraft/world/entity/Entity;isCurrentlyGlowing()Z": "Lnet/minecraft/world/entity/Entity;m_142038_()Z"
+    },
+    "radon/jujutsu_kaisen/mixin/client/IPlayerModelAccessor": {
+      "slim": "f_103380_:Z"
+    },
+    "radon/jujutsu_kaisen/mixin/client/LivingEntityRendererMixin": {
+      "render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V": "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;m_7392_(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
+      "Lnet/minecraft/world/entity/WalkAnimationState;speed(F)F": "Lnet/minecraft/world/entity/WalkAnimationState;m_267711_(F)F",
+      "Lnet/minecraft/world/entity/WalkAnimationState;position(F)F": "Lnet/minecraft/world/entity/WalkAnimationState;m_267590_(F)F"
+    },
+    "radon/jujutsu_kaisen/mixin/client/ILevelRendererAccessor": {
+      "level": "f_109465_:Lnet/minecraft/client/multiplayer/ClientLevel;"
+    },
+    "radon/jujutsu_kaisen/mixin/common/MobMixin": {
+      "serverAiStep": "Lnet/minecraft/world/entity/Mob;m_6140_()V"
+    },
+    "radon/jujutsu_kaisen/mixin/client/BufferSourceMixin": {
+      "endBatch(Lnet/minecraft/client/renderer/RenderType;)V": "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;m_109912_(Lnet/minecraft/client/renderer/RenderType;)V"
+    },
+    "radon/jujutsu_kaisen/mixin/common/EntityMixin": {
+      "getTeamColor": "Lnet/minecraft/world/entity/Entity;m_19876_()I"
+    },
+    "radon/jujutsu_kaisen/mixin/client/ItemRendererMixin": {
+      "render": "Lnet/minecraft/client/renderer/entity/ItemRenderer;m_115143_(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IILnet/minecraft/client/resources/model/BakedModel;)V"
+    }
+  },
+  "data": {
+    "searge": {
+      "radon/jujutsu_kaisen/mixin/client/GameRendererMixin": {
+        "render": "Lnet/minecraft/client/renderer/GameRenderer;m_109093_(FJZ)V",
+        "Lcom/mojang/blaze3d/pipeline/RenderTarget;bindWrite(Z)V": "Lcom/mojang/blaze3d/pipeline/RenderTarget;m_83947_(Z)V"
+      },
+      "radon/jujutsu_kaisen/mixin/client/BufferBuilderAccessor": {
+        "format": "f_85658_:Lcom/mojang/blaze3d/vertex/VertexFormat;",
+        "buffer": "f_85648_:Ljava/nio/ByteBuffer;",
+        "nextElementByte": "f_85652_:I"
+      },
+      "radon/jujutsu_kaisen/mixin/client/HumanoidModelMixin": {
+        "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V": "Lnet/minecraft/client/model/HumanoidModel;m_6973_(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V"
+      },
+      "radon/jujutsu_kaisen/mixin/client/LevelRendererMixin": {
+        "renderLevel": "Lnet/minecraft/client/renderer/LevelRenderer;m_109599_(Lcom/mojang/blaze3d/vertex/PoseStack;FJZLnet/minecraft/client/Camera;Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;)V",
+        "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;endBatch(Lnet/minecraft/client/renderer/RenderType;)V": "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;m_109912_(Lnet/minecraft/client/renderer/RenderType;)V",
+        "Lnet/minecraft/client/multiplayer/ClientLevel;entitiesForRendering()Ljava/lang/Iterable;": "Lnet/minecraft/client/multiplayer/ClientLevel;m_104735_()Ljava/lang/Iterable;"
+      },
+      "radon/jujutsu_kaisen/mixin/client/ILivingEntityRendererAccessor": {
+        "getBob": "m_6930_(Lnet/minecraft/world/entity/LivingEntity;F)F"
+      },
+      "radon/jujutsu_kaisen/mixin/common/EnchantmentHelperMixin": {
+        "getEnchantmentLevel(Lnet/minecraft/world/item/enchantment/Enchantment;Lnet/minecraft/world/entity/LivingEntity;)I": "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;m_44836_(Lnet/minecraft/world/item/enchantment/Enchantment;Lnet/minecraft/world/entity/LivingEntity;)I"
+      },
+      "radon/jujutsu_kaisen/mixin/common/LivingEntityMixin": {
+        "aiStep": "Lnet/minecraft/world/entity/LivingEntity;m_8107_()V",
+        "jumpInLiquid": "Lnet/minecraft/world/entity/LivingEntity;m_203347_(Lnet/minecraft/tags/TagKey;)V",
+        "Lnet/minecraft/world/entity/LivingEntity;travel(Lnet/minecraft/world/phys/Vec3;)V": "Lnet/minecraft/world/entity/LivingEntity;m_7023_(Lnet/minecraft/world/phys/Vec3;)V",
+        "jumpFromGround": "Lnet/minecraft/world/entity/LivingEntity;m_6135_()V",
+        "travel": "Lnet/minecraft/world/entity/LivingEntity;m_7023_(Lnet/minecraft/world/phys/Vec3;)V",
+        "isFallFlying": "Lnet/minecraft/world/entity/LivingEntity;m_21255_()Z"
+      },
+      "radon/jujutsu_kaisen/mixin/client/HumanoidArmorLayerMixin": {
+        "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/world/entity/LivingEntity;FFFFFF)V": "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;m_6494_(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/world/entity/LivingEntity;FFFFFF)V",
+        "renderArmorPiece": "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;m_117118_(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;ILnet/minecraft/client/model/HumanoidModel;)V",
+        "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;setPartVisibility(Lnet/minecraft/client/model/HumanoidModel;Lnet/minecraft/world/entity/EquipmentSlot;)V": "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;m_117125_(Lnet/minecraft/client/model/HumanoidModel;Lnet/minecraft/world/entity/EquipmentSlot;)V"
+      },
+      "radon/jujutsu_kaisen/mixin/common/MeleeAttackGoalMixin": {
+        "canContinueToUse": "Lnet/minecraft/world/entity/ai/goal/MeleeAttackGoal;m_8045_()Z",
+        "canUse": "Lnet/minecraft/world/entity/ai/goal/MeleeAttackGoal;m_8036_()Z"
+      },
+      "radon/jujutsu_kaisen/mixin/client/EntityRenderDispatcherMixin": {
+        "getRenderer": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_114382_(Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/client/renderer/entity/EntityRenderer;",
+        "onResourceManagerReload": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_6213_(Lnet/minecraft/server/packs/resources/ResourceManager;)V",
+        "shouldRender": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_114397_(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/culling/Frustum;DDD)Z"
+      },
+      "radon/jujutsu_kaisen/mixin/client/IPostChainAccessor": {
+        "passes": "f_110009_:Ljava/util/List;"
+      },
+      "radon/jujutsu_kaisen/mixin/client/ClientSuggestionProviderMixin": {
+        "getCustomTabSugggestions": "Lnet/minecraft/client/multiplayer/ClientSuggestionProvider;m_240700_()Ljava/util/Collection;"
+      },
+      "radon/jujutsu_kaisen/mixin/common/ItemEntityMixin": {
+        "tick": "Lnet/minecraft/world/entity/item/ItemEntity;m_8119_()V"
+      },
+      "radon/jujutsu_kaisen/mixin/client/IItemInHandRendererAccessor": {
+        "mainHandHeight": "f_109302_:F",
+        "oMainHandHeight": "f_109303_:F"
+      },
+      "radon/jujutsu_kaisen/mixin/client/MinecraftMixin": {
+        "shouldEntityAppearGlowing": "Lnet/minecraft/client/Minecraft;m_91314_(Lnet/minecraft/world/entity/Entity;)Z",
+        "Lnet/minecraft/world/entity/Entity;isCurrentlyGlowing()Z": "Lnet/minecraft/world/entity/Entity;m_142038_()Z"
+      },
+      "radon/jujutsu_kaisen/mixin/client/IPlayerModelAccessor": {
+        "slim": "f_103380_:Z"
+      },
+      "radon/jujutsu_kaisen/mixin/client/LivingEntityRendererMixin": {
+        "render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V": "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;m_7392_(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
+        "Lnet/minecraft/world/entity/WalkAnimationState;speed(F)F": "Lnet/minecraft/world/entity/WalkAnimationState;m_267711_(F)F",
+        "Lnet/minecraft/world/entity/WalkAnimationState;position(F)F": "Lnet/minecraft/world/entity/WalkAnimationState;m_267590_(F)F"
+      },
+      "radon/jujutsu_kaisen/mixin/client/ILevelRendererAccessor": {
+        "level": "f_109465_:Lnet/minecraft/client/multiplayer/ClientLevel;"
+      },
+      "radon/jujutsu_kaisen/mixin/common/MobMixin": {
+        "serverAiStep": "Lnet/minecraft/world/entity/Mob;m_6140_()V"
+      },
+      "radon/jujutsu_kaisen/mixin/client/BufferSourceMixin": {
+        "endBatch(Lnet/minecraft/client/renderer/RenderType;)V": "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;m_109912_(Lnet/minecraft/client/renderer/RenderType;)V"
+      },
+      "radon/jujutsu_kaisen/mixin/common/EntityMixin": {
+        "getTeamColor": "Lnet/minecraft/world/entity/Entity;m_19876_()I"
+      },
+      "radon/jujutsu_kaisen/mixin/client/ItemRendererMixin": {
+        "render": "Lnet/minecraft/client/renderer/entity/ItemRenderer;m_115143_(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IILnet/minecraft/client/resources/model/BakedModel;)V"
+      }
+    }
+  }
+}

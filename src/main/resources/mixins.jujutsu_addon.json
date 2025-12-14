@@ -1,0 +1,44 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.jujutsuaddon.addon.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "jujutsu_addon.refmap.json",
+  "mixins": [
+    "MixinEnchantmentHelper",
+    "MixinResistanceCalculation",
+    "MixinSorcererData",
+    "MixinKeyMapping",
+    "core.MixinAbility",
+    "core.MixinLivingEntity",
+    "core.MixinCursedSpirit",
+    "core.MixinPlayerAttack",
+    "core.MixinEntity",
+    "debug.MixinDebugAttributes",
+    "debug.MixinDebugHealth",
+    "access.SorcererDataAccess",
+    "access.TenShadowsDataAccess",
+    "access.LivingEntityAccessor",
+    "summon.MixinSummonScaling",
+    "summon.MixinSummonSync",
+    "summon.MixinSummonCost",
+    "summon.MixinSummonFriendlyFire",
+    "summon.ai.MixinBetterFollowOwnerGoal",
+    "summon.ai.MixinSummonAI",
+    "summon.ai.MixinRikaMovementFix",
+    "summon.ai.MixinStupidMovementFix",
+    "summon.ai.MixinSummonUniversalAI",
+    "summon.ai.MixinTenShadowsSmartAI",
+    "summon.ai.MixinSummonEntityFix",
+    "summon.ai.MixinTenShadowsSummonFix",
+    "fix.MixinAdaptation",
+    "fix.MixinTenShadowsData"
+  ],
+  "client": [
+    "fix.slice.MixinCutModelUtil",
+    "fix.slice.MixinSlicedEntityParticle"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
