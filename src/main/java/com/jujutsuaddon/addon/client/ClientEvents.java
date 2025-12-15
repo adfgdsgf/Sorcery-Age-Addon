@@ -96,31 +96,25 @@ public class ClientEvents {
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
-
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-
         if (player == null || mc.screen != null) {
             stopAllChanneling(player);
             keysDown.clear();
             return;
         }
-
         if (!AddonClientConfig.CLIENT.enableSkillBar.get() || !skillKeysEnabled) {
             stopAllChanneling(player);
             keysDown.clear();
             return;
         }
-
-        long windowHandle = mc.getWindow().getWindow();
-
+        // ★★★ 删除这行，不再需要 ★★★
+        // long windowHandle = mc.getWindow().getWindow();
         for (int i = 0; i < AddonKeyBindings.SKILL_SLOT_KEYS.size(); i++) {
             KeyMapping keyMapping = AddonKeyBindings.SKILL_SLOT_KEYS.get(i);
-            int keyCode = keyMapping.getKey().getValue();
-
-            boolean isDown = InputConstants.isKeyDown(windowHandle, keyCode);
+            // ★★★ 使用 isDown() 而不是 InputConstants.isKeyDown() ★★★
+            boolean isDown = keyMapping.isDown();
             boolean wasDown = keysDown.contains(i);
-
             if (isDown && !wasDown) {
                 keysDown.add(i);
                 onSlotKeyPressed(player, i);

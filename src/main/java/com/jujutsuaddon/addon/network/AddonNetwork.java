@@ -2,6 +2,7 @@ package com.jujutsuaddon.addon.network;
 
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.network.c2s.*;
+import com.jujutsuaddon.addon.network.s2c.CurseBaselineSyncS2CPacket;
 import com.jujutsuaddon.addon.network.s2c.ShadowStorageSyncS2CPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -108,6 +109,12 @@ public class AddonNetwork {
                 .encoder(OpenShadowStorageC2SPacket::encode)
                 .decoder(OpenShadowStorageC2SPacket::new)
                 .consumerMainThread(OpenShadowStorageC2SPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(CurseBaselineSyncS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(CurseBaselineSyncS2CPacket::encode)
+                .decoder(CurseBaselineSyncS2CPacket::decode)
+                .consumerMainThread(CurseBaselineSyncS2CPacket::handle)
                 .add();
     }
 

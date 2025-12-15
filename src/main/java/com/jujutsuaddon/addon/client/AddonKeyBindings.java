@@ -16,7 +16,7 @@ public class AddonKeyBindings {
     public static final List<KeyMapping> SKILL_SLOT_KEYS = new ArrayList<>();
 
     public static KeyMapping OPEN_SKILL_CONFIG;
-    public static KeyMapping EDIT_SKILL_POSITION;  // 可选，因为Config界面里有按钮
+    public static KeyMapping EDIT_SKILL_POSITION;
     public static KeyMapping NEXT_PRESET;
     public static KeyMapping PREV_PRESET;
     public static KeyMapping TOGGLE_SKILL_KEYS;
@@ -24,7 +24,16 @@ public class AddonKeyBindings {
     // ===== 冷却HUD按键 =====
     public static KeyMapping OPEN_HUD_EDIT;
 
+    // ★★★ 防止重复初始化的标志 ★★★
+    private static boolean initialized = false;
+
     public static void init() {
+        // ★★★ 如果已经初始化过，直接返回 ★★★
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
         // 技能槽位 Z X C V B N
         int[] defaultSlotKeys = {
                 GLFW.GLFW_KEY_Z, GLFW.GLFW_KEY_X, GLFW.GLFW_KEY_C,

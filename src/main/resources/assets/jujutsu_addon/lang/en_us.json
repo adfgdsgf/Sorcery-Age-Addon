@@ -149,6 +149,7 @@
 
   "message.jujutsu_addon.curse_management_unavailable": "You don't have Curse Manipulation",
   "message.jujutsu_addon.curse_manipulation_not_active": "Curse Manipulation is not active! Switch to it first",
+  "message.jujutsu_addon.not_enough_energy": "Not enough cursed energy!",
   "gui.jujutsu_addon.curse_management.title": "Curse Management",
   "gui.jujutsu_addon.curse_management.click_hint": "Click to open management",
   "gui.jujutsu_addon.curse_management.drag_hint": "Drag to skill bar",
@@ -160,7 +161,10 @@
   "gui.jujutsu_addon.curse_management.count_grouped": "%d curses (%d types)",
   "gui.jujutsu_addon.curse_management.count_same": "×%d of this type",
   "gui.jujutsu_addon.curse_management.click_to_summon_one": "Click to summon one",
-  "gui.jujutsu_addon.curse_management.shift_click_to_summon_all": "Shift+Click to summon all %d",
+  "gui.jujutsu_addon.curse_management.experience": "Experience: %s",
+  "gui.jujutsu_addon.curse_management.summon_cost": "Summon Cost: %s CE",
+  "gui.jujutsu_addon.curse_management.shift_click_to_summon_all_cost": "Shift+Click: Summon all %d (Cost: %s CE)",
+  "gui.jujutsu_addon.curse_management.has_data": "★ Has special data (absorbed curses, traits, etc.)",
 
   "gui.jujutsu_addon.shadow_storage.title": "Shadow Storage",
   "gui.jujutsu_addon.shadow_storage.edit_hud": "Edit HUD",

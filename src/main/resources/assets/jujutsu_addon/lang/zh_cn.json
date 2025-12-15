@@ -161,6 +161,7 @@
 
   "message.jujutsu_addon.curse_management_unavailable": "你没有咒灵操术",
   "message.jujutsu_addon.curse_manipulation_not_active": "咒灵操术未激活！请先切换到咒灵操术",
+  "message.jujutsu_addon.not_enough_energy": "咒力不足！",
   "gui.jujutsu_addon.curse_management.title": "咒灵管理",
   "gui.jujutsu_addon.curse_management.click_hint": "点击打开管理界面",
   "gui.jujutsu_addon.curse_management.drag_hint": "拖拽到技能栏",
@@ -172,7 +173,10 @@
   "gui.jujutsu_addon.curse_management.count_grouped": "%d只咒灵（%d种类）",
   "gui.jujutsu_addon.curse_management.count_same": "×%d 同类",
   "gui.jujutsu_addon.curse_management.click_to_summon_one": "点击召唤一只",
-  "gui.jujutsu_addon.curse_management.shift_click_to_summon_all": "Shift+点击召唤全部%d只",
+  "gui.jujutsu_addon.curse_management.experience": "经验值: %s",
+  "gui.jujutsu_addon.curse_management.summon_cost": "召唤消耗: %s 咒力",
+  "gui.jujutsu_addon.curse_management.shift_click_to_summon_all_cost": "Shift+点击: 召唤全部 %d 只 (消耗: %s 咒力)",
+  "gui.jujutsu_addon.curse_management.has_data": "★  变体（与基准数据不同）",
 
   "gui.jujutsu_addon.shadow_storage.title": "影子库存",
   "gui.jujutsu_addon.shadow_storage.edit_hud": "编辑HUD",

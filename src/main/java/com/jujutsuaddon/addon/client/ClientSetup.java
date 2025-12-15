@@ -11,23 +11,17 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 @Mod.EventBusSubscriber(modid = JujutsuAddon.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ClientSetup {
-
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            AddonKeyBindings.init();
+            // ★★★ 不需要在这里调用 init()，RegisterKeyMappingsEvent 会处理 ★★★
             SkillBarManager.init();
-
-            // ★★★ 不再需要 MenuScreens.register ★★★
-            // 新的 ShadowStorageScreen 是普通 Screen，直接在客户端打开
         });
     }
-
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        if (AddonKeyBindings.SKILL_SLOT_KEYS.isEmpty()) {
-            AddonKeyBindings.init();
-        }
+        // ★★★ init() 内部有防重复检查，可以安全调用 ★★★
+        AddonKeyBindings.init();
 
         for (KeyMapping key : AddonKeyBindings.getAllKeys()) {
             event.register(key);
