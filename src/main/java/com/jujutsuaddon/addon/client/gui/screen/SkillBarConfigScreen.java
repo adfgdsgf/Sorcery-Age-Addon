@@ -1,5 +1,6 @@
 package com.jujutsuaddon.addon.client.gui.screen;
 
+import com.jujutsuaddon.addon.client.gui.screen.cursemanagement.CurseManagementScreen;
 import com.jujutsuaddon.addon.client.util.AbilityTriggerHelper;
 import com.jujutsuaddon.addon.client.util.UIScaleHelper;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarData;

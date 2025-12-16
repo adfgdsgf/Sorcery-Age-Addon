@@ -3,9 +3,15 @@ package com.jujutsuaddon.addon.client.config;
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class AddonClientConfig {
     public static final Client CLIENT;
     public static final ForgeConfigSpec CLIENT_SPEC;
+    public enum ShadowStorageSortMode {
+        NONE, NAME, COUNT, MOD, RARITY
+    }
 
     static {
         final Pair<Client, ForgeConfigSpec> specPair = new ForgeConfigSpec.Builder().configure(Client::new);
@@ -53,6 +59,11 @@ public class AddonClientConfig {
         public final ForgeConfigSpec.IntValue shadowStorageHudOffsetY;
         public final ForgeConfigSpec.DoubleValue shadowStorageHudScale;
         public final ForgeConfigSpec.IntValue shadowStorageHudMaxItems;
+
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> searchMods;
+        public final ForgeConfigSpec.EnumValue<ShadowStorageSortMode> shadowStorageSortMode;
+
+
 
         public Client(ForgeConfigSpec.Builder builder) {
             // ===== 冷却HUD配置 =====
@@ -335,6 +346,51 @@ public class AddonClientConfig {
                             "================================================================")
                     .translation("config.jujutsu_addon.client.shadow_storage_hud_max_items")
                     .defineInRange("ShadowStorageHUDMaxItems", 5, 1, 10);
+
+            searchMods = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Search Enhancement Mods]",
+                            " List of mod IDs that provide pinyin/romaji search.",
+                            " Just add the mod ID, no complicated class names needed!",
+                            " ",
+                            " [Supported Mods]",
+                            " - jecharacters     (Chinese Pinyin / 中文拼音)",
+                            " - searchables      (Multi-language search)",
+                            " ",
+                            " [How it works]",
+                            " If you have one of these mods installed, shadow storage",
+                            " search will automatically support that language input.",
+                            " ",
+                            " [Adding New Mods]",
+                            " If you know a search mod not listed here, add its mod ID.",
+                            " We'll try common method patterns to detect it.",
+                            "----------------------------------------------------------------",
+                            " [搜索增强模组]",
+                            " 提供拼音/罗马字搜索功能的模组ID列表。",
+                            " 只需填写模组ID，无需复杂的类名！",
+                            " ",
+                            " [已支持的模组]",
+                            " - jecharacters     (中文拼音)",
+                            " - searchables      (多语言搜索)",
+                            " ",
+                            " [工作原理]",
+                            " 如果你安装了这些模组之一，影子库存搜索",
+                            " 将自动支持对应语言的输入法搜索。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.search_mods")
+                    .defineList("SearchMods", Arrays.asList(
+                            "jecharacters",
+                            "searchables"
+                    ), entry -> entry instanceof String);
+
+            shadowStorageSortMode = builder
+                    .comment(" ",
+                            " [Last Used Sort Mode]",
+                            " Automatically saved when you change sort mode.",
+                            " [上次使用的排序模式] 切换时自动保存。")
+                    .translation("config.jujutsu_addon.client.shadow_storage_sort_mode")
+                    .defineEnum("ShadowStorageSortMode", ShadowStorageSortMode.NONE);
 
             builder.pop();
         }

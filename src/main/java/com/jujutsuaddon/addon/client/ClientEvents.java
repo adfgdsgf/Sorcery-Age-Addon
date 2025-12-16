@@ -2,10 +2,10 @@ package com.jujutsuaddon.addon.client;
 
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
-import com.jujutsuaddon.addon.client.gui.screen.CurseManagementScreen;
+import com.jujutsuaddon.addon.client.gui.screen.cursemanagement.CurseManagementScreen;
 import com.jujutsuaddon.addon.client.gui.screen.HUDEditScreen;
 import com.jujutsuaddon.addon.client.gui.screen.SkillBarConfigScreen;
-import com.jujutsuaddon.addon.client.gui.screen.ShadowStorageScreen;  // ★ 新增
+import com.jujutsuaddon.addon.client.gui.screen.shadowstorage.ShadowStorageScreen;  // ★ 新增
 import com.jujutsuaddon.addon.client.skillbar.*;
 import com.jujutsuaddon.addon.client.util.AbilityTriggerHelper;
 import com.jujutsuaddon.addon.network.*;
@@ -14,7 +14,6 @@ import com.jujutsuaddon.addon.network.c2s.StoreShadowItemC2SPacket;
 import com.jujutsuaddon.addon.network.c2s.TriggerTenShadowsAbilityC2SPacket;
 import com.jujutsuaddon.addon.util.helper.TechniqueAccessHelper;
 import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -108,8 +107,7 @@ public class ClientEvents {
             keysDown.clear();
             return;
         }
-        // ★★★ 删除这行，不再需要 ★★★
-        // long windowHandle = mc.getWindow().getWindow();
+
         for (int i = 0; i < AddonKeyBindings.SKILL_SLOT_KEYS.size(); i++) {
             KeyMapping keyMapping = AddonKeyBindings.SKILL_SLOT_KEYS.get(i);
             // ★★★ 使用 isDown() 而不是 InputConstants.isKeyDown() ★★★
