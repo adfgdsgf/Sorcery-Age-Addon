@@ -15,10 +15,47 @@ import radon.jujutsu_kaisen.capability.data.sorcerer.SorcererDataHandler;
  */
 public class AbilityBalancer {
 
+    // =========================================================
+    // 公开 API - 正常模式（输出调试日志）
+    // =========================================================
+
     /**
-     * 获取技能的伤害倍率
+     * 获取技能的伤害倍率（正常模式，会输出调试日志）
      */
     public static float getDamageMultiplier(Ability currentAbility, LivingEntity owner) {
+        return getDamageMultiplierInternal(currentAbility, owner, false);
+    }
+
+    /**
+     * 获取召唤物的属性倍率（正常模式，会输出调试日志）
+     */
+    public static float getSummonMultiplier(Ability summonAbility, LivingEntity owner) {
+        return getSummonMultiplierInternal(summonAbility, owner, false);
+    }
+
+    // =========================================================
+    // 公开 API - 静默模式（不输出调试日志，用于 UI 预测）
+    // =========================================================
+
+    /**
+     * 获取技能的伤害倍率（静默模式，不输出日志）
+     */
+    public static float getDamageMultiplierSilent(Ability currentAbility, LivingEntity owner) {
+        return getDamageMultiplierInternal(currentAbility, owner, true);
+    }
+
+    /**
+     * 获取召唤物的属性倍率（静默模式，不输出日志）
+     */
+    public static float getSummonMultiplierSilent(Ability summonAbility, LivingEntity owner) {
+        return getSummonMultiplierInternal(summonAbility, owner, true);
+    }
+
+    // =========================================================
+    // 内部实现
+    // =========================================================
+
+    private static float getDamageMultiplierInternal(Ability currentAbility, LivingEntity owner, boolean silent) {
         // 1. 总开关
         if (!AddonConfig.COMMON.enableSkillBalancer.get()) {
             return 1.0f;
@@ -33,13 +70,17 @@ public class AbilityBalancer {
 
         // 3. 排除类不参与计算
         if (!category.shouldBalance()) {
-            logExcluded(owner, currentAbility, category, "Category excluded");
+            if (!silent) {
+                logExcluded(owner, currentAbility, category, "Category excluded");
+            }
             return 1.0f;
         }
 
         // 4. 召唤物由 SummonScalingHelper 处理，这里跳过
         if (category.isSummon()) {
-            logExcluded(owner, currentAbility, category, "Summon handled separately");
+            if (!silent) {
+                logExcluded(owner, currentAbility, category, "Summon handled separately");
+            }
             return 1.0f;
         }
 
@@ -57,16 +98,15 @@ public class AbilityBalancer {
         float maxMultiplier = AddonConfig.COMMON.balancerMaxMultiplier.get().floatValue();
         float finalMult = Math.min(multiplier, maxMultiplier);
 
-        // 8. 调试输出
-        logBalancerResult(owner, currentAbility, category, technique, finalMult);
+        // 8. 调试输出（只在非静默模式下）
+        if (!silent) {
+            logBalancerResult(owner, currentAbility, category, technique, finalMult);
+        }
 
         return finalMult;
     }
 
-    /**
-     * 获取召唤物的属性倍率
-     */
-    public static float getSummonMultiplier(Ability summonAbility, LivingEntity owner) {
+    private static float getSummonMultiplierInternal(Ability summonAbility, LivingEntity owner, boolean silent) {
         if (!AddonConfig.COMMON.enableSkillBalancer.get()) {
             return 1.0f;
         }
@@ -88,12 +128,9 @@ public class AbilityBalancer {
     }
 
     // =========================================================
-    // 调试日志
+    // 调试日志（保持不变）
     // =========================================================
 
-    /**
-     * 记录排除信息
-     */
     private static void logExcluded(LivingEntity owner, Ability ability,
                                     AbilityCategory category, String reason) {
         if (!(owner instanceof Player player)) return;
@@ -105,9 +142,6 @@ public class AbilityBalancer {
         }
     }
 
-    /**
-     * 记录平衡器计算结果
-     */
     private static void logBalancerResult(LivingEntity owner, Ability ability,
                                           AbilityCategory category,
                                           CursedTechnique technique,
@@ -147,9 +181,6 @@ public class AbilityBalancer {
     // 缓存管理
     // =========================================================
 
-    /**
-     * 刷新缓存（配置重载时调用）
-     */
     public static void reload() {
         CategoryResolver.reload();
         CategoryBenchmark.reload();

@@ -36,7 +36,8 @@
   ],
   "client": [
     "fix.slice.MixinCutModelUtil",
-    "fix.slice.MixinSlicedEntityParticle"
+    "fix.slice.MixinSlicedEntityParticle",
+    "fix.slice.MixinLegacyMath"
   ],
   "injectors": {
     "defaultRequire": 1

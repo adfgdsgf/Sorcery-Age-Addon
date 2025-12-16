@@ -1,5 +1,6 @@
 package com.jujutsuaddon.addon.client.skillbar.render;
 
+import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
 import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
 import net.minecraft.client.player.LocalPlayer;
@@ -38,19 +39,32 @@ public class AbilityStatus {
     public boolean isTenShadowsSummon = false;
     public boolean isTamed = false;
     public boolean isDead = false;
+    public boolean isFusion = false;           // 是否是融合式神
+    public boolean conditionsNotMet = false;   // 条件未满足
+
+    // ==================== 伤害预测 ====================
+    /** 伤害类型 */
+    public AbilityDamagePredictor.DamageType damageType = AbilityDamagePredictor.DamageType.UNKNOWN;
+    /** 原版基础伤害（JJK mod 的伤害）*/
+    public float vanillaDamage = -1;
+    /** 附属加成后的伤害 */
+    public float addonDamage = -1;
+    /** 暴击伤害 */
+    public float critDamage = -1;
+    /** 是否能预测伤害 */
+    public boolean canPredictDamage = false;
+    /** 是否有附属修改（增加或减少）*/
+    public boolean hasAddonModification = false;
+    /** 伤害变化方向 */
+    public AbilityDamagePredictor.PredictionResult.DamageChange damageChange =
+            AbilityDamagePredictor.PredictionResult.DamageChange.NONE;
 
     // ==================== 静态工厂方法 ====================
 
-    /**
-     * ★ 统一的状态构建方法 - 供所有地方使用 ★
-     */
     public static AbilityStatus build(LocalPlayer player, Ability ability) {
         return build(player, ability, null, null);
     }
 
-    /**
-     * ★ 带术式信息的状态构建 ★
-     */
     public static AbilityStatus build(LocalPlayer player, Ability ability,
                                       @Nullable CursedTechnique fromTechnique,
                                       @Nullable TechniqueHelper.TechniqueSource sourceType) {
@@ -62,6 +76,7 @@ public class AbilityStatus {
 
         // 基础类型
         Ability.ActivationType type = ability.getActivationType(player);
+
         status.isToggleable = type == Ability.ActivationType.TOGGLED;
         status.isSummon = ability instanceof Summon<?>;
         status.isChanneled = type == Ability.ActivationType.CHANNELED;
@@ -88,19 +103,40 @@ public class AbilityStatus {
         }
 
         // 十影召唤物特殊状态
+        // 十影召唤物特殊状态
         if (ability instanceof Summon<?> summon && summon.isTenShadows()) {
             status.isTenShadowsSummon = true;
+            status.isFusion = summon.isTotality();  // 是否是融合式神
+
+            // 1. 检查死亡状态
             ITenShadowsData tenData = player.getCapability(TenShadowsDataHandler.INSTANCE).orElse(null);
             if (tenData != null) {
                 var registry = player.level().registryAccess().registryOrThrow(Registries.ENTITY_TYPE);
-                boolean allTamed = true;
                 boolean anyDead = false;
                 for (EntityType<?> entityType : summon.getTypes()) {
-                    if (!tenData.hasTamed(registry, entityType)) allTamed = false;
-                    if (summon.canDie() && tenData.isDead(registry, entityType)) anyDead = true;
+                    if (summon.canDie() && tenData.isDead(registry, entityType)) {
+                        anyDead = true;
+                        break;
+                    }
                 }
-                status.isTamed = allTamed;
                 status.isDead = anyDead;
+            }
+
+            // 2. ★★★ 调伏状态和条件判断 ★★★
+            if (status.isDead) {
+                status.isTamed = true;
+            } else if (status.isFusion) {
+                // ★ 融合式神：默认已调伏，但需要检查条件
+                status.isTamed = true;
+                // 用 isValid 判断融合条件是否满足
+                if (!ability.isValid(player)) {
+                    status.conditionsNotMet = true;
+                    status.canUse = false;
+                }
+            } else {
+                // 普通式神：通过激活类型判断
+                Ability.ActivationType activationType = ability.getActivationType(player);
+                status.isTamed = (activationType == Ability.ActivationType.TOGGLED);
             }
         }
 
@@ -118,9 +154,22 @@ public class AbilityStatus {
                 status.canUse = false;
             }
         } else {
-            // ★ 即使没传入 fromTechnique，也要检查！★
             status.techniqueNotActive = TechniqueHelper.hasAbilityTechniqueConflict(player, ability);
             if (status.techniqueNotActive) status.canUse = false;
+        }
+
+        // ==================== 伤害预测 ====================
+        try {
+            AbilityDamagePredictor.PredictionResult prediction = AbilityDamagePredictor.predict(ability);
+            status.damageType = prediction.type;
+            status.vanillaDamage = prediction.vanillaDamage;
+            status.addonDamage = prediction.addonDamage;
+            status.critDamage = prediction.critDamage;
+            status.canPredictDamage = prediction.canPredict;
+            status.hasAddonModification = prediction.hasAddonModification();
+            status.damageChange = prediction.getDamageChange();
+        } catch (Exception ignored) {
+            // 预测失败，保持默认值
         }
 
         return status;
@@ -128,17 +177,74 @@ public class AbilityStatus {
 
     // ==================== 便捷方法 ====================
 
-    /**
-     * 是否处于"激活"状态（开关开启或召唤物存在）
-     */
     public boolean isOn() {
         return isActive || hasSummon;
     }
 
-    /**
-     * 是否完全不可用
-     */
     public boolean isDisabled() {
         return !canUse && !isOn();
+    }
+
+    /**
+     * 获取显示用的伤害值
+     * ★ 修复：始终显示 addonDamage，因为这是实际造成的伤害
+     */
+    public float getDisplayDamage() {
+        if (!canPredictDamage) return -1;
+        return addonDamage;
+    }
+
+    /**
+     * 判断伤害是否被增加
+     */
+    public boolean isDamageIncreased() {
+        return damageChange == AbilityDamagePredictor.PredictionResult.DamageChange.INCREASED;
+    }
+
+    /**
+     * 判断伤害是否被减少
+     */
+    public boolean isDamageDecreased() {
+        return damageChange == AbilityDamagePredictor.PredictionResult.DamageChange.DECREASED;
+    }
+
+    /**
+     * 格式化伤害显示
+     */
+    public String formatDamage(float damage) {
+        if (damage < 0) return "?";
+        if (damage == 0) return "0";
+        if (damage >= 10000) {
+            return String.format("%.1fW", damage / 10000);
+        }
+        if (damage >= 1000) {
+            return String.format("%.1fK", damage / 1000);
+        }
+        if (damage >= 100) {
+            return String.format("%.0f", damage);
+        }
+        return String.format("%.1f", damage);
+    }
+
+    /**
+     * ★ 新增：格式化显示，带变化指示
+     */
+    public String formatDamageWithChange() {
+        if (!canPredictDamage) return "?";
+
+        String damageStr = formatDamage(addonDamage);
+
+        // 添加暴击显示
+        if (critDamage > addonDamage * 1.1f) {
+            String critStr = formatDamage(critDamage);
+            damageStr = damageStr + " §7(§c" + critStr + "§7)";
+        }
+
+        // 添加变化指示
+        return switch (damageChange) {
+            case INCREASED -> "§a↑§r " + damageStr;
+            case DECREASED -> "§c↓§r " + damageStr;
+            case NONE -> damageStr;
+        };
     }
 }

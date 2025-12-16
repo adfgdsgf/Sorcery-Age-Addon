@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import radon.jujutsu_kaisen.ability.JJKAbilities;
 import radon.jujutsu_kaisen.ability.base.Ability;
+import radon.jujutsu_kaisen.ability.base.DomainExpansion;
 import radon.jujutsu_kaisen.ability.base.Summon;
 import radon.jujutsu_kaisen.capability.data.sorcerer.CursedTechnique;
 import radon.jujutsu_kaisen.capability.data.sorcerer.ISorcererData;
@@ -21,7 +22,6 @@ import javax.annotation.Nullable;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.*;
 
 public class SkillBarManager {
@@ -34,81 +34,63 @@ public class SkillBarManager {
 
     private static final Map<Ability, Integer> initialCooldowns = new HashMap<>();
 
+    // ★★★ 领域粘性机制 ★★★
+    private static final Map<Integer, Long> domainActiveUntil = new HashMap<>();
+    private static final long DOMAIN_STICKY_DURATION = 1000; // 1秒粘性
+
     public static void init() {
     }
 
     public static void onPlayerLogin(LocalPlayer player) {
         if (player == null) return;
-
-        // ★★★ 关键：先清理旧数据 ★★★
         cleanup();
-
-        // 延迟执行，确保服务器数据已加载
         Minecraft.getInstance().execute(() -> {
             currentWorldId = generateWorldId(player);
-
             saveFile = Minecraft.getInstance().gameDirectory.toPath()
                     .resolve("config")
                     .resolve("jujutsu_addon")
                     .resolve("skillbar_" + currentWorldId + ".txt");
-
-
             load();
         });
     }
 
-    /**
-     * ★★★ 生成世界唯一标识（使用文件夹路径而非显示名称）★★★
-     */
     private static String generateWorldId(LocalPlayer player) {
         UUID uuid = player.getUUID();
         String serverPart;
-
         Minecraft mc = Minecraft.getInstance();
         ServerData serverData = mc.getCurrentServer();
 
         if (serverData != null) {
-            // 多人服务器：使用服务器 IP
             serverPart = "mp_" + hashString(serverData.ip);
         } else if (mc.getSingleplayerServer() != null) {
-            // ★★★ 单人存档：使用存档文件夹路径 ★★★
             try {
                 Path worldPath = mc.getSingleplayerServer().getWorldPath(LevelResource.ROOT);
                 String folderName = worldPath.getFileName().toString();
-                // 如果文件夹名也有问题，用完整路径
                 if (folderName.isEmpty() || folderName.equals(".")) {
                     folderName = worldPath.toAbsolutePath().toString();
                 }
                 serverPart = "sp_" + hashString(folderName);
             } catch (Exception e) {
-                // 回退：使用种子
                 long seed = mc.getSingleplayerServer().getWorldData().worldGenOptions().seed();
                 serverPart = "sp_seed_" + Long.toHexString(seed);
             }
         } else {
-            // 回退：使用维度 + 时间戳
             String dimKey = player.level().dimension().location().toString();
             serverPart = "dim_" + hashString(dimKey + System.currentTimeMillis());
         }
-
-        String worldId = uuid.toString().substring(0, 8) + "_" + serverPart;
-        return worldId;
+        return uuid.toString().substring(0, 8) + "_" + serverPart;
     }
 
-    /**
-     * 简单哈希（取前8位）
-     */
     private static String hashString(String input) {
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(input.getBytes("UTF-8"));  // ★★★ 指定编码 ★★★
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(input.getBytes("UTF-8"));
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 4; i++) {
                 sb.append(String.format("%02x", digest[i]));
             }
             return sb.toString();
         } catch (Exception e) {
-            // 回退：简单字符求和
             int hash = 0;
             for (char c : input.toCharArray()) {
                 hash = 31 * hash + c;
@@ -124,15 +106,13 @@ public class SkillBarManager {
         cleanup();
     }
 
-    /**
-     * ★★★ 清理所有状态 ★★★
-     */
     private static void cleanup() {
         currentWorldId = null;
         saveFile = null;
         data.clear();
         initialCooldowns.clear();
         ClientEvents.resetState();
+        domainActiveUntil.clear();
     }
 
     public static boolean isInitialized() {
@@ -143,7 +123,7 @@ public class SkillBarManager {
         return data;
     }
 
-    // ===== 以下方法不变 =====
+    // ===== 预设管理 =====
 
     public static int getCurrentPresetIndex() {
         return data.getCurrentPresetIndex();
@@ -199,7 +179,6 @@ public class SkillBarManager {
         if (player == null) return false;
         CursedTechnique technique = data.getSlotTechnique(slot);
         if (technique == null) return false;
-        // ★★★ 使用工具类检查所有额外术式 ★★★
         return TechniqueHelper.hasExtraTechnique(player, technique);
     }
 
@@ -207,28 +186,24 @@ public class SkillBarManager {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return false;
-
         CursedTechnique technique = data.getSlotTechnique(slot);
         if (technique == null) return false;
-
         ISorcererData sorcererData = player.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
         if (sorcererData == null) return false;
-
         return sorcererData.getCurrentCopied() == technique;
     }
 
     // ===== 咒灵管理槽位 =====
+
     public static void setSlotCurseManagement(int slot) {
         data.setSlotCurseManagement(slot);
         save();
     }
+
     public static boolean isSlotCurseManagement(int slot) {
         return data.isSlotCurseManagement(slot);
     }
 
-    /**
-     * 检查玩家是否拥有咒灵操术（原生/偷取/复制任一）
-     */
     public static boolean hasCurseManipulation() {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return false;
@@ -236,41 +211,20 @@ public class SkillBarManager {
         if (sorcererData == null) return false;
 
         CursedTechnique nativeTech = sorcererData.getTechnique();
-        // ★★★ 情况1：原生咒灵操术 - 始终可用 ★★★
-        if (nativeTech == CursedTechnique.CURSE_MANIPULATION) {
-            return true;
-        }
-        // ★★★ 情况2：偷取的咒灵操术 - 必须是当前激活的 ★★★
+        if (nativeTech == CursedTechnique.CURSE_MANIPULATION) return true;
         CursedTechnique currentStolen = sorcererData.getCurrentStolen();
-        if (currentStolen == CursedTechnique.CURSE_MANIPULATION) {
-            return true;
-        }
-        // ★★★ 情况3：复制的咒灵操术 - 必须是当前激活的 ★★★
+        if (currentStolen == CursedTechnique.CURSE_MANIPULATION) return true;
         CursedTechnique currentCopied = sorcererData.getCurrentCopied();
-        if (currentCopied == CursedTechnique.CURSE_MANIPULATION) {
-            return true;
-        }
-        // ★★★ 情况4：通过偷取的复制能力获得的咒灵操术 ★★★
-        // 如果偷取了复制术式，且当前激活的复制术式是咒灵操术
+        if (currentCopied == CursedTechnique.CURSE_MANIPULATION) return true;
         if (currentStolen != null && TechniqueHelper.isCopyTechnique(currentStolen)) {
-            if (currentCopied == CursedTechnique.CURSE_MANIPULATION) {
-                return true;
-            }
+            if (currentCopied == CursedTechnique.CURSE_MANIPULATION) return true;
         }
-        // ★★★ 情况5：通过复制的偷取能力获得的咒灵操术 ★★★
-        // 如果复制了偷取术式，且当前激活的偷取术式是咒灵操术
         if (currentCopied != null && TechniqueHelper.isStealTechnique(currentCopied)) {
-            if (currentStolen == CursedTechnique.CURSE_MANIPULATION) {
-                return true;
-            }
+            if (currentStolen == CursedTechnique.CURSE_MANIPULATION) return true;
         }
         return false;
     }
 
-    /**
-     * ★★★ 新增：检查玩家是否拥有咒灵操术（不管是否激活）★★★
-     * 用于在列表中显示入口（即使不可用也显示，但会标记为灰色）
-     */
     public static boolean ownsCurseManipulation() {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return false;
@@ -278,17 +232,12 @@ public class SkillBarManager {
         if (sorcererData == null) return false;
 
         CursedTechnique nativeTech = sorcererData.getTechnique();
-        // 原生咒灵操术
         if (nativeTech == CursedTechnique.CURSE_MANIPULATION) return true;
-        // 偷取的咒灵操术
         if (sorcererData.hasStolen(CursedTechnique.CURSE_MANIPULATION)) return true;
-        // 复制的咒灵操术
         if (sorcererData.getCopied().contains(CursedTechnique.CURSE_MANIPULATION)) return true;
         return false;
     }
-    /**
-     * 检查咒灵管理槽位是否可用
-     */
+
     public static boolean isCurseManagementAvailable(int slot) {
         if (!data.isSlotCurseManagement(slot)) return false;
         return hasCurseManipulation();
@@ -320,7 +269,6 @@ public class SkillBarManager {
                 }
             }
         }
-
         return false;
     }
 
@@ -345,7 +293,6 @@ public class SkillBarManager {
         } else {
             initialCooldowns.remove(ability);
         }
-
         return remaining;
     }
 
@@ -357,23 +304,62 @@ public class SkillBarManager {
         if (initial != null && initial > 0) {
             return initial;
         }
-
         return 100;
     }
+
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★★★ 激活状态检测（带粘性保护）★★★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
     public static boolean isSlotActive(int slot) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return false;
+
         Ability ability = data.getSlot(slot);
         if (ability == null) return false;
+
         ISorcererData sorcererData = player.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
         if (sorcererData == null) return false;
-        if (ClientEvents.isSlotHeld(slot)) return true;
-        if (sorcererData.hasToggled(ability)) return true;
+
+        // 1. 按键按住
+        if (ClientEvents.isSlotHeld(slot)) {
+            return true;
+        }
+
+        // 2. 领域展开（带粘性保护）
+        if (ability instanceof DomainExpansion) {
+            boolean hasToggled = sorcererData.hasToggled(ability);
+
+            long now = System.currentTimeMillis();
+
+            if (hasToggled) {
+                // 激活中，持续刷新粘性时间
+                domainActiveUntil.put(slot, now + DOMAIN_STICKY_DURATION);
+                return true;
+            }
+
+            // hasToggled = false，检查粘性保护
+            Long activeUntil = domainActiveUntil.get(slot);
+            if (activeUntil != null) {
+                if (now < activeUntil) {
+                    return true; // 还在粘性期内
+                }
+                domainActiveUntil.remove(slot);
+            }
+            return false;
+        }
+
+        // 3. 普通 toggled 技能
+        if (sorcererData.hasToggled(ability)) {
+            return true;
+        }
+
+        // 4. 召唤物
         if (ability instanceof Summon<?> summon) {
             return sorcererData.hasSummonOfClass(summon.getClazz());
         }
+
         return false;
     }
 
@@ -382,9 +368,10 @@ public class SkillBarManager {
         return ability instanceof Summon<?>;
     }
 
+    // ===== 存档相关 =====
+
     public static void save() {
         if (saveFile == null) return;
-
         try {
             Files.createDirectories(saveFile.getParent());
             try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(saveFile))) {
@@ -393,24 +380,18 @@ public class SkillBarManager {
                     writer.println(line);
                 }
             }
-
         } catch (IOException e) {
-
         }
     }
 
     public static void load() {
         if (saveFile == null || !Files.exists(saveFile)) {
-
             return;
         }
-
         try (BufferedReader reader = Files.newBufferedReader(saveFile)) {
             String[] lines = reader.lines().toArray(String[]::new);
             data.deserialize(lines);
-
         } catch (IOException e) {
-
         }
     }
 }

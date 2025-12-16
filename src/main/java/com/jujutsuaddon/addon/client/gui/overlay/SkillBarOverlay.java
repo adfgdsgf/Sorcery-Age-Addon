@@ -8,6 +8,7 @@ import com.jujutsuaddon.addon.client.gui.screen.SkillBarEditScreen;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarData;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarManager;
 import com.jujutsuaddon.addon.client.skillbar.render.AbilityStatus;
+import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.jujutsuaddon.addon.client.util.RenderHelper;
 import net.minecraft.client.Minecraft;
@@ -30,8 +31,7 @@ public class SkillBarOverlay {
     public static void onRenderGui(RenderGuiOverlayEvent.Post event) {
         if (event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) return;
         if (!AddonClientConfig.CLIENT.enableSkillBar.get()) return;
-
-        if (!FeatureToggleManager.isSkillBarEnabled()) return;  // ★ 关闭功能
+        if (!FeatureToggleManager.isSkillBarEnabled()) return;
 
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
@@ -85,14 +85,11 @@ public class SkillBarOverlay {
 
     private static int[] calculatePosition(int screenWidth, int screenHeight, int width, int height) {
         AddonClientConfig.AnchorPoint anchor = AddonClientConfig.CLIENT.skillBarAnchor.get();
-
-        // ★★★ 获取偏移百分比（0-1000 表示 0%-100%）★★★
         int offsetXPermille = AddonClientConfig.CLIENT.skillBarOffsetX.get();
         int offsetYPermille = AddonClientConfig.CLIENT.skillBarOffsetY.get();
-
-        // 将千分比转换为实际像素
         int offsetX = (int) (screenWidth * offsetXPermille / 1000.0);
         int offsetY = (int) (screenHeight * offsetYPermille / 1000.0);
+
         int x, y;
         switch (anchor) {
             case TOP_LEFT -> { x = 10; y = 10; }
@@ -135,28 +132,59 @@ public class SkillBarOverlay {
         boolean onCooldown = cooldown > 0;
         boolean isActive = SkillBarManager.isSlotActive(slot);
         boolean showCooldown = AddonClientConfig.CLIENT.showSkillBarCooldown.get();
-        boolean usable = playerOwns && !onCooldown && status.canUse;
+        boolean usable = playerOwns && !onCooldown && status.canUse && !status.conditionsNotMet;
 
+        // 背景颜色
         int bgColor = RenderHelper.getSlotBgColor(
                 status.isDead, status.techniqueNotActive,
                 isActive, status.hasSummon, status.summonConflict,
-                playerOwns, status.canUse, onCooldown);
+                playerOwns, status.canUse, onCooldown,
+                status.conditionsNotMet);
         graphics.fill(x, y, x + HUD_SLOT_SIZE, y + HUD_SLOT_SIZE, bgColor);
 
-        int borderColor = RenderHelper.getSlotBorderColor(
-                isActive, status.hasSummon, status.techniqueNotActive,
-                status.summonConflict, playerOwns, usable);
+        // 边框颜色
+        int borderColor;
+        if (isActive || status.hasSummon) {
+            borderColor = RenderHelper.getPulsingActiveBorderColor();
+        } else if (status.conditionsNotMet) {
+            borderColor = 0xFFFF8800;
+        } else if (status.isDead) {
+            borderColor = 0xFFAA3333;
+        } else if (status.techniqueNotActive) {
+            borderColor = RenderHelper.getPulsingConflictBorderColor();
+        } else if (status.summonConflict) {
+            borderColor = 0xFFAA3333;
+        } else if (!playerOwns) {
+            borderColor = 0xFFCC0000;
+        } else if (usable) {
+            borderColor = 0xFF00CC00;
+        } else {
+            borderColor = 0xFF888888;
+        }
         graphics.renderOutline(x, y, HUD_SLOT_SIZE, HUD_SLOT_SIZE, borderColor);
 
+        // 图标
         int iconX = x + HUD_ICON_OFFSET;
         int iconY = y + HUD_ICON_OFFSET;
         if (status.techniqueNotActive) {
             RenderHelper.renderAbilityIconWithTint(graphics, ability, iconX, iconY, HUD_ICON_SIZE, true);
         } else {
-            boolean grayed = !playerOwns || status.summonConflict || !status.canUse || onCooldown;
+            boolean grayed = !playerOwns || status.summonConflict || !status.canUse
+                    || onCooldown || status.conditionsNotMet;
             RenderHelper.renderAbilityIcon(graphics, ability, iconX, iconY, HUD_ICON_SIZE, grayed);
         }
 
+        // 伤害显示（右上角）- 不在冷却时显示
+        if (playerOwns && AddonClientConfig.CLIENT.showSkillBarDamage.get() && !onCooldown) {
+            renderSlotDamage(graphics, mc, status, x, y);
+        }
+
+        // 条件未满足警告（左上角，避免和伤害重叠）
+        if (status.conditionsNotMet && !onCooldown) {
+            graphics.drawString(mc.font, "⚠", x + 1, y + 1, 0xFFAA00, true);
+        }
+
+        // 冷却显示
         if (onCooldown && showCooldown) {
             float progress = (float) cooldown / Math.max(1, totalCooldown);
             int maskHeight = (int) (HUD_ICON_SIZE * progress);
@@ -171,6 +199,7 @@ public class SkillBarOverlay {
             graphics.drawString(mc.font, timeText, textX, textY, 0xFFFF00, true);
         }
 
+        // 快捷键显示（左下角）
         if (!onCooldown && AddonClientConfig.CLIENT.showSkillBarKeybinds.get()
                 && slot < AddonKeyBindings.SKILL_SLOT_KEYS.size()) {
             String keyName = AddonKeyBindings.SKILL_SLOT_KEYS.get(slot).getTranslatedKeyMessage().getString().toUpperCase();
@@ -178,6 +207,97 @@ public class SkillBarOverlay {
             int keyColor = playerOwns && usable ? 0xFFFFFF : 0x666666;
             graphics.drawString(mc.font, keyName, x + 2, y + HUD_SLOT_SIZE - 9, keyColor, true);
         }
+    }
+
+    /**
+     * 渲染槽位伤害显示（右上角）
+     */
+    private static void renderSlotDamage(GuiGraphics graphics, Minecraft mc, AbilityStatus status, int x, int y) {
+        if (status.damageType == AbilityDamagePredictor.DamageType.UTILITY) {
+            return;
+        }
+        String dmgText;
+        int dmgColor;
+        String arrow = null;
+        switch (status.damageType) {
+            case DIRECT_DAMAGE, POWER_BASED -> {
+                if (status.canPredictDamage) {
+                    dmgText = formatCompact(status.addonDamage);
+                    if (status.isDamageIncreased()) {
+                        dmgColor = 0x55FF55;
+                        arrow = "↑";
+                    } else if (status.isDamageDecreased()) {
+                        dmgColor = 0xFF5555;
+                        arrow = "↓";
+                    } else {
+                        dmgColor = 0xFFAA55;
+                    }
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            case SUMMON -> {
+                if (status.canPredictDamage && status.addonDamage > 0) {
+                    dmgText = formatCompact(status.addonDamage);
+                    dmgColor = 0x55AAFF;
+                    if (status.hasAddonModification) {
+                        arrow = status.isDamageIncreased() ? "↑" : "↓";
+                    }
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            case DOMAIN -> {
+                if (status.canPredictDamage && status.addonDamage > 0) {
+                    dmgText = formatCompact(status.addonDamage);
+                    dmgColor = 0xAA55FF;
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            default -> {
+                dmgText = "?";
+                dmgColor = 0x666666;
+            }
+        }
+        // ★★★ 组合显示文本 ★★★
+        String displayText = (arrow != null ? arrow : "") + dmgText;
+        int textWidth = mc.font.width(displayText);
+
+        // ★★★ 确保在槽位内部，右上角 ★★★
+        int maxX = x + HUD_SLOT_SIZE - 2;
+        int dmgX = maxX - textWidth;
+        int dmgY = y + 1;
+
+        // 如果太长，截断到槽位内
+        if (dmgX < x + 1) {
+            dmgX = x + 1;
+        }
+        // 半透明背景（限制在槽位内）
+        int bgLeft = Math.max(x + 1, dmgX - 1);
+        int bgRight = Math.min(x + HUD_SLOT_SIZE - 1, dmgX + textWidth + 1);
+        graphics.fill(bgLeft, dmgY - 1, bgRight, dmgY + 8, 0x99000000);
+        // 绘制文本
+        if (arrow != null) {
+            int arrowColor = arrow.equals("↑") ? 0x55FF55 : 0xFF5555;
+            graphics.drawString(mc.font, arrow, dmgX, dmgY, arrowColor, false);
+            graphics.drawString(mc.font, dmgText, dmgX + mc.font.width(arrow), dmgY, dmgColor, false);
+        } else {
+            graphics.drawString(mc.font, dmgText, dmgX, dmgY, dmgColor, false);
+        }
+    }
+    /**
+     * 紧凑格式化（更短）
+     */
+    private static String formatCompact(float damage) {
+        if (damage < 0) return "?";
+        if (damage >= 10000) return String.format("%.0fW", damage / 10000);
+        if (damage >= 1000) return String.format("%.0fK", damage / 1000);  // 不要小数点
+        if (damage >= 100) return String.format("%.0f", damage);
+        return String.format("%.0f", damage);  // 都不要小数点，更短
     }
 
     private static void renderEmptySlot(GuiGraphics graphics, int x, int y) {
@@ -227,50 +347,47 @@ public class SkillBarOverlay {
         }
     }
 
-    // ★★★ 咒灵管理槽位渲染（只保留一个！）★★★
     private static void renderCurseManagementSlot(GuiGraphics graphics, Minecraft mc,
                                                   int slot, int x, int y, boolean keysEnabled) {
         boolean available = SkillBarManager.hasCurseManipulation();
         boolean owns = SkillBarManager.ownsCurseManipulation();
-        // 背景颜色
+
         int bgColor;
         if (available) {
-            bgColor = 0xDD3A2255;  // 可用 - 紫色
+            bgColor = 0xDD3A2255;
         } else if (owns) {
-            bgColor = 0x80332244;  // 拥有但未激活 - 暗紫色
+            bgColor = 0x80332244;
         } else {
-            bgColor = 0x80222222;  // 完全不可用 - 灰色
+            bgColor = 0x80222222;
         }
         graphics.fill(x, y, x + HUD_SLOT_SIZE, y + HUD_SLOT_SIZE, bgColor);
-        // 边框颜色
+
         int borderColor;
         if (available) {
-            borderColor = 0xFFAA55FF;  // 可用 - 亮紫色
+            borderColor = 0xFFAA55FF;
         } else if (owns) {
-            borderColor = RenderHelper.getPulsingConflictBorderColor();  // 拥有但未激活 - 脉动警告
+            borderColor = RenderHelper.getPulsingConflictBorderColor();
         } else {
-            borderColor = 0xFF555555;  // 完全不可用 - 灰色
+            borderColor = 0xFF555555;
         }
         graphics.renderOutline(x, y, HUD_SLOT_SIZE, HUD_SLOT_SIZE, borderColor);
-        // 骷髅图标
+
         int iconColor;
         if (available) {
             iconColor = 0xAA55FF;
         } else if (owns) {
-            iconColor = 0x664488;  // 暗紫色，表示未激活
+            iconColor = 0x664488;
         } else {
             iconColor = 0x555555;
         }
         graphics.drawCenteredString(mc.font, "☠", x + HUD_SLOT_SIZE / 2, y + 6, iconColor);
-        // 状态指示
+
         if (!available && owns) {
-            // 拥有但未激活 - 显示闪电符号（表示需要激活）
             graphics.drawCenteredString(mc.font, "⚡", x + HUD_SLOT_SIZE - 6, y + 2, 0xFF6666);
         } else if (!available) {
-            // 完全不可用 - 显示叉号
             graphics.drawCenteredString(mc.font, "✗", x + HUD_SLOT_SIZE - 6, y + 2, 0xFF4444);
         }
-        // 快捷键
+
         if (AddonClientConfig.CLIENT.showSkillBarKeybinds.get() && slot < AddonKeyBindings.SKILL_SLOT_KEYS.size()) {
             String keyName = AddonKeyBindings.SKILL_SLOT_KEYS.get(slot).getTranslatedKeyMessage().getString().toUpperCase();
             if (keyName.length() > 2) keyName = keyName.substring(0, 1);

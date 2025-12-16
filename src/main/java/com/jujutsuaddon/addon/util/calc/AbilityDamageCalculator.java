@@ -85,6 +85,7 @@ public class AbilityDamageCalculator {
     }
 
     public static float calculateDamage(Ability ability, LivingEntity attacker, LivingEntity target, float originalBaseDamage, boolean isMelee) {
+
         ISorcererData cap = attacker.getCapability(SorcererDataHandler.INSTANCE).resolve().orElse(null);
         if (cap == null) return originalBaseDamage;
 
@@ -134,7 +135,10 @@ public class AbilityDamageCalculator {
             }
         }
 
-        if (!isMelee) {
+        // ★★★ 修复：IAttack 技能虽然近战触发，但伤害本质是术式 ★★★
+        boolean isActuallyMelee = isMelee && !(ability instanceof Ability.IAttack);
+
+        if (!isActuallyMelee) {
             // [优化] 使用 DamageUtil 已经加载好的缓存
             Map<Attribute, Double> multiplierMap = DamageUtil.getMultiplierAttributeCache();
             Map<String, Double> modMaxBonusMap = new HashMap<>();
@@ -292,21 +296,27 @@ public class AbilityDamageCalculator {
             }
 
         } else {
+            // ========================================
+            // ★★★ 咒术师分支 - 核心修复区域 ★★★
+            // ========================================
             double sorcererSpeedScaling = AddonConfig.COMMON.sorcererAttackSpeedScaling.get();
             double speedModifier = 1.0 + (effectiveSpeed - 1.0) * sorcererSpeedScaling;
 
-            double roleMultiplier = isMelee ?
+            // ★★★ 关键修复：使用 isActuallyMelee 而不是 isMelee ★★★
+            // IAttack 技能（如 BlueFists）虽然近战触发，但伤害本质是术式
+            double roleMultiplier = isActuallyMelee ?
                     CharacterBalancer.getMeleeMultiplier(attacker) :
                     CharacterBalancer.getTechniqueMultiplier(attacker);
 
-            double preservationRatio = isMelee ?
+            double preservationRatio = isActuallyMelee ?
                     CharacterBalancer.getMeleePreservation(attacker) :
                     CharacterBalancer.getTechniquePreservation(attacker);
 
             debugPreservationRatio = preservationRatio;
 
             String roleName = CharacterBalancer.getSpecialRoleName(attacker);
-            debugSourceKey = roleName + (isMelee ? "_melee" : "_tech");
+            // ★ 更新 debugSourceKey 使用 isActuallyMelee
+            debugSourceKey = roleName + (isActuallyMelee ? "_melee" : "_tech");
 
             double baseDamagePart = originalBaseDamage * preservationRatio * baseMultiplier;
 
@@ -328,7 +338,8 @@ public class AbilityDamageCalculator {
         float balancerMult = 1.0f;
         if (ability != null) {
             double skillMult = DamageUtil.getSkillMultiplier(ability);
-            if (!isMelee) {
+            // ★ 同样使用 isActuallyMelee
+            if (!isActuallyMelee) {
                 balancerMult = AbilityBalancer.getDamageMultiplier(ability, attacker);
             }
             double totalSkillMult = skillMult * balancerMult;
@@ -342,7 +353,8 @@ public class AbilityDamageCalculator {
                 MobType type = (target != null) ? target.getMobType() : MobType.UNDEFINED;
                 enchantBonus += EnchantmentHelper.getDamageBonus(stack, type);
 
-                if (!isMelee && (stack.getItem() instanceof BowItem || stack.getItem() instanceof CrossbowItem)) {
+                // ★ 同样使用 isActuallyMelee
+                if (!isActuallyMelee && (stack.getItem() instanceof BowItem || stack.getItem() instanceof CrossbowItem)) {
                     int powerLevel = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.POWER_ARROWS, stack);
                     if (powerLevel > 0) enchantBonus += 0.5 * (powerLevel + 1);
                 }
@@ -352,7 +364,7 @@ public class AbilityDamageCalculator {
         }
 
         // =================================================================
-        // 暴击系统 - 修复：只调用一次 getCritChance/getCritDamage
+        // 暴击系统
         // =================================================================
         boolean isCrit = false;
         float critMult = 1.0f;
@@ -360,19 +372,17 @@ public class AbilityDamageCalculator {
         float displayDmg = 1.0f;
 
         if (AddonConfig.COMMON.enableCritSystem.get()) {
-            if (isMelee) {
-                // 近战：优先检查原版暴击
+            // ★ 同样使用 isActuallyMelee
+            if (isActuallyMelee) {
+                // 纯近战：优先检查原版暴击
                 Float vanillaModifier = ModEventHandler.vanillaCritCache.get(attacker.getUUID());
                 if (vanillaModifier != null && vanillaModifier > 1.0f) {
-                    // 原版暴击触发，使用原版倍率
                     isCrit = true;
                     critMult = vanillaModifier;
-                    // 获取显示用数据（不输出日志）
                     CritResult displayResult = getOrCreateCritResult(attacker);
                     displayChance = displayResult.chance;
                     displayDmg = displayResult.critDamage;
                 } else {
-                    // 使用自定义暴击系统
                     CritResult result = getOrCreateCritResult(attacker);
                     isCrit = result.isCrit;
                     critMult = result.critMult;
@@ -381,7 +391,7 @@ public class AbilityDamageCalculator {
                     if (isCrit) finalDamage *= critMult;
                 }
             } else {
-                // 非近战：使用自定义暴击系统
+                // 术式（包括 IAttack）：使用自定义暴击系统
                 CritResult result = getOrCreateCritResult(attacker);
                 isCrit = result.isCrit;
                 critMult = result.critMult;
@@ -390,7 +400,6 @@ public class AbilityDamageCalculator {
                 if (isCrit) finalDamage *= critMult;
             }
 
-            // 连携暴击标记
             if (tickCritCache.containsKey(attacker.getUUID())) {
                 CritResult cached = tickCritCache.get(attacker.getUUID());
                 if (cached.tickTimestamp == attacker.level().getGameTime()) {
@@ -402,7 +411,6 @@ public class AbilityDamageCalculator {
         finalDamage *= AddonConfig.COMMON.globalDamageMultiplier.get();
 
         if (attacker instanceof Player player && DebugManager.isDebugging(player)) {
-            // ★ 获取技能名用于去重
             String skillName = (ability != null) ? ability.getClass().getSimpleName() : null;
 
             DamageDebugUtil.logCalculation(
@@ -419,15 +427,14 @@ public class AbilityDamageCalculator {
                     isCrit,
                     displayChance,
                     displayDmg,
-                    isMelee,
+                    isActuallyMelee,  // ★ 改用 isActuallyMelee
                     dynamicMultInfo.toString(),
                     isAdditiveMode,
                     weaponRatio,
                     (float) baseMultiplier,
-                    skillName  // ★ 新增参数
+                    skillName
             );
 
-            // ★ 技能类名也需要去重
             if (ability != null && skillName != null) {
                 if (DamageDebugUtil.shouldLogCalculationForSkill(player, "classinfo_" + skillName)) {
                     String className = ability.getClass().getName();
@@ -437,6 +444,7 @@ public class AbilityDamageCalculator {
         }
         return (float) finalDamage;
     }
+
 
     // =================================================================
     // 核心修复：统一的暴击结果获取方法

@@ -4,6 +4,7 @@ import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.network.c2s.*;
 import com.jujutsuaddon.addon.network.s2c.CurseBaselineSyncS2CPacket;
 import com.jujutsuaddon.addon.network.s2c.ShadowStorageSyncS2CPacket;
+import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -115,6 +116,13 @@ public class AddonNetwork {
                 .encoder(CurseBaselineSyncS2CPacket::encode)
                 .decoder(CurseBaselineSyncS2CPacket::decode)
                 .consumerMainThread(CurseBaselineSyncS2CPacket::handle)
+                .add();
+
+        // ★★★ 伤害预测同步包 (S2C) ★★★
+        CHANNEL.messageBuilder(SyncDamagePredictionsS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SyncDamagePredictionsS2CPacket::encode)
+                .decoder(SyncDamagePredictionsS2CPacket::decode)
+                .consumerMainThread(SyncDamagePredictionsS2CPacket::handle)
                 .add();
     }
 

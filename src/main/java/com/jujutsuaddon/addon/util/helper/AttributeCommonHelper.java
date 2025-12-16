@@ -88,98 +88,76 @@ public class AttributeCommonHelper {
      * 自动检测实体实际拥有的暴击率属性
      */
     public static double getCritChance(LivingEntity entity) {
+        return getCritChanceInternal(entity, false);
+    }
+    /**
+     * 获取暴击概率（静默模式，用于预测/显示，不输出日志）
+     */
+    public static double getCritChanceSilent(LivingEntity entity)  {
+        return getCritChanceInternal(entity, true);
+    }
+    private static double getCritChanceInternal(LivingEntity entity, boolean silent) {
         initCritAttributeCache();
-
         double baseChance = AddonConfig.COMMON.baseCritChance.get();
         double chance = baseChance;
-
-        List<CritContribution> contributions = new ArrayList<CritContribution>();
-
+        List<CritContribution> contributions = new ArrayList<>();
         for (Attribute attr : CANDIDATE_CRIT_CHANCE_ATTRS) {
-            // ★ 关键：只读取实体实际拥有的属性 ★
-            AttributeInstance instance = entity.getAttribute(attr);
-            if (instance == null) continue;  // 实体没有这个属性，跳过
-
-            double attrValue = instance.getValue();
-            double defaultVal = attr.getDefaultValue();
-
-            // 智能计算贡献
-            boolean isMultiplicative = defaultVal >= 0.5;
-            double contribution = isMultiplicative
-                    ? (attrValue - defaultVal)
-                    : attrValue;
-
-            // 跳过零贡献
-            if (Math.abs(contribution) < 0.0001) continue;
-
-            ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attr);
-            contributions.add(new CritContribution(
-                    id != null ? id.toString() : "unknown",
-                    contribution,
-                    isMultiplicative
-            ));
-
-            chance += contribution;
-        }
-
-        double finalChance = Math.max(0.0, Math.min(chance, 1.0));
-
-        // 调试输出
-        if (entity instanceof Player player) {
-            DamageDebugUtil.logCritChanceDetails(player, baseChance, contributions, finalChance);
-        }
-
-        return finalChance;
-    }
-
-    // =================================================================
-    // 4. 暴击伤害计算
-    // =================================================================
-
-    /**
-     * 获取暴击伤害倍率
-     * 自动检测实体实际拥有的暴击伤害属性
-     */
-    public static double getCritDamage(LivingEntity entity) {
-        initCritAttributeCache();
-
-        double baseDamage = AddonConfig.COMMON.baseCritDamage.get();
-        double dmg = baseDamage;
-
-        List<CritContribution> contributions = new ArrayList<CritContribution>();
-
-        for (Attribute attr : CANDIDATE_CRIT_DAMAGE_ATTRS) {
-            // ★ 关键：只读取实体实际拥有的属性 ★
             AttributeInstance instance = entity.getAttribute(attr);
             if (instance == null) continue;
-
             double attrValue = instance.getValue();
             double defaultVal = attr.getDefaultValue();
-
-            // 智能计算贡献
-            boolean isMultiplicative = defaultVal >= 1.0;
-            double contribution = isMultiplicative
-                    ? (attrValue - defaultVal)
-                    : attrValue;
-
-            // 跳过零或负贡献
-            if (contribution <= 0.0001) continue;
-
+            boolean isMultiplicative = defaultVal >= 0.5;
+            double contribution = isMultiplicative ? (attrValue - defaultVal) : attrValue;
+            if (Math.abs(contribution) < 0.0001) continue;
             ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attr);
             contributions.add(new CritContribution(
                     id != null ? id.toString() : "unknown",
                     contribution,
                     isMultiplicative
             ));
-
+            chance += contribution;
+        }
+        double finalChance = Math.max(0.0, Math.min(chance, 1.0));
+        // ★ 只有非静默模式才输出日志 ★
+        if (!silent && entity instanceof Player player) {
+            DamageDebugUtil.logCritChanceDetails(player, baseChance, contributions, finalChance);
+        }
+        return finalChance;
+    }
+    // =================================================================
+// 4. 暴击伤害计算 - 同样添加静默参数
+// =================================================================
+    public static double getCritDamage(LivingEntity entity) {
+        return getCritDamageInternal(entity, false);
+    }
+    public static double getCritDamageSilent(LivingEntity entity) {
+        return getCritDamageInternal(entity, true);
+    }
+    private static double getCritDamageInternal(LivingEntity entity, boolean silent) {
+        initCritAttributeCache();
+        double baseDamage = AddonConfig.COMMON.baseCritDamage.get();
+        double dmg = baseDamage;
+        List<CritContribution> contributions = new ArrayList<>();
+        for (Attribute attr : CANDIDATE_CRIT_DAMAGE_ATTRS) {
+            AttributeInstance instance = entity.getAttribute(attr);
+            if (instance == null) continue;
+            double attrValue = instance.getValue();
+            double defaultVal = attr.getDefaultValue();
+            boolean isMultiplicative = defaultVal >= 1.0;
+            double contribution = isMultiplicative ? (attrValue - defaultVal) : attrValue;
+            if (contribution <= 0.0001) continue;
+            ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attr);
+            contributions.add(new CritContribution(
+                    id != null ? id.toString() : "unknown",
+                    contribution,
+                    isMultiplicative
+            ));
             dmg += contribution;
         }
-
-        // 调试输出
-        if (entity instanceof Player player) {
+        // ★ 只有非静默模式才输出日志 ★
+        if (!silent && entity instanceof Player player) {
             DamageDebugUtil.logCritDamageDetails(player, baseDamage, contributions, dmg);
         }
-
         return dmg;
     }
 }

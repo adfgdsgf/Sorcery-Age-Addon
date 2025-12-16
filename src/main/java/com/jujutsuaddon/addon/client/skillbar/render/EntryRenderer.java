@@ -1,5 +1,6 @@
 package com.jujutsuaddon.addon.client.skillbar.render;
 
+import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
 import com.jujutsuaddon.addon.client.util.RenderHelper;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
 import net.minecraft.client.gui.Font;
@@ -67,23 +68,14 @@ public class EntryRenderer {
         int indent = entry.getIndentPixels();
         int startX = listX + 2 + indent;
 
-        // 特殊紫色背景
         graphics.fill(startX, y, listX + listWidth - 8, y + ITEM_HEIGHT - 2, 0xFF3A2255);
-
-        // 左侧边框（紫色）
         graphics.fill(startX, y, startX + 2, y + ITEM_HEIGHT - 2, 0xFFAA55FF);
-
-        // 图标（骷髅头表示咒灵）
         graphics.drawString(font, "☠", startX + 6, y + 4, 0xAA55FF, false);
 
-        // 文字：咒灵管理 (数量)
         Component title = Component.translatable("gui.jujutsu_addon.curse_management.entry", entry.curseCount);
         renderTruncatedText(graphics, title.getString(), startX + 20, y + 4, listWidth - 50 - indent, 0xDDAAFF);
-
-        // 右侧箭头
         graphics.drawString(font, "▶", listX + listWidth - 18, y + 4, 0xAAAAAA, false);
 
-        // 悬停效果
         if (isHovered(mouseX, mouseY, startX, y, listWidth - 10 - indent, ITEM_HEIGHT - 2)) {
             graphics.fill(startX, y, listX + listWidth - 8, y + ITEM_HEIGHT - 2, 0x30FFFFFF);
         }
@@ -189,8 +181,11 @@ public class EntryRenderer {
         // 背景和边框颜色
         int bgColor = RenderHelper.getIconBgColor(status.isDead, status.techniqueNotActive,
                 status.canUse, status.isActive, status.hasSummon, status.summonConflict);
-        int borderColor = RenderHelper.getBorderColor(status.isDead, status.techniqueNotActive,
-                status.canUse, status.isActive, status.hasSummon, status.summonConflict, true);
+        int borderColor = RenderHelper.getBorderColor(
+                status.isDead, status.techniqueNotActive,
+                status.canUse, status.isActive, status.hasSummon,
+                status.summonConflict, true,
+                status.conditionsNotMet);  // ★ 新增参数
 
         graphics.fill(startX, y, listX + listWidth - 8, y + ITEM_HEIGHT - 2, (bgColor & 0x00FFFFFF) | 0x40000000);
         graphics.fill(startX, y, startX + 1, y + ITEM_HEIGHT - 2, borderColor);
@@ -203,20 +198,28 @@ public class EntryRenderer {
             RenderHelper.renderAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, grayed);
         }
 
-        // 名称
+        // 名称（为伤害显示留出空间）
         int nameColor = RenderHelper.getTextColor(status.isDead, status.techniqueNotActive,
                 status.canUse, status.isActive, status.hasSummon, status.summonConflict);
-        renderTruncatedText(graphics, ability.getName().getString(), contentX + 20, y + 4, listWidth - 80 - indent, nameColor);
+        int damageDisplayWidth = status.canPredictDamage ? 40 : 15;
+        int nameMaxWidth = listWidth - 85 - indent - damageDisplayWidth;
+        renderTruncatedText(graphics, ability.getName().getString(), contentX + 20, y + 4, nameMaxWidth, nameColor);
+
+        // ★★★ 伤害显示 ★★★
+        renderDamageDisplay(graphics, status, y);
 
         // 状态指示器
+        // ★★★ 状态指示器（调整顺序）★★★
         int indicatorX = contentX + 12;
         int indicatorY = y + 10;
         if (status.isTenShadowsSummon && status.isDead) {
-            graphics.drawString(font, "✗", indicatorX, indicatorY, RenderHelper.Colors.TEXT_DEAD, false);
+            graphics.drawString(font, "✗", indicatorX, indicatorY, 0xFF4444, false);
+        } else if (status.conditionsNotMet) {  // ★ 条件未满足优先于未调伏
+            graphics.drawString(font, "⚠", indicatorX, indicatorY, 0xFFAA00, false);
         } else if (status.techniqueNotActive) {
-            graphics.drawString(font, "⚡", indicatorX, indicatorY, RenderHelper.Colors.TEXT_TECHNIQUE_INACTIVE, false);
+            graphics.drawString(font, "⚡", indicatorX, indicatorY, 0xFF6666, false);
         } else if (status.summonConflict) {
-            graphics.drawString(font, "!", indicatorX + 2, indicatorY, RenderHelper.Colors.TEXT_SUMMON_CONFLICT, false);
+            graphics.drawString(font, "!", indicatorX + 2, indicatorY, 0xFFAA00, false);
         } else if (status.isTenShadowsSummon && !status.isTamed) {
             graphics.drawString(font, "?", indicatorX + 2, indicatorY, 0xFFFF44, false);
         }
@@ -234,6 +237,70 @@ public class EntryRenderer {
             int barY = y + 14;
             graphics.fill(barX, barY, barX + barWidth, barY + 2, 0xFF333333);
             graphics.fill(barX, barY, barX + (int)(barWidth * progress), barY + 2, 0xFFFFAA00);
+        }
+    }
+
+    /**
+     * ★★★ 渲染伤害显示 ★★★
+     */
+    private void renderDamageDisplay(GuiGraphics graphics, AbilityStatus status, int y) {
+        int dmgX = listX + listWidth - 58;
+        int dmgY = y + 4;
+        String dmgText;
+        int dmgColor;
+        switch (status.damageType) {
+            case DIRECT_DAMAGE, POWER_BASED -> {
+                if (status.canPredictDamage) {
+                    dmgText = status.formatDamage(status.getDisplayDamage());
+                    // ★ 修复：根据伤害变化方向选择颜色
+                    if (status.isDamageIncreased()) {
+                        dmgColor = 0x55FF55;  // 绿色 = 增加
+                    } else if (status.isDamageDecreased()) {
+                        dmgColor = 0xFF5555;  // 红色 = 减少
+                    } else {
+                        dmgColor = 0xFFAA55;  // 橙色 = 无变化
+                    }
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            case SUMMON -> {
+                if (status.canPredictDamage) {
+                    dmgText = status.formatDamage(status.addonDamage);  // ★ 修复：使用 addonDamage
+                    dmgColor = 0x55AAFF;
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            case DOMAIN -> {
+                if (status.canPredictDamage) {
+                    dmgText = status.formatDamage(status.addonDamage);  // ★ 修复：使用 addonDamage
+                    dmgColor = 0xAA55FF;
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            case UTILITY -> {
+                dmgText = "—";
+                dmgColor = 0x666666;
+            }
+            default -> {
+                dmgText = "?";
+                dmgColor = 0x888888;
+            }
+        }
+        int textWidth = font.width(dmgText);
+        graphics.drawString(font, dmgText, dmgX - textWidth, dmgY, dmgColor, false);
+        // ★ 修复：根据变化方向显示箭头
+        if (status.canPredictDamage && status.hasAddonModification) {
+            if (status.isDamageIncreased()) {
+                graphics.drawString(font, "↑", dmgX - textWidth - 6, dmgY, 0x55FF55, false);
+            } else if (status.isDamageDecreased()) {
+                graphics.drawString(font, "↓", dmgX - textWidth - 6, dmgY, 0xFF5555, false);
+            }
         }
     }
 
@@ -285,7 +352,6 @@ public class EntryRenderer {
 
     private void renderTechniqueButtons(GuiGraphics graphics, CursedTechnique technique,
                                         boolean isActive, int y, int mouseX, int mouseY) {
-        // 激活按钮（星星）
         int activateBtnX = listX + listWidth - 28;
         boolean activateHovered = isHovered(mouseX, mouseY, activateBtnX, y, 12, ITEM_HEIGHT - 2);
         String symbol = isActive ? "★" : "☆";
@@ -296,7 +362,6 @@ public class EntryRenderer {
         }
         graphics.drawString(font, symbol, activateBtnX, y + 4, color, false);
 
-        // 删除按钮
         int deleteBtnX = listX + listWidth - 14;
         boolean deleteHovered = isHovered(mouseX, mouseY, deleteBtnX, y, 10, ITEM_HEIGHT - 2);
         if (deleteHovered) hoveredDeleteTechnique = technique;

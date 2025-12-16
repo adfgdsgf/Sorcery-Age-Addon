@@ -467,18 +467,13 @@ public class AbilityListRenderer {
             tooltip.add(entry.ability.getName());
             AbilityStatus status = entry.status;
 
-            if (status.cost > 0) {
-                tooltip.add(Component.translatable("gui.jujutsu_addon.tooltip.cost",
-                        String.format("%.1f", status.cost)).withStyle(s -> s.withColor(0x55FFFF)));
-            }
-            if (status.maxCooldown > 0) {
-                tooltip.add(Component.translatable("gui.jujutsu_addon.tooltip.cooldown_max",
-                        String.format("%.1f", status.maxCooldown / 20.0f)).withStyle(s -> s.withColor(0xFFAA00)));
-            }
             if (status.isTenShadowsSummon) {
                 if (status.isDead) {
                     tooltip.add(Component.translatable("gui.jujutsu_addon.tooltip.shikigami_dead")
                             .withStyle(s -> s.withColor(0xFF4444)));
+                } else if (status.conditionsNotMet) {  // ★ 条件未满足
+                    tooltip.add(Component.translatable("gui.jujutsu_addon.tooltip.shikigami_conditions_not_met")
+                            .withStyle(s -> s.withColor(0xFFAA00)));
                 } else if (status.isTamed) {
                     tooltip.add(Component.translatable("gui.jujutsu_addon.tooltip.shikigami_tamed")
                             .withStyle(s -> s.withColor(0x44FF44)));

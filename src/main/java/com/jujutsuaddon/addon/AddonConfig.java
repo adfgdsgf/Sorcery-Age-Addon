@@ -830,7 +830,8 @@ public class AddonConfig {
                             "Punch",
                             "Slam",
                             "Barrage",
-                            "Blitz"
+                            "Blitz",
+                            "BlueFists"
                     ), entry -> true);
             enableHealthToArmor = builder
                     .comment(" ",

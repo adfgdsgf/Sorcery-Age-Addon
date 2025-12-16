@@ -1,6 +1,7 @@
 package com.jujutsuaddon.addon.util.calc;
 
 import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.damage.data.AbilityDamageData;
 import com.jujutsuaddon.addon.util.context.TamedCostContext;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -99,8 +100,6 @@ public class CategoryBenchmark {
 
         initialized = true;
 
-        // 调试输出
-        logInitializationSummary();
     }
 
     /**
@@ -108,28 +107,39 @@ public class CategoryBenchmark {
      */
     private static Map<CategoryTechniqueKey, List<AbilityCostEntry>> scanAndGroupAbilities() {
         Map<CategoryTechniqueKey, List<AbilityCostEntry>> grouped = new HashMap<>();
+
         for (Ability ability : JJKAbilities.getAbilities()) {
             try {
                 // 获取所属术式
                 CursedTechnique technique = getTechniqueForAbility(ability);
+
+                // ★★★ 新增：检查技能是否有伤害数据 ★★★
+                AbilityDamageData.CachedData damageData = AbilityDamageData.get(ability);
+                boolean hasDamage = damageData.baseDamage() != null && damageData.baseDamage() > 0;
+
                 // ★ 对于召唤物，强制使用 TAMED 状态扫描 ★
                 if (ability instanceof Summon<?>) {
                     TamedCostContext.setForceTamed(true);
                     try {
                         AbilityCategory category = CategoryResolver.resolve(ability, null);
-
                         // 排除类不参与
                         if (!category.shouldBalance()) {
                             continue;
                         }
+
                         float cost = calculateCostForCategory(ability, category, null);
                         if (cost <= 0) {
                             continue;
                         }
+
+                        // ★★★ 新增：没有伤害的技能不能作为基准（召唤物除外）★★★
+                        if (!hasDamage && !category.isSummon()) {
+                            continue;
+                        }
+
                         CategoryTechniqueKey key = new CategoryTechniqueKey(category, technique);
                         grouped.computeIfAbsent(key, k -> new ArrayList<>())
                                 .add(new AbilityCostEntry(ability, cost));
-
                     } finally {
                         TamedCostContext.setForceTamed(false);
                     }
@@ -139,10 +149,17 @@ public class CategoryBenchmark {
                     if (!category.shouldBalance()) {
                         continue;
                     }
+
                     float cost = calculateCostForCategory(ability, category, null);
                     if (cost <= 0) {
                         continue;
                     }
+
+                    // ★★★ 新增：没有伤害的技能不能作为伤害基准 ★★★
+                    if (!hasDamage) {
+                        continue;
+                    }
+
                     CategoryTechniqueKey key = new CategoryTechniqueKey(category, technique);
                     grouped.computeIfAbsent(key, k -> new ArrayList<>())
                             .add(new AbilityCostEntry(ability, cost));
@@ -514,27 +531,6 @@ public class CategoryBenchmark {
     // 调试
     // =========================================================
 
-    private static void logInitializationSummary() {
-        System.out.println("[JJK-Addon] CategoryBenchmark initialized:");
-        System.out.println("  - Auto benchmarks found: " + autoBenchmarkCosts.size());
-
-        // 按术式分组输出
-        Map<CursedTechnique, List<String>> byTechnique = new HashMap<>();
-        for (Map.Entry<CategoryTechniqueKey, Float> entry : autoBenchmarkCosts.entrySet()) {
-            CategoryTechniqueKey key = entry.getKey();
-            String name = autoBenchmarkNames.get(key);
-            String info = String.format("%s: %s (%.2f)",
-                    key.category().name(), name, entry.getValue());
-            byTechnique.computeIfAbsent(key.technique(), k -> new ArrayList<>()).add(info);
-        }
-
-        for (Map.Entry<CursedTechnique, List<String>> entry : byTechnique.entrySet()) {
-            System.out.println("  [" + (entry.getKey() != null ? entry.getKey().name() : "NONE") + "]");
-            for (String info : entry.getValue()) {
-                System.out.println("    - " + info);
-            }
-        }
-    }
 
     /**
      * 获取调试信息
@@ -543,7 +539,6 @@ public class CategoryBenchmark {
         if (!initialized) initialize();
 
         StringBuilder sb = new StringBuilder();
-        sb.append("===== CategoryBenchmark Debug =====\n");
 
         if (ability == null) {
             sb.append("Ability: null\n");

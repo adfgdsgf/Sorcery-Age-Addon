@@ -46,6 +46,7 @@ public class AddonClientConfig {
         public final ForgeConfigSpec.DoubleValue skillBarScale;
         public final ForgeConfigSpec.BooleanValue showSkillBarKeybinds;
         public final ForgeConfigSpec.BooleanValue showSkillBarCooldown;
+        public final ForgeConfigSpec.BooleanValue showSkillBarDamage;
         public final ForgeConfigSpec.BooleanValue showActiveIndicator;
         public final ForgeConfigSpec.BooleanValue skillBarHorizontalLayout;
         public final ForgeConfigSpec.BooleanValue hideSkillBarWhenDisabled;
@@ -254,6 +255,32 @@ public class AddonClientConfig {
                             " 在技能栏显示冷却遮罩和文字。")
                     .translation("config.jujutsu_addon.client.show_skill_bar_cooldown")
                     .define("ShowSkillBarCooldown", true);
+
+            showSkillBarDamage = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Show Damage Prediction]",
+                            " Display predicted damage on skill bar slots.",
+                            " Color meanings:",
+                            " - Orange: Base JJK damage",
+                            " - Red: With addon bonus (attack attributes, crit, etc.)",
+                            " - Blue: Summon attack power",
+                            " - Purple: Domain power",
+                            " - Gray (?): Cannot predict",
+                            " - Gray (-): Utility skill (no damage)",
+                            "----------------------------------------------------------------",
+                            " [显示伤害预测]",
+                            " 在技能栏槽位显示预测伤害。",
+                            " 颜色含义：",
+                            " - 橙色：JJK基础伤害",
+                            " - 红色：附属加成后（攻击属性、暴击等）",
+                            " - 蓝色：召唤物攻击力",
+                            " - 紫色：领域威力",
+                            " - 灰色(?)：无法预测",
+                            " - 灰色(-)：功能性技能（无伤害）",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.show_skill_bar_damage")
+                    .define("ShowSkillBarDamage", true);
 
             showActiveIndicator = builder
                     .comment(" ",

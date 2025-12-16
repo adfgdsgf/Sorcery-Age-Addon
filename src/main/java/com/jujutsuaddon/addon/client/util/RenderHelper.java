@@ -32,6 +32,9 @@ public class RenderHelper {
         public static final int TEXT_DEAD = 0xFF4444;
         public static final int TEXT_TECHNIQUE_INACTIVE = 0xFF6666;
         public static final int TEXT_SUMMON_CONFLICT = 0xFFAA00;
+        public static final int TEXT_CONDITIONS_NOT_MET = 0xFFAA00;  // 橙色
+        public static final int BG_CONDITIONS_NOT_MET = 0xFF443300;
+        public static final int BORDER_CONDITIONS_NOT_MET = 0xFFFF8800;
 
         // 背景颜色
         public static final int BG_NORMAL = 0xFF2A2A3A;
@@ -115,11 +118,13 @@ public class RenderHelper {
      */
     public static int getBorderColor(boolean isDead, boolean techniqueNotActive,
                                      boolean canUse, boolean isActive, boolean hasSummon,
-                                     boolean summonConflict, boolean playerOwns) {
+                                     boolean summonConflict, boolean playerOwns,
+                                     boolean conditionsNotMet) {  // ★ 新增参数
         if (isActive || hasSummon) {
             return getPulsingActiveBorderColor();
         }
         if (isDead) return Colors.BORDER_DEAD;
+        if (conditionsNotMet) return Colors.BORDER_CONDITIONS_NOT_MET;  // ★ 新增
         if (techniqueNotActive) {
             return getPulsingConflictBorderColor();
         }
@@ -128,7 +133,6 @@ public class RenderHelper {
         if (canUse) return Colors.BORDER_USABLE;
         return Colors.BORDER_NORMAL;
     }
-
     // ==================== 图标检查 ====================
 
     public static boolean textureExists(ResourceLocation location) {
@@ -337,7 +341,10 @@ public class RenderHelper {
     public static int getSlotBgColor(boolean isDead, boolean techniqueNotActive,
                                      boolean isActive, boolean hasSummon,
                                      boolean summonConflict, boolean playerOwns,
-                                     boolean canUse, boolean onCooldown) {
+                                     boolean canUse, boolean onCooldown,
+                                     boolean conditionsNotMet) {  // 第9个参数
+        if (conditionsNotMet) return 0x80443300;  // 橙色背景
+        if (isDead) return 0x80552222;
         if (summonConflict) return 0x80552222;
         if (techniqueNotActive) return 0x80332244;
         if (isActive || hasSummon) return 0x80004400;
@@ -350,8 +357,10 @@ public class RenderHelper {
      */
     public static int getSlotBorderColor(boolean isActive, boolean hasSummon,
                                          boolean techniqueNotActive, boolean summonConflict,
-                                         boolean playerOwns, boolean usable) {
+                                         boolean playerOwns, boolean usable,
+                                         boolean conditionsNotMet) {  // ★ 新增参数
         if (isActive || hasSummon) return getPulsingActiveBorderColor();
+        if (conditionsNotMet) return 0xFFFF8800;  // ★ 橙色边框
         if (techniqueNotActive) return getPulsingConflictBorderColor();
         if (summonConflict) return 0xFFAA3333;
         if (!playerOwns) return 0xFFCC0000;

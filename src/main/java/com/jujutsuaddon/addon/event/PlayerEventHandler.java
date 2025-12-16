@@ -2,10 +2,14 @@ package com.jujutsuaddon.addon.event;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
+import com.jujutsuaddon.addon.damage.ServerDamagePredictor;
+import com.jujutsuaddon.addon.network.AddonNetwork;
+import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
 import com.jujutsuaddon.addon.util.calc.AbilityDamageCalculator;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -21,7 +25,6 @@ import radon.jujutsu_kaisen.capability.data.sorcerer.ISorcererData;
 import radon.jujutsu_kaisen.capability.data.sorcerer.SorcererDataHandler;
 import radon.jujutsu_kaisen.capability.data.sorcerer.Trait;
 import radon.jujutsu_kaisen.capability.data.ten_shadows.TenShadowsDataHandler;
-import radon.jujutsu_kaisen.item.JJKItems;
 import radon.jujutsu_kaisen.item.cursed_tool.PlayfulCloudItem;
 
 import java.util.UUID;
@@ -100,6 +103,16 @@ public class PlayerEventHandler {
 
             if (event.player.tickCount % 50 == 0) {
                 com.jujutsuaddon.addon.util.helper.WeaponEffectProxy.cleanupExpiredCache(event.player.level().getGameTime());
+            }
+        }
+
+        // ★★★ 6. 同步伤害预测数据到客户端 (每 20 tick = 1秒) ★★★
+        if (event.player.tickCount % 20 == 0 && event.player instanceof ServerPlayer serverPlayer) {
+            try {
+                SyncDamagePredictionsS2CPacket packet = ServerDamagePredictor.calculateAll(serverPlayer);
+                AddonNetwork.sendToPlayer(packet, serverPlayer);
+            } catch (Exception ignored) {
+                // 防止计算出错导致崩服
             }
         }
     }

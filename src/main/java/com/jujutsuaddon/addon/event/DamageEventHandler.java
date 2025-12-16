@@ -10,6 +10,9 @@ import com.jujutsuaddon.addon.util.helper.CombatUtil;
 import com.jujutsuaddon.addon.util.helper.MobCompatUtils;
 import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
 import com.jujutsuaddon.addon.util.helper.WeaponEffectProxy;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -23,6 +26,7 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import radon.jujutsu_kaisen.ability.base.Ability;
+import radon.jujutsu_kaisen.damage.JJKDamageSources;
 import radon.jujutsu_kaisen.item.cursed_tool.SplitSoulKatanaItem;
 
 import java.util.List;
@@ -73,6 +77,7 @@ public class DamageEventHandler {
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingHurt(LivingHurtEvent event) {
+
         Entity attackerEntity = event.getSource().getEntity();
         if (!(attackerEntity instanceof LivingEntity attacker)) return;
 

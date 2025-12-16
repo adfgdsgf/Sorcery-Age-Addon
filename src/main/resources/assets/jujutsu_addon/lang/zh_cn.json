@@ -149,6 +149,7 @@
   "gui.jujutsu_addon.tooltip.shikigami_tamed": "§a✓ 已调伏",
   "gui.jujutsu_addon.tooltip.shikigami_untamed": "§e? 未调伏",
   "gui.jujutsu_addon.tooltip.shikigami_dead": "§c☠ 已死亡",
+  "gui.jujutsu_addon.tooltip.shikigami_conditions_not_met": "⚠ 条件未满足",
   "gui.jujutsu_addon.main_header.stolen": "大脑操作",
   "gui.jujutsu_addon.main_header.copied": "模仿",
   "gui.jujutsu_addon.technique_tag.stolen": "[偷]",
@@ -218,6 +219,14 @@
   "gui.jujutsu_addon.shadow_hud_edit.max_items": "最大显示数量",
   "gui.jujutsu_addon.shadow_hud_edit.scale": "缩放: %s",
   "gui.jujutsu_addon.shadow_hud_edit.scroll_hint": "在预览上滚动鼠标调整缩放",
+
+  "config.jujutsu_addon.showSkillBarDamage": "显示伤害预测",
+  "gui.jujutsu_addon.damage.unknown": "?",
+  "gui.jujutsu_addon.damage.utility": "—",
+  "gui.jujutsu_addon.tooltip.damage_vanilla": "基础伤害: %s",
+  "gui.jujutsu_addon.tooltip.damage_addon": "附属加成: %s",
+  "gui.jujutsu_addon.tooltip.damage_summon": "召唤物攻击: %s",
+  "gui.jujutsu_addon.tooltip.damage_domain": "领域威力: %s",
 
   "config.jujutsu_addon.01_Core_Multipliers": "01. 核心伤害系数",
   "config.jujutsu_addon.02_Attributes_Enchants": "02. 额外属性与附魔",

@@ -137,6 +137,7 @@
   "gui.jujutsu_addon.tooltip.shikigami_tamed": "§a✓ Tamed",
   "gui.jujutsu_addon.tooltip.shikigami_untamed": "§e? Not Tamed",
   "gui.jujutsu_addon.tooltip.shikigami_dead": "§c☠ Dead",
+  "gui.jujutsu_addon.tooltip.shikigami_conditions_not_met": "⚠ Conditions Not Met",
   "gui.jujutsu_addon.main_header.stolen": "Brain Transplant",
   "gui.jujutsu_addon.main_header.copied": "Mimicry",
   "gui.jujutsu_addon.technique_tag.stolen": "[Stolen]",
@@ -207,6 +208,14 @@
   "gui.jujutsu_addon.shadow_hud_edit.max_items": "Max Items",
   "gui.jujutsu_addon.shadow_hud_edit.scale": "Scale: %s",
   "gui.jujutsu_addon.shadow_hud_edit.scroll_hint": "Scroll on preview to adjust scale",
+
+  "config.jujutsu_addon.showSkillBarDamage": "Show Damage Prediction",
+  "gui.jujutsu_addon.damage.unknown": "?",
+  "gui.jujutsu_addon.damage.utility": "—",
+  "gui.jujutsu_addon.tooltip.damage_vanilla": "Base Damage: %s",
+  "gui.jujutsu_addon.tooltip.damage_addon": "With Addon: %s",
+  "gui.jujutsu_addon.tooltip.damage_summon": "Summon ATK: %s",
+  "gui.jujutsu_addon.tooltip.damage_domain": "Domain Power: %s",
 
   "config.jujutsu_addon.01_Core_Multipliers": "01. Core Multipliers",
   "config.jujutsu_addon.02_Attributes_Enchants": "02. Attributes & Enchants",
