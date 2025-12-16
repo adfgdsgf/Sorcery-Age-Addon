@@ -8,6 +8,7 @@ import com.jujutsuaddon.addon.client.gui.screen.SkillBarEditScreen;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarData;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarManager;
 import com.jujutsuaddon.addon.client.skillbar.render.AbilityStatus;
+import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.jujutsuaddon.addon.client.util.RenderHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -29,6 +30,8 @@ public class SkillBarOverlay {
     public static void onRenderGui(RenderGuiOverlayEvent.Post event) {
         if (event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) return;
         if (!AddonClientConfig.CLIENT.enableSkillBar.get()) return;
+
+        if (!FeatureToggleManager.isSkillBarEnabled()) return;  // ★ 关闭功能
 
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;

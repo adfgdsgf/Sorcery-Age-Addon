@@ -1,6 +1,7 @@
 package com.jujutsuaddon.addon.client;
 
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
+import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import net.minecraft.client.KeyMapping;
 import radon.jujutsu_kaisen.client.JJKKeys;
 
@@ -31,8 +32,12 @@ public class JJKKeyBlocker {
      *         false = 不屏蔽（让原方法正常执行）
      */
     public static boolean shouldBlock(KeyMapping key) {
-        // ===== 前置条件检查 =====
+        // ★★★ 功能开关检查 ★★★
+        if (!FeatureToggleManager.isKeybindSystemEnabled()) {
+            return false;
+        }
 
+        // ===== 前置条件检查 =====
         // 1. 配置未加载时不屏蔽（游戏刚启动时可能发生）
         if (AddonClientConfig.CLIENT == null) {
             return false;

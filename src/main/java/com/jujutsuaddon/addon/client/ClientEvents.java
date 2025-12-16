@@ -8,6 +8,7 @@ import com.jujutsuaddon.addon.client.gui.screen.SkillBarConfigScreen;
 import com.jujutsuaddon.addon.client.gui.screen.shadowstorage.ShadowStorageScreen;  // ★ 新增
 import com.jujutsuaddon.addon.client.skillbar.*;
 import com.jujutsuaddon.addon.client.util.AbilityTriggerHelper;
+import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.jujutsuaddon.addon.network.*;
 import com.jujutsuaddon.addon.network.c2s.StopChannelingC2SPacket;
 import com.jujutsuaddon.addon.network.c2s.StoreShadowItemC2SPacket;
@@ -62,6 +63,8 @@ public class ClientEvents {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return;
+        // ★★★ 功能开关检查 ★★★
+        if (!FeatureToggleManager.isSkillBarEnabled()) return;
 
         if (mc.screen == null && event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
             if (AddonKeyBindings.OPEN_SKILL_CONFIG.consumeClick()) {
@@ -95,6 +98,13 @@ public class ClientEvents {
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
+        // ★★★ 功能开关检查 ★★★
+        if (!FeatureToggleManager.isSkillBarEnabled()) {
+            stopAllChanneling(Minecraft.getInstance().player);
+            keysDown.clear();
+            return;
+        }
+
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.screen != null) {
@@ -223,6 +233,11 @@ public class ClientEvents {
     // ★★★ 新增：影子库存处理 ★★★
     // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     private static void handleShadowStorage(LocalPlayer player) {
+        // ★★★ 功能开关检查 ★★★
+        if (!FeatureToggleManager.isShadowStorageEnabled()) {
+            return;
+        }
+
         if (!TechniqueAccessHelper.canUseTenShadows(player)) {
             if (TechniqueAccessHelper.ownsTenShadows(player)) {
                 player.displayClientMessage(

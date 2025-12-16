@@ -2,6 +2,7 @@ package com.jujutsuaddon.addon.client.gui.overlay;
 
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig.AnchorPoint;
+import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -36,6 +37,7 @@ public class AbilityCooldownOverlay {
     @SubscribeEvent
     public static void onRenderGuiPost(RenderGuiOverlayEvent.Post event) {
         if (event.getOverlay() != VanillaGuiOverlay.EXPERIENCE_BAR.type()) return;
+        if (!FeatureToggleManager.isCooldownHudEnabled()) return;
         if (!AddonClientConfig.CLIENT.enableCooldownHUD.get()) return;
 
         Minecraft mc = Minecraft.getInstance();

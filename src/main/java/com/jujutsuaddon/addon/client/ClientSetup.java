@@ -2,6 +2,7 @@ package com.jujutsuaddon.addon.client;
 
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarManager;
+import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import net.minecraft.client.KeyMapping;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -20,6 +21,11 @@ public class ClientSetup {
     }
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+
+        // ★★★ 功能开关检查 ★★★
+        if (!FeatureToggleManager.isKeybindSystemEnabled()) {
+            return;
+        }
         // ★★★ init() 内部有防重复检查，可以安全调用 ★★★
         AddonKeyBindings.init();
 

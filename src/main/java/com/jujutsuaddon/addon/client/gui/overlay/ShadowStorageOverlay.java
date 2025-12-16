@@ -3,6 +3,7 @@ package com.jujutsuaddon.addon.client.gui.overlay;
 import com.jujutsuaddon.addon.capability.AddonShadowStorageData;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig.AnchorPoint;
+import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.jujutsuaddon.addon.client.util.HudPositionHelper;
 import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -36,6 +37,8 @@ public class ShadowStorageOverlay {
     public static void onRenderGuiPost(RenderGuiOverlayEvent.Post event) {
         if (event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) return;
 
+        // ★★★ 功能开关检查 ★★★
+        if (!FeatureToggleManager.isShadowStorageEnabled()) return;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
 
