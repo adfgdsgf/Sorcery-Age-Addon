@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.damage.data;
+package com.jujutsuaddon.addon.damage.analysis;
 
 import org.objectweb.asm.*;
 import radon.jujutsu_kaisen.ability.base.Ability;

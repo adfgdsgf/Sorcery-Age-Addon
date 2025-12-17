@@ -1,10 +1,12 @@
+// 文件路径: src/main/java/com/jujutsuaddon/addon/client/util/AbilityDamagePredictor.java
 package com.jujutsuaddon.addon.client.util;
 
+import com.jujutsuaddon.addon.AddonConfig;
 import com.jujutsuaddon.addon.client.cache.DamagePredictionCache;
-import com.jujutsuaddon.addon.damage.data.AbilityDamageData;
-import com.jujutsuaddon.addon.damage.data.DamageContext;
-import com.jujutsuaddon.addon.damage.formula.DamageFormula;
-import com.jujutsuaddon.addon.damage.result.DamagePrediction;
+import com.jujutsuaddon.addon.damage.analysis.AbilityDamageData;
+import com.jujutsuaddon.addon.damage.core.DamageContext;
+import com.jujutsuaddon.addon.damage.core.DamageCore;
+import com.jujutsuaddon.addon.damage.core.DamageResult;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -14,21 +16,13 @@ import radon.jujutsu_kaisen.ability.base.Summon;
 
 /**
  * 客户端伤害预测 - 优先使用服务端数据
+ *
+ * ★★★ 使用 DamageContext + DamageCore 统一公式 ★★★
  */
 public class AbilityDamagePredictor {
 
     public enum DamageType {
         DIRECT_DAMAGE, POWER_BASED, SUMMON, DOMAIN, UTILITY, UNKNOWN;
-
-        public static DamageType from(DamageContext.AbilityType type) {
-            return switch (type) {
-                case DIRECT_DAMAGE -> DIRECT_DAMAGE;
-                case POWER_BASED -> POWER_BASED;
-                case SUMMON -> SUMMON;
-                case DOMAIN -> DOMAIN;
-                case UTILITY -> UTILITY;
-            };
-        }
 
         public static DamageType fromNetworkId(int id) {
             return switch (id) {
@@ -58,7 +52,7 @@ public class AbilityDamagePredictor {
                     serverData.addonDamage, serverData.critDamage, serverData.isMelee);
         }
 
-        // ★★★ 召唤物：没有服务端数据就显示问号，不做本地计算 ★★★
+        // ★★★ 召唤物：没有服务端数据就显示问号 ★★★
         if (ability instanceof Summon<?>) {
             return new PredictionResult(DamageType.SUMMON, -1, -1, -1, false);
         }
@@ -69,50 +63,56 @@ public class AbilityDamagePredictor {
 
     public static DamageType getDamageType(Ability ability) {
         if (ability == null) return DamageType.UNKNOWN;
-        DamageContext.AbilityType type = detectType(ability);
-        return DamageType.from(type);
-    }
-
-    // ==================== 本地计算（仅非召唤物）====================
-
-    private static PredictionResult calculateLocal(Ability ability, LocalPlayer player) {
-        DamageContext.AbilityType type = detectType(ability);
-
-        // 使用 DamageFormula 计算
-        DamageContext ctx = DamageContext.create(player, ability);
-        DamagePrediction p = DamageFormula.calculate(ctx);
-
-        return new PredictionResult(
-                DamageType.from(p.type()),
-                p.vanillaDamage(),
-                p.addonDamage(),
-                p.critDamage(),
-                p.isMelee()
-        );
-    }
-
-    private static DamageContext.AbilityType detectType(Ability ability) {
-        if (ability instanceof Summon<?>) return DamageContext.AbilityType.SUMMON;
-        if (ability instanceof DomainExpansion) return DamageContext.AbilityType.DOMAIN;
+        if (ability instanceof Summon<?>) return DamageType.SUMMON;
+        if (ability instanceof DomainExpansion) return DamageType.DOMAIN;
 
         AbilityDamageData.CachedData data = AbilityDamageData.get(ability);
 
-        if (data.baseDamage() != null && data.baseDamage() > 0)
-            return DamageContext.AbilityType.DIRECT_DAMAGE;
-
-        if (data.projectileClass() != null)
-            return DamageContext.AbilityType.POWER_BASED;
-        if (ability instanceof Ability.IAttack) return DamageContext.AbilityType.POWER_BASED;
-        if (ability instanceof Ability.IDomainAttack) return DamageContext.AbilityType.POWER_BASED;
+        if (data.baseDamage() != null && data.baseDamage() > 0) return DamageType.DIRECT_DAMAGE;
+        if (data.projectileClass() != null) return DamageType.POWER_BASED;
+        if (ability instanceof Ability.IAttack) return DamageType.POWER_BASED;
+        if (ability instanceof Ability.IDomainAttack) return DamageType.POWER_BASED;
 
         Ability.Classification c = ability.getClassification();
         if (c == Ability.Classification.SLASHING || c == Ability.Classification.FIRE ||
                 c == Ability.Classification.WATER || c == Ability.Classification.PLANTS ||
                 c == Ability.Classification.BLUE || c == Ability.Classification.LIGHTNING ||
                 c == Ability.Classification.CURSED_SPEECH) {
-            return DamageContext.AbilityType.POWER_BASED;
+            return DamageType.POWER_BASED;
         }
-        return DamageContext.AbilityType.UTILITY;
+
+        return DamageType.UTILITY;
+    }
+
+    // ==================== 本地计算 ====================
+
+    private static PredictionResult calculateLocal(Ability ability, LocalPlayer player) {
+        DamageType type = getDamageType(ability);
+
+        if (type == DamageType.UTILITY || type == DamageType.DOMAIN) {
+            return PredictionResult.utility();
+        }
+
+        // 获取技能基础数据
+        AbilityDamageData.CachedData data = AbilityDamageData.get(ability);
+        float baseDamage = (data.baseDamage() != null) ? data.baseDamage() : 1.0f;
+        float skillMultiplier = data.multiplier();
+        float power = ability.getPower(player);
+
+        // 原版伤害
+        float vanillaDamage = baseDamage * skillMultiplier * power;
+
+        // ★★★ 使用 DamageContext + DamageCore ★★★
+        DamageContext ctx = DamageContext.forPrediction(player, ability, baseDamage, skillMultiplier, power);
+        DamageResult result = DamageCore.calculate(ctx);
+
+        double globalMult = AddonConfig.COMMON.globalDamageMultiplier.get();
+        float addonDamage = (float) result.withGlobalMultiplier(globalMult);
+        float critDamage = (float) result.critWithGlobal(globalMult);
+
+        boolean isMelee = ability.isMelee() || (ability instanceof Ability.IAttack);
+
+        return new PredictionResult(type, vanillaDamage, addonDamage, critDamage, isMelee);
     }
 
     // ==================== 缓存清理 ====================

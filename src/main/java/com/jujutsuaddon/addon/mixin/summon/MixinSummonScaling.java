@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin.summon;
 
-import com.jujutsuaddon.addon.util.helper.SummonScalingHelper;
+import com.jujutsuaddon.addon.summon.SummonScalingHelper;
 import com.jujutsuaddon.addon.util.helper.WeaponEffectProxy; // 确保导入这个
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;

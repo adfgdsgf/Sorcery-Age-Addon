@@ -1,6 +1,6 @@
-package com.jujutsuaddon.addon.util.context;
+package com.jujutsuaddon.addon.context;
 
-public class DamageContext {
+public class SoulDamageContext {
     // 使用 ThreadLocal 防止多线程或多实体同时受伤时数据串台
     private static final ThreadLocal<Float> EXPECTED_SOUL_DAMAGE = new ThreadLocal<>();
 

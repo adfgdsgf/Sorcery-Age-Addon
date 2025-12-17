@@ -1,15 +1,16 @@
+// 文件路径: src/main/java/com/jujutsuaddon/addon/damage/ServerDamagePredictor.java
 package com.jujutsuaddon.addon.damage;
 
 import com.jujutsuaddon.addon.AddonConfig;
-import com.jujutsuaddon.addon.damage.data.AbilityDamageData;
-import com.jujutsuaddon.addon.damage.data.DamageContext;
-import com.jujutsuaddon.addon.damage.formula.DamageFormula;
-import com.jujutsuaddon.addon.damage.result.DamagePrediction;
+import com.jujutsuaddon.addon.balance.ability.AbilityBalancer;
+import com.jujutsuaddon.addon.context.TamedCostContext;
+import com.jujutsuaddon.addon.damage.analysis.AbilityDamageData;
+import com.jujutsuaddon.addon.damage.core.DamageContext;
+import com.jujutsuaddon.addon.damage.core.DamageCore;
+import com.jujutsuaddon.addon.damage.core.DamageResult;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket.PredictionData;
-import com.jujutsuaddon.addon.util.calc.AbilityBalancer;
-import com.jujutsuaddon.addon.util.context.TamedCostContext;
-import com.jujutsuaddon.addon.util.helper.SummonScalingHelper;
+import com.jujutsuaddon.addon.summon.SummonScalingHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -21,6 +22,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
 import radon.jujutsu_kaisen.ability.JJKAbilities;
 import radon.jujutsu_kaisen.ability.base.Ability;
+import radon.jujutsu_kaisen.ability.base.DomainExpansion;
 import radon.jujutsu_kaisen.ability.base.Summon;
 import radon.jujutsu_kaisen.capability.data.sorcerer.CursedTechnique;
 import radon.jujutsu_kaisen.capability.data.sorcerer.ISorcererData;
@@ -30,7 +32,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Layer 3: 服务端入口
+ * 服务端伤害预测器
+ *
+ * ★★★ 使用 DamageContext + DamageCore 统一公式 ★★★
  */
 public final class ServerDamagePredictor {
 
@@ -38,9 +42,47 @@ public final class ServerDamagePredictor {
 
     private static final Map<EntityType<?>, Double> ENTITY_ATTACK_CACHE = new ConcurrentHashMap<>();
     private static final UUID JJK_ATTACK_DAMAGE_UUID = UUID.fromString("4979087e-da76-4f8a-93ef-6e5847bfa2ee");
-
-    // Swarm 列表缓存
     private static List<String> cachedSwarmList = null;
+
+    // ==================== 伤害类型枚举 ====================
+
+    public enum DamageType {
+        DIRECT_DAMAGE(0),
+        POWER_BASED(1),
+        SUMMON(2),
+        DOMAIN(3),
+        UTILITY(4);
+
+        private final int networkId;
+
+        DamageType(int networkId) {
+            this.networkId = networkId;
+        }
+
+        public int getNetworkId() {
+            return networkId;
+        }
+    }
+
+    // ==================== 预测结果 ====================
+
+    public record PredictionResult(
+            DamageType type,
+            float vanillaDamage,
+            float addonDamage,
+            float critDamage,
+            boolean isMelee
+    ) {
+        public static PredictionResult utility() {
+            return new PredictionResult(DamageType.UTILITY, 0, 0, 0, false);
+        }
+
+        public static PredictionResult summon(float vanilla, float addon) {
+            return new PredictionResult(DamageType.SUMMON, vanilla, addon, addon, false);
+        }
+    }
+
+    // ==================== 主入口 ====================
 
     /**
      * 计算玩家所有技能的伤害预测
@@ -57,7 +99,7 @@ public final class ServerDamagePredictor {
 
         for (Ability ability : abilities) {
             try {
-                DamagePrediction prediction = calculate(player, ability);
+                PredictionResult prediction = calculate(player, ability);
                 predictions.put(
                         ability.getClass().getName(),
                         toNetworkData(prediction)
@@ -71,105 +113,136 @@ public final class ServerDamagePredictor {
     /**
      * 计算单个技能的伤害预测
      */
-    public static DamagePrediction calculate(ServerPlayer player, Ability ability) {
-        // 召唤物特殊处理
+    public static PredictionResult calculate(ServerPlayer player, Ability ability) {
+        // 1. 特殊类型处理
         if (ability instanceof Summon<?> summon) {
             return calculateSummonDamage(player, summon);
         }
 
-        DamageContext ctx = DamageContext.create(player, ability);
-        return DamageFormula.calculate(ctx);
-    }
-
-    // ==================== 主模组公式 ====================
-
-    /**
-     * ★★★ 计算主模组的攻击力加成 ★★★
-     *
-     * 公式来源：
-     * - SorcererUtil.getPower(): power = 1.6 + experience / 1340
-     * - TenShadowsSummon.getExperience(): 召唤物经验 = 主人经验 × 0.9
-     *
-     * @param player 玩家
-     * @return 主模组攻击力加成值
-     */
-    private static double calculateMainModAtkBonus(ServerPlayer player) {
-        ISorcererData cap = player.getCapability(SorcererDataHandler.INSTANCE).resolve().orElse(null);
-        if (cap == null) {
-            return 1.6; // 最低值 (经验为0时)
+        if (ability instanceof DomainExpansion) {
+            return PredictionResult.utility();
         }
 
-        float ownerExp = cap.getExperience();
-        // 召唤物经验 = 主人经验 × 0.9 (来自 TenShadowsSummon.getExperience())
-        float summonExp = ownerExp * 0.9f;
-        // power = 1.6 + exp / 1340 (来自 SorcererUtil.getPower())
-        return 1.6 + summonExp / 1340.0;
+        // 2. 检测伤害类型
+        DamageType type = detectDamageType(ability);
+        if (type == DamageType.UTILITY) {
+            return PredictionResult.utility();
+        }
+
+        // 3. 获取技能基础数据
+        AbilityDamageData.CachedData data = AbilityDamageData.get(ability);
+        float baseDamage = (data.baseDamage() != null) ? data.baseDamage() : 1.0f;
+        float skillMultiplier = data.multiplier();
+        float power = ability.getPower(player);
+
+        // 4. 原版伤害（不含 Addon 修改）
+        float vanillaDamage = baseDamage * skillMultiplier * power;
+
+        // 5. 使用 DamageContext + DamageCore 计算
+        DamageContext ctx = DamageContext.forPrediction(player, ability, baseDamage, skillMultiplier, power);
+        DamageResult result = DamageCore.calculate(ctx);
+
+        // 6. 应用全局倍率
+        double globalMult = AddonConfig.COMMON.globalDamageMultiplier.get();
+        float addonDamage = (float) result.withGlobalMultiplier(globalMult);
+        float critDamage = (float) result.critWithGlobal(globalMult);
+
+        boolean isMelee = ability.isMelee() || (ability instanceof Ability.IAttack);
+
+        return new PredictionResult(type, vanillaDamage, addonDamage, critDamage, isMelee);
     }
 
-    // ==================== 召唤物伤害计算 ====================
+    // ==================== 伤害类型检测 ====================
 
-    /**
-     * 计算召唤物伤害 - 与 SummonScalingHelper 保持一致
-     */
-    private static DamagePrediction calculateSummonDamage(ServerPlayer player, Summon<?> summon) {
+    private static DamageType detectDamageType(Ability ability) {
+        if (ability instanceof Summon<?>) return DamageType.SUMMON;
+        if (ability instanceof DomainExpansion) return DamageType.DOMAIN;
+
+        AbilityDamageData.CachedData data = AbilityDamageData.get(ability);
+
+        if (data.baseDamage() != null && data.baseDamage() > 0) {
+            return DamageType.DIRECT_DAMAGE;
+        }
+
+        if (data.projectileClass() != null) return DamageType.POWER_BASED;
+        if (ability instanceof Ability.IAttack) return DamageType.POWER_BASED;
+        if (ability instanceof Ability.IDomainAttack) return DamageType.POWER_BASED;
+
+        if (isDamageClassification(ability.getClassification())) {
+            return DamageType.POWER_BASED;
+        }
+
+        return DamageType.UTILITY;
+    }
+
+    private static boolean isDamageClassification(Ability.Classification c) {
+        return c == Ability.Classification.SLASHING ||
+                c == Ability.Classification.FIRE ||
+                c == Ability.Classification.WATER ||
+                c == Ability.Classification.PLANTS ||
+                c == Ability.Classification.BLUE ||
+                c == Ability.Classification.LIGHTNING ||
+                c == Ability.Classification.CURSED_SPEECH;
+    }
+
+    // ==================== 召唤物计算 ====================
+
+    private static PredictionResult calculateSummonDamage(ServerPlayer player, Summon<?> summon) {
         List<EntityType<?>> types = summon.getTypes();
         if (types == null || types.isEmpty()) {
-            return DamagePrediction.summon();
+            return PredictionResult.summon(-1, -1);
         }
+
         EntityType<?> entityType = types.get(0);
         double baseAttack = getEntityBaseAttackDamage(player.serverLevel(), entityType);
         if (baseAttack < 0) {
-            return DamagePrediction.summon();
+            return PredictionResult.summon(-1, -1);
         }
-        // ★★★ 主模组攻击力加成 ★★★
+
+        // 主模组攻击力加成
         double mainModBonus = calculateMainModAtkBonus(player);
-        // ★★★ 原版伤害 = 基础攻击力 + 主模组加成（不含Addon）★★★
+
+        // 原版伤害 = 基础攻击力 + 主模组加成
         float vanillaDamage = (float) (baseAttack + mainModBonus);
-        // ==================== Addon 加成计算 ====================
-        // ★★★ 关键修复：必须设置 TamedCostContext ★★★
+
+        // Addon 加成计算
         float tierMultiplier = 1.0f;
         try {
             TamedCostContext.setForceTamed(true);
-            try {
-                tierMultiplier = AbilityBalancer.getSummonMultiplierSilent(summon, player);
-            } finally {
-                TamedCostContext.setForceTamed(false);
-            }
-        } catch (Exception ignored) {}
-        // 2. 获取 swarmMultiplier
+            tierMultiplier = AbilityBalancer.getSummonMultiplierSilent(summon, player);
+        } finally {
+            TamedCostContext.setForceTamed(false);
+        }
+
         float swarmMult = calculateSwarmMultiplier(summon);
-        // 3. 稀释因子 - 预测时假设只有1个式神（不稀释）
-        float dilutionFactor = 1.0f;
-        // 4. 最终倍率
+        float dilutionFactor = 1.0f; // 预测时假设只有1个
         float finalMultiplier = tierMultiplier * swarmMult * dilutionFactor;
-        // 5. 获取主人基础攻击（排除JJK加成）
+
         double rawOwnerDmg = getOwnerBaseAttack(player);
-        // 6. 外部倍率
         double externalMultiplier = SummonScalingHelper.calculateOffensiveMultiplier(player);
-        // 7. DPS补偿因子
+
         double dpsConfigFactor = AddonConfig.COMMON.summonDpsCompensationFactor.get();
         double ownerAtkSpeed = getOwnerAttackSpeed(player);
         double dpsMultiplier = (dpsConfigFactor > 0.001) ? Math.max(4.0, ownerAtkSpeed) * dpsConfigFactor : 1.0;
-        // 8. 有效主人伤害
+
         double effectiveOwnerDamage = rawOwnerDmg * externalMultiplier * dpsMultiplier;
-        // 9. 攻击力比例配置
         double atkRatio = AddonConfig.COMMON.summonAtkRatio.get();
-        // 10. 计算Addon缩放加成
         double addonScalingBonus = effectiveOwnerDamage * atkRatio * finalMultiplier;
-        // ★★★ 最终攻击力 = 基础攻击力 + 主模组加成 + Addon缩放加成 ★★★
+
         float addonDamage = (float) (baseAttack + mainModBonus + addonScalingBonus);
-        return new DamagePrediction(
-                DamageContext.AbilityType.SUMMON,
-                vanillaDamage,
-                addonDamage,
-                addonDamage,
-                false
-        );
+
+        return PredictionResult.summon(vanillaDamage, addonDamage);
     }
 
-    /**
-     * 获取主人基础攻击（排除JJK加成）- 与 SummonScalingHelper.getOwnerBaseAttack 一致
-     */
+    private static double calculateMainModAtkBonus(ServerPlayer player) {
+        ISorcererData cap = player.getCapability(SorcererDataHandler.INSTANCE).resolve().orElse(null);
+        if (cap == null) return 1.6;
+
+        float ownerExp = cap.getExperience();
+        float summonExp = ownerExp * 0.9f;
+        return 1.6 + summonExp / 1340.0;
+    }
+
     private static double getOwnerBaseAttack(ServerPlayer player) {
         AttributeInstance att = player.getAttribute(Attributes.ATTACK_DAMAGE);
         if (att == null) return 1.0;
@@ -185,18 +258,12 @@ public final class ServerDamagePredictor {
         return Math.max(1.0, base + flatBonus);
     }
 
-    /**
-     * 获取主人攻速
-     */
     private static double getOwnerAttackSpeed(ServerPlayer player) {
         AttributeInstance speedAttr = player.getAttribute(Attributes.ATTACK_SPEED);
         double speed = (speedAttr != null) ? speedAttr.getValue() : 4.0;
         return (Double.isNaN(speed) || speed <= 0) ? 4.0 : speed;
     }
 
-    /**
-     * 计算Swarm倍率 - 与 SummonScalingHelper.calculateSwarmMultiplier 一致
-     */
     private static float calculateSwarmMultiplier(Summon<?> summon) {
         Class<?> entityClass = summon.getClazz();
         if (entityClass == null) return 1.0f;
@@ -215,18 +282,12 @@ public final class ServerDamagePredictor {
         return 1.0f;
     }
 
-    /**
-     * 获取实体基础攻击力
-     */
     private static double getEntityBaseAttackDamage(ServerLevel level, EntityType<?> entityType) {
         Double cached = ENTITY_ATTACK_CACHE.get(entityType);
-        if (cached != null) {
-            return cached;
-        }
+        if (cached != null) return cached;
 
         double damage = -1.0;
 
-        // 方法1: DefaultAttributes
         try {
             @SuppressWarnings("unchecked")
             EntityType<? extends LivingEntity> livingType = (EntityType<? extends LivingEntity>) entityType;
@@ -236,7 +297,6 @@ public final class ServerDamagePredictor {
             }
         } catch (Exception ignored) {}
 
-        // 方法2: 创建临时实体
         if (damage < 0 && level != null) {
             try {
                 Entity temp = entityType.create(level);
@@ -281,21 +341,13 @@ public final class ServerDamagePredictor {
         }
     }
 
-    private static PredictionData toNetworkData(DamagePrediction p) {
-        int typeOrdinal = switch (p.type()) {
-            case DIRECT_DAMAGE -> 0;
-            case POWER_BASED -> 1;
-            case SUMMON -> 2;
-            case DOMAIN -> 3;
-            case UTILITY -> 4;
-        };
-
+    private static PredictionData toNetworkData(PredictionResult p) {
         return new PredictionData(
                 p.vanillaDamage(),
                 p.addonDamage(),
                 p.critDamage(),
                 p.isMelee(),
-                typeOrdinal
+                p.type().getNetworkId()
         );
     }
 

@@ -103,45 +103,54 @@ public class AbilityStatus {
         }
 
         // 十影召唤物特殊状态
-        // 十影召唤物特殊状态
         if (ability instanceof Summon<?> summon && summon.isTenShadows()) {
             status.isTenShadowsSummon = true;
-            status.isFusion = summon.isTotality();  // 是否是融合式神
-
-            // 1. 检查死亡状态
+            status.isFusion = summon.isTotality();
             ITenShadowsData tenData = player.getCapability(TenShadowsDataHandler.INSTANCE).orElse(null);
             if (tenData != null) {
                 var registry = player.level().registryAccess().registryOrThrow(Registries.ENTITY_TYPE);
-                boolean anyDead = false;
-                for (EntityType<?> entityType : summon.getTypes()) {
-                    if (summon.canDie() && tenData.isDead(registry, entityType)) {
-                        anyDead = true;
-                        break;
+                if (status.isFusion) {
+                    // ========== 融合式神 ==========
+                    status.isTamed = true;  // 融合式神默认已调伏
+
+                    // 1. 检查融合式神本身是否死亡
+                    if (summon.canDie()) {
+                        for (EntityType<?> entityType : summon.getTypes()) {
+                            if (tenData.isDead(registry, entityType)) {
+                                status.isDead = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 2. 如果自己没死，让原版判断融合条件是否满足
+                    if (!status.isDead && !ability.isValid(player)) {
+                        status.conditionsNotMet = true;
+                        status.canUse = false;
+                    }
+                } else {
+                    // ========== 普通式神 ==========
+                    // 1. 检查自己是否死亡
+                    if (summon.canDie()) {
+                        for (EntityType<?> entityType : summon.getTypes()) {
+                            if (tenData.isDead(registry, entityType)) {
+                                status.isDead = true;
+                                break;
+                            }
+                        }
+                    }
+                    // 2. 判断调伏状态
+                    if (status.isDead) {
+                        status.isTamed = true;
+                    } else {
+                        status.isTamed = summon.isTamed(player);
                     }
                 }
-                status.isDead = anyDead;
-            }
-
-            // 2. ★★★ 调伏状态和条件判断 ★★★
-            if (status.isDead) {
-                status.isTamed = true;
-            } else if (status.isFusion) {
-                // ★ 融合式神：默认已调伏，但需要检查条件
-                status.isTamed = true;
-                // 用 isValid 判断融合条件是否满足
-                if (!ability.isValid(player)) {
-                    status.conditionsNotMet = true;
-                    status.canUse = false;
-                }
-            } else {
-                // 普通式神：通过激活类型判断
-                Ability.ActivationType activationType = ability.getActivationType(player);
-                status.isTamed = (activationType == Ability.ActivationType.TOGGLED);
             }
         }
 
         // 召唤冲突检查
-        if (TenShadowsHelper.isEnabled() && TenShadowsHelper.isAbilityModeSkill(ability)) {
+        if (TenShadowsHelper.isEnabled() && TenShadowsHelper.isTenShadowsAbility(ability)) {
             status.summonConflict = TenShadowsHelper.hasSummonConflict(player, ability);
             if (status.summonConflict) status.canUse = false;
         }

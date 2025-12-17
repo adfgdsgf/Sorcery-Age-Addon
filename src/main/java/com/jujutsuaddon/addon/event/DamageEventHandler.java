@@ -1,18 +1,15 @@
 package com.jujutsuaddon.addon.event;
 
 import com.jujutsuaddon.addon.AddonConfig;
-import com.jujutsuaddon.addon.util.calc.AbilityDamageCalculator;
-import com.jujutsuaddon.addon.util.context.AbilityContext;
-import com.jujutsuaddon.addon.util.context.DamageContext;
+import com.jujutsuaddon.addon.damage.calculator.AbilityDamageCalculator;
+import com.jujutsuaddon.addon.context.AbilityContext;
+import com.jujutsuaddon.addon.context.SoulDamageContext;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
 import com.jujutsuaddon.addon.util.helper.CombatUtil;
 import com.jujutsuaddon.addon.util.helper.MobCompatUtils;
 import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
 import com.jujutsuaddon.addon.util.helper.WeaponEffectProxy;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -26,7 +23,6 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import radon.jujutsu_kaisen.ability.base.Ability;
-import radon.jujutsu_kaisen.damage.JJKDamageSources;
 import radon.jujutsu_kaisen.item.cursed_tool.SplitSoulKatanaItem;
 
 import java.util.List;
@@ -188,13 +184,13 @@ public class DamageEventHandler {
         if (player != null) {
             boolean shouldRecord = SoulDamageUtil.shouldApplyTrueDamage(event.getSource(), player);
             if (shouldRecord) {
-                DamageContext.set(event.getAmount());
+                SoulDamageContext.set(event.getAmount());
                 ItemStack stack = player.getMainHandItem();
                 if (!stack.isEmpty() && stack.getItem() instanceof SplitSoulKatanaItem) {
                     ModEventHandler.SSK_PRE_ARMOR_DAMAGE.set(event.getAmount());
                 }
             } else {
-                DamageContext.clear();
+                SoulDamageContext.clear();
             }
         }
     }
@@ -204,7 +200,7 @@ public class DamageEventHandler {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = false)
     public static void onSoulDamageCompensation(LivingDamageEvent event) {
-        Float expectedDamage = DamageContext.get();
+        Float expectedDamage = SoulDamageContext.get();
         if (expectedDamage == null) return;
 
         float currentDamage = event.getAmount();
@@ -219,6 +215,6 @@ public class DamageEventHandler {
                 event.setAmount(newDamage);
             }
         }
-        DamageContext.clear();
+        SoulDamageContext.clear();
     }
 }

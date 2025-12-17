@@ -70,7 +70,7 @@ public class AbilityTriggerHelper {
 
     private static boolean triggerTenShadowsAbility(LocalPlayer player, Ability ability,
                                                     ResourceLocation key, ISorcererData data) {
-        TenShadowsMode required = TenShadowsHelper.getRequiredMode(ability);
+        TenShadowsMode required = TenShadowsHelper.getRequiredMode(player, ability);
 
         if (ability instanceof Summon<?> summon) {
             boolean isToggled = data.hasToggled(ability);
@@ -121,7 +121,7 @@ public class AbilityTriggerHelper {
         }
 
         if (TenShadowsHelper.isEnabled() && TenShadowsHelper.isTenShadowsAbility(ability)) {
-            TenShadowsMode required = TenShadowsHelper.getRequiredMode(ability);
+            TenShadowsMode required = TenShadowsHelper.getRequiredMode(player, ability);
             updateClientMode(player, required);
             AddonNetwork.sendToServer(new TriggerTenShadowsAbilityC2SPacket(key, required));
             return true;

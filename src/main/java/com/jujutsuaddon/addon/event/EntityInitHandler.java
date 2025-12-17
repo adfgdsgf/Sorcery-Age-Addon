@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.event;
 
 import com.jujutsuaddon.addon.JujutsuAddon;
-import com.jujutsuaddon.addon.util.context.AbilityContext;
+import com.jujutsuaddon.addon.context.AbilityContext;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;

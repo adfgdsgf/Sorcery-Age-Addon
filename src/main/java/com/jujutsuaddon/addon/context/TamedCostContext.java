@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.util.context; // 注意包名
+package com.jujutsuaddon.addon.context; // 注意包名
 
 public class TamedCostContext {
     private static final ThreadLocal<Boolean> FORCE_TAMED = ThreadLocal.withInitial(() -> false);

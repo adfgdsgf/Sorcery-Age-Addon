@@ -1,8 +1,8 @@
 package com.jujutsuaddon.addon.mixin.core;
 
 import com.jujutsuaddon.addon.AddonConfig;
-import com.jujutsuaddon.addon.util.context.AbilityContext;
-import com.jujutsuaddon.addon.util.context.DamageContext;
+import com.jujutsuaddon.addon.context.AbilityContext;
+import com.jujutsuaddon.addon.context.SoulDamageContext;
 import com.jujutsuaddon.addon.util.helper.EnchantmentTriggerHandler;
 import com.jujutsuaddon.addon.util.helper.ProjectileHitTracker;
 import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
@@ -99,12 +99,12 @@ public abstract class MixinLivingEntity extends Entity {
     @Inject(method = "hurt", at = @At("HEAD"))
     private void jujutsuAddon$prepareSoulContext(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (SoulDamageUtil.isSoulDamage(source) && AddonConfig.COMMON.enableSoulTrueDamage.get() > 0.001) {
-            DamageContext.set(amount);
+            SoulDamageContext.set(amount);
         }
     }
     @Inject(method = "hurt", at = @At("RETURN"))
     private void jujutsuAddon$clearSoulContext(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        DamageContext.clear();
+        SoulDamageContext.clear();
     }
     // ==================== 无敌帧处理 - HEAD阶段 ====================
 

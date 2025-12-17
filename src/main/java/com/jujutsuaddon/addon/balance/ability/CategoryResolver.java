@@ -1,11 +1,12 @@
-package com.jujutsuaddon.addon.util.calc;
+// 文件路径: src/main/java/com/jujutsuaddon/addon/balance/ability/CategoryResolver.java
+package com.jujutsuaddon.addon.balance.ability;
 
 import com.jujutsuaddon.addon.AddonConfig;
-import com.jujutsuaddon.addon.util.context.TamedCostContext;
+import com.jujutsuaddon.addon.context.TamedCostContext;
 import net.minecraft.world.entity.LivingEntity;
 import radon.jujutsu_kaisen.ability.base.Ability;
 import radon.jujutsu_kaisen.ability.base.Ability.ActivationType;
-import radon.jujutsu_kaisen.ability.base.DomainExpansion;  // ★★★ 新增导入 ★★★
+import radon.jujutsu_kaisen.ability.base.DomainExpansion;
 import radon.jujutsu_kaisen.ability.base.Summon;
 import radon.jujutsu_kaisen.entity.ten_shadows.base.TenShadowsSummon;
 
@@ -22,20 +23,15 @@ public class CategoryResolver {
     private static Set<String> excludedSkillsCache = null;
     private static Set<String> rctKeywordsCache = null;
 
-    /**
-     * 解析技能的分类
-     */
     public static AbilityCategory resolve(Ability ability, @Nullable LivingEntity owner) {
         if (ability == null) {
             return AbilityCategory.EXCLUDED;
         }
 
-        // ========== 1. 黑名单检查 ==========
         if (isInExcludedList(ability)) {
             return AbilityCategory.EXCLUDED;
         }
 
-        // ========== 2. 非术式排除 ==========
         try {
             if (!ability.isTechnique()) {
                 return AbilityCategory.EXCLUDED;
@@ -44,18 +40,14 @@ public class CategoryResolver {
             return AbilityCategory.EXCLUDED;
         }
 
-        // ========== 3. 反转术式排除 ==========
         if (isReverseCursedTechnique(ability)) {
             return AbilityCategory.EXCLUDED;
         }
 
-        // ★★★ 4. 领域展开排除 ★★★
-        // 领域展开有自己独特的机制，不应该参与消耗平衡
         if (ability instanceof DomainExpansion) {
             return AbilityCategory.EXCLUDED;
         }
 
-        // ========== 5. 体术检查（通过 isMelee 判断）==========
         try {
             if (ability.isMelee()) {
                 String className = ability.getClass().getSimpleName();
@@ -73,27 +65,22 @@ public class CategoryResolver {
             }
         } catch (Exception ignored) {}
 
-        // ========== 6. 召唤物分类 ==========
         if (ability instanceof Summon<?> summon) {
             return resolveSummonCategory(summon, owner);
         }
 
-        // ========== 7. 攻击增强类 (IAttack) ==========
         if (ability instanceof Ability.IAttack || ability instanceof Ability.ITenShadowsAttack) {
             return AbilityCategory.ATTACK;
         }
 
-        // ========== 8. 引导技能 (同时是 IChanneled 和 IDurationable) ==========
         if (ability instanceof Ability.IChannelened && ability instanceof Ability.IDurationable) {
             return AbilityCategory.CHANNELED;
         }
 
-        // ========== 9. 切换技能 (IToggled) ==========
         if (ability instanceof Ability.IToggled) {
             return AbilityCategory.TOGGLED;
         }
 
-        // ========== 10. 通过 ActivationType 判断 ==========
         ActivationType type = getActivationType(ability, owner);
         if (type != null) {
             switch (type) {
@@ -106,16 +93,11 @@ public class CategoryResolver {
             }
         }
 
-        // ========== 11. 默认归为瞬发 ==========
         return AbilityCategory.INSTANT;
     }
 
-    /**
-     * 解析召唤物的具体分类
-     */
     private static AbilityCategory resolveSummonCategory(Summon<?> summon, @Nullable LivingEntity owner) {
         Class<?> entityClass = summon.getClazz();
-
         boolean isTenShadows = TenShadowsSummon.class.isAssignableFrom(entityClass);
 
         if (isTenShadows) {
@@ -145,21 +127,14 @@ public class CategoryResolver {
         return AbilityCategory.SUMMON_INSTANT;
     }
 
-    /**
-     * 判断是否在排除列表中
-     */
     private static boolean isInExcludedList(Ability ability) {
         if (excludedSkillsCache == null) {
             loadExcludedCache();
         }
-
         String className = ability.getClass().getSimpleName();
         return excludedSkillsCache.contains(className);
     }
 
-    /**
-     * 判断是否是反转术式
-     */
     private static boolean isReverseCursedTechnique(Ability ability) {
         if (rctKeywordsCache == null) {
             loadRctCache();
@@ -173,7 +148,6 @@ public class CategoryResolver {
                 return true;
             }
         }
-
         return false;
     }
 
@@ -189,10 +163,6 @@ public class CategoryResolver {
             }
         }
     }
-
-    // =========================================================
-    // 缓存管理
-    // =========================================================
 
     private static void loadExcludedCache() {
         excludedSkillsCache = new HashSet<>();
@@ -220,10 +190,6 @@ public class CategoryResolver {
         excludedSkillsCache = null;
         rctKeywordsCache = null;
     }
-
-    // =========================================================
-    // 便捷方法
-    // =========================================================
 
     public static boolean shouldBalance(Ability ability, @Nullable LivingEntity owner) {
         return resolve(ability, owner).shouldBalance();

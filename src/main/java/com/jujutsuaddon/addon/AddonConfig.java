@@ -333,7 +333,7 @@ public class AddonConfig {
                             "   = 100 + 125 = 225 伤害",
                             "================================================================")
                     .translation("config.jujutsu_addon.sorcerer_technique_multiplier")
-                    .defineInRange("SorcererTechniqueMultiplier", 1.5, 0.0, 10000.0);
+                    .defineInRange("SorcererTechniqueMultiplier", 1.15, 0.0, 10000.0);
 // =========== 天与咒缚 ===========
             hrMeleePreservation = builder
                     .comment(" ",
@@ -349,7 +349,7 @@ public class AddonConfig {
                             " 公式：基础部分 = 原始伤害 × 此比例",
                             "================================================================")
                     .translation("config.jujutsu_addon.hr_melee_preservation")
-                    .defineInRange("HRMeleePreservation", 1.25, 0.0, 100.0);
+                    .defineInRange("HRMeleePreservation", 1.1, 0.0, 100.0);
             hrMeleeMultiplier = builder
                     .comment(" ",
                             "================================================================",
@@ -364,7 +364,7 @@ public class AddonConfig {
                             " 公式：面板部分 = 攻击力 × 此倍率 × 攻速",
                             "================================================================")
                     .translation("config.jujutsu_addon.hr_melee_multiplier")
-                    .defineInRange("HRMeleeMultiplier", 1.75, 0.0, 10000.0);
+                    .defineInRange("HRMeleeMultiplier", 1.35, 0.0, 10000.0);
 
             meleeSkillWhitelist = builder
                     .comment(" ",
@@ -1392,7 +1392,7 @@ public class AddonConfig {
                             " - 指数 1.5: 4的1.5次方 = 8.0倍",
                             "================================================================")
                     .translation("config.jujutsu_addon.balancer_scaling_exponent")
-                    .defineInRange("BalancerScalingExponent", 1.0, 0.0, 3.0);
+                    .defineInRange("BalancerScalingExponent", 0.5, 0.0, 3.0);
 // ===== 排除规则 =====
             balancerExcludedSkills = builder
                     .comment(" Skills excluded from balancing (class simple names).",

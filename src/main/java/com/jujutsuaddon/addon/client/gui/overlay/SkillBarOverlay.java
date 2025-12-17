@@ -124,7 +124,6 @@ public class SkillBarOverlay {
             renderEmptySlot(graphics, x, y);
             return;
         }
-
         boolean playerOwns = SkillBarManager.playerHasAbility(slot);
         AbilityStatus status = playerOwns ? AbilityStatus.build(player, ability) : new AbilityStatus();
         int cooldown = SkillBarManager.getCooldown(slot);
@@ -133,57 +132,109 @@ public class SkillBarOverlay {
         boolean isActive = SkillBarManager.isSlotActive(slot);
         boolean showCooldown = AddonClientConfig.CLIENT.showSkillBarCooldown.get();
         boolean usable = playerOwns && !onCooldown && status.canUse && !status.conditionsNotMet;
-
+        // ★★★ 融合式神特殊处理 ★★★
+        boolean isFusion = status.isFusion;
         // 背景颜色
-        int bgColor = RenderHelper.getSlotBgColor(
-                status.isDead, status.techniqueNotActive,
-                isActive, status.hasSummon, status.summonConflict,
-                playerOwns, status.canUse, onCooldown,
-                status.conditionsNotMet);
+        int bgColor;
+        if (isFusion && !status.isDead) {
+            // 融合式神特殊背景
+            bgColor = isActive ? 0x803A2A5A : 0x802A2A4A;
+        } else {
+            bgColor = RenderHelper.getSlotBgColor(
+                    status.isDead, status.techniqueNotActive,
+                    isActive, status.hasSummon, status.summonConflict,
+                    playerOwns, status.canUse, onCooldown,
+                    status.conditionsNotMet);
+        }
         graphics.fill(x, y, x + HUD_SLOT_SIZE, y + HUD_SLOT_SIZE, bgColor);
-
-        // 边框颜色
+        // ★★★ 边框颜色 - 融合式神特殊边框 ★★★
         int borderColor;
         if (isActive || status.hasSummon) {
-            borderColor = RenderHelper.getPulsingActiveBorderColor();
-        } else if (status.conditionsNotMet) {
-            borderColor = 0xFFFF8800;
+            borderColor = isFusion ? RenderHelper.getFusionPulsingBorderColor()
+                    : RenderHelper.getPulsingActiveBorderColor();
         } else if (status.isDead) {
             borderColor = 0xFFAA3333;
+        } else if (status.conditionsNotMet) {
+            borderColor = 0xFFFF8800;
         } else if (status.techniqueNotActive) {
             borderColor = RenderHelper.getPulsingConflictBorderColor();
         } else if (status.summonConflict) {
             borderColor = 0xFFAA3333;
         } else if (!playerOwns) {
             borderColor = 0xFFCC0000;
+        } else if (isFusion) {
+            // ★★★ 融合式神：金紫渐变边框 ★★★
+            borderColor = usable ? RenderHelper.getFusionPulsingBorderColor() : 0xFFAA66DD;
         } else if (usable) {
             borderColor = 0xFF00CC00;
         } else {
             borderColor = 0xFF888888;
         }
         graphics.renderOutline(x, y, HUD_SLOT_SIZE, HUD_SLOT_SIZE, borderColor);
-
+        // ★★★ 融合式神：额外的内边框光效 ★★★
+        if (isFusion && !status.isDead && playerOwns) {
+            int innerGlow = 0x40AA55FF;  // 半透明紫色内光
+            graphics.renderOutline(x + 1, y + 1, HUD_SLOT_SIZE - 2, HUD_SLOT_SIZE - 2, innerGlow);
+        }
         // 图标
         int iconX = x + HUD_ICON_OFFSET;
         int iconY = y + HUD_ICON_OFFSET;
         if (status.techniqueNotActive) {
             RenderHelper.renderAbilityIconWithTint(graphics, ability, iconX, iconY, HUD_ICON_SIZE, true);
+        } else if (isFusion && !status.isDead) {
+            // ★★★ 融合式神特殊图标渲染 ★★★
+            boolean grayed = !playerOwns || status.summonConflict || !status.canUse
+                    || onCooldown || status.conditionsNotMet;
+            RenderHelper.renderFusionAbilityIcon(graphics, ability, iconX, iconY, HUD_ICON_SIZE, grayed);
         } else {
             boolean grayed = !playerOwns || status.summonConflict || !status.canUse
                     || onCooldown || status.conditionsNotMet;
             RenderHelper.renderAbilityIcon(graphics, ability, iconX, iconY, HUD_ICON_SIZE, grayed);
         }
-
-        // 伤害显示（右上角）- 不在冷却时显示
-        if (playerOwns && AddonClientConfig.CLIENT.showSkillBarDamage.get() && !onCooldown) {
-            renderSlotDamage(graphics, mc, status, x, y);
+        // ★★★ 融合标记（右上角 ◆）★★★
+        if (isFusion && playerOwns && !onCooldown && !status.isDead) {
+            RenderHelper.renderFusionMark(graphics, mc.font, x, y, HUD_SLOT_SIZE);
         }
-
-        // 条件未满足警告（左上角，避免和伤害重叠）
-        if (status.conditionsNotMet && !onCooldown) {
+        // 伤害显示（右上角）- 融合式神时移到左上角避免重叠
+        if (playerOwns && AddonClientConfig.CLIENT.showSkillBarDamage.get() && !onCooldown) {
+            if (isFusion) {
+                renderSlotDamageLeftTop(graphics, mc, status, x, y);
+            } else {
+                renderSlotDamage(graphics, mc, status, x, y);
+            }
+        }
+        // ★★★ 未调伏式神标记（黄色 ?）★★★
+        if (status.isTenShadowsSummon && !status.isTamed && !onCooldown && !status.isDead) {
+            graphics.drawString(mc.font, "?", x + 1, y + 1, 0xFFFF00, true);
+        }
+        // 条件未满足警告（融合式神等）
+        else if (status.conditionsNotMet && !onCooldown && !isFusion) {
             graphics.drawString(mc.font, "⚠", x + 1, y + 1, 0xFFAA00, true);
         }
+        // ★★★ 死亡状态覆盖显示 ★★★
+        if (status.isDead && !onCooldown) {
+            // 半透明红色遮罩
+            graphics.fill(iconX, iconY, iconX + HUD_ICON_SIZE, iconY + HUD_ICON_SIZE, 0xA0330000);
 
+            // 获取式神名字缩写
+            String name = ability.getName().getString();
+            String abbrev;
+            if (name.length() > 0) {
+                char firstChar = name.charAt(0);
+                boolean isCJK = Character.UnicodeBlock.of(firstChar) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS;
+                abbrev = name.substring(0, Math.min(2, name.length()));
+            } else {
+                abbrev = "?";
+            }
+
+            // 显示式神名字（上半部分）
+            int textWidth = mc.font.width(abbrev);
+            int textX = x + (HUD_SLOT_SIZE - textWidth) / 2;
+            graphics.drawString(mc.font, abbrev, textX, y + 3, 0xFF6666, true);
+
+            // 显示骷髅图标（下半部分）
+            graphics.drawCenteredString(mc.font, "☠", x + HUD_SLOT_SIZE / 2, y + HUD_SLOT_SIZE - 10, 0xFF4444);
+        }
         // 冷却显示
         if (onCooldown && showCooldown) {
             float progress = (float) cooldown / Math.max(1, totalCooldown);
@@ -198,7 +249,6 @@ public class SkillBarOverlay {
             graphics.fill(textX - 2, textY - 1, textX + textWidth + 2, textY + 9, 0xCC000000);
             graphics.drawString(mc.font, timeText, textX, textY, 0xFFFF00, true);
         }
-
         // 快捷键显示（左下角）
         if (!onCooldown && AddonClientConfig.CLIENT.showSkillBarKeybinds.get()
                 && slot < AddonKeyBindings.SKILL_SLOT_KEYS.size()) {
@@ -207,6 +257,48 @@ public class SkillBarOverlay {
             int keyColor = playerOwns && usable ? 0xFFFFFF : 0x666666;
             graphics.drawString(mc.font, keyName, x + 2, y + HUD_SLOT_SIZE - 9, keyColor, true);
         }
+    }
+    /**
+     * 渲染槽位伤害显示（左上角版本，用于融合式神）
+     */
+    private static void renderSlotDamageLeftTop(GuiGraphics graphics, Minecraft mc,
+                                                AbilityStatus status, int x, int y) {
+        if (status.damageType == AbilityDamagePredictor.DamageType.UTILITY) return;
+
+        String dmgText;
+        int dmgColor;
+
+        switch (status.damageType) {
+            case DIRECT_DAMAGE, POWER_BASED -> {
+                if (status.canPredictDamage) {
+                    dmgText = formatCompact(status.addonDamage);
+                    dmgColor = status.isDamageIncreased() ? 0x55FF55 :
+                            status.isDamageDecreased() ? 0xFF5555 : 0xFFAA55;
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            case SUMMON -> {
+                if (status.canPredictDamage && status.addonDamage > 0) {
+                    dmgText = formatCompact(status.addonDamage);
+                    dmgColor = 0x55AAFF;
+                } else {
+                    dmgText = "?";
+                    dmgColor = 0x888888;
+                }
+            }
+            default -> {
+                dmgText = "?";
+                dmgColor = 0x666666;
+            }
+        }
+        int dmgX = x + 1;
+        int dmgY = y + 1;
+        int textWidth = mc.font.width(dmgText);
+
+        graphics.fill(dmgX - 1, dmgY - 1, dmgX + textWidth + 1, dmgY + 8, 0x99000000);
+        graphics.drawString(mc.font, dmgText, dmgX, dmgY, dmgColor, false);
     }
 
     /**

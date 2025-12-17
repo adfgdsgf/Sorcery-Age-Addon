@@ -5,7 +5,7 @@ import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.damage.ServerDamagePredictor;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
-import com.jujutsuaddon.addon.util.calc.AbilityDamageCalculator;
+import com.jujutsuaddon.addon.damage.calculator.AbilityDamageCalculator;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
 import net.minecraft.network.chat.Component;

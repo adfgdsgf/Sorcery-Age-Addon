@@ -1,4 +1,5 @@
-package com.jujutsuaddon.addon.util.calc;
+// 文件路径: src/main/java/com/jujutsuaddon/addon/balance/character/CharacterBalancer.java
+package com.jujutsuaddon.addon.balance.character;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import net.minecraft.world.entity.LivingEntity;
@@ -18,24 +19,20 @@ public class CharacterBalancer {
         ISorcererData cap = attacker.getCapability(SorcererDataHandler.INSTANCE).resolve().orElse(null);
         if (cap == null) return 1.0;
 
-        // 1. 幻兽琥珀 (优先级最高)
         if (cap.hasToggled(JJKAbilities.MYTHICAL_BEAST_AMBER.get())) {
             return AddonConfig.COMMON.mbaMeleeMultiplier.get();
         }
 
         CursedTechnique technique = cap.getTechnique();
 
-        // 2. 无术式 (包括常态鹿紫云一)
         if (technique == null) {
             return AddonConfig.COMMON.noTechniqueMeleeMultiplier.get();
         }
 
-        // 3. 东堂葵
         if (technique == CursedTechnique.BOOGIE_WOOGIE) {
             return AddonConfig.COMMON.todoMeleeMultiplier.get();
         }
 
-        // 4. 普通咒术师
         return AddonConfig.COMMON.sorcererMeleeMultiplier.get();
     }
 
@@ -76,7 +73,6 @@ public class CharacterBalancer {
 
         CursedTechnique technique = cap.getTechnique();
 
-        // 无术式者理论上没有术式伤害，但如果有（比如通过指令获得），给个默认值
         if (technique == null) {
             return AddonConfig.COMMON.sorcererTechniqueMultiplier.get();
         }
@@ -110,7 +106,6 @@ public class CharacterBalancer {
         return AddonConfig.COMMON.sorcererTechniquePreservation.get();
     }
 
-    // 辅助方法：判断是否是特殊角色（用于 Debug 显示名称）
     public static String getSpecialRoleName(LivingEntity attacker) {
         if (attacker == null) return "unknown";
         ISorcererData cap = attacker.getCapability(SorcererDataHandler.INSTANCE).resolve().orElse(null);

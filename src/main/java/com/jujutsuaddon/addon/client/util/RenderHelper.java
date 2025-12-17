@@ -52,6 +52,13 @@ public class RenderHelper {
         public static final int BORDER_SUMMON_CONFLICT = 0xFFAA3333;
         public static final int BORDER_USABLE = 0xFF00CC00;
         public static final int BORDER_NOT_OWNED = 0xFFCC0000;
+
+        // ★★★ 融合式神特殊颜色 ★★★
+        public static final int FUSION_BG = 0xFF2A2A4A;           // 深紫色背景
+        public static final int FUSION_BG_ACTIVE = 0xFF3A2A5A;    // 激活时
+        public static final int FUSION_BORDER = 0xFFCC88FF;       // 亮紫色边框
+        public static final int FUSION_BORDER_READY = 0xFFFFAA00; // 金色边框（可用时）
+        public static final int FUSION_ICON_TINT = 0xFFDDAA;      // 图标色调
     }
 
     // ==================== 脉动效果 ====================
@@ -392,6 +399,61 @@ public class RenderHelper {
         // 术式标签
         public static final int TAG_STOLEN = 0xFF6666;
         public static final int TAG_COPIED = 0x66AAFF;
+    }
+
+    // ==================== 融合式神效果 ====================
+    /**
+     * 获取融合式神脉动边框颜色（金紫渐变）
+     */
+    public static int getFusionPulsingBorderColor() {
+        long time = System.currentTimeMillis();
+        float phase = (float) ((time % 2000) / 2000.0 * Math.PI * 2);
+
+        // 在金色和紫色之间渐变
+        float t = (float) (Math.sin(phase) * 0.5 + 0.5);
+
+        int r = (int) (0xCC + (0xFF - 0xCC) * t);
+        int g = (int) (0x88 + (0xAA - 0x88) * (1 - t));
+        int b = (int) (0xFF + (0x00 - 0xFF) * t);
+
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+    /**
+     * 渲染融合式神图标（带特殊效果）
+     */
+    public static void renderFusionAbilityIcon(GuiGraphics graphics, @Nullable Ability ability,
+                                               int x, int y, int size, boolean grayed) {
+        if (ability == null) return;
+        // 先渲染一个微弱的光晕背景
+        if (!grayed) {
+            int glowColor = 0x30AA66FF;  // 半透明紫色光晕
+            graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, glowColor);
+        }
+        // 渲染图标本身
+        renderAbilityIcon(graphics, ability, x, y, size, grayed);
+    }
+    /**
+     * 渲染融合标记（◆ 符号）
+     */
+    public static void renderFusionMark(GuiGraphics graphics, net.minecraft.client.gui.Font font,
+                                        int x, int y, int slotSize) {
+        // 右上角的融合标记
+        String mark = "◆";
+        int markX = x + slotSize - font.width(mark) - 1;
+        int markY = y + 1;
+
+        // 背景
+        graphics.fill(markX - 1, markY - 1, markX + font.width(mark) + 1, markY + 8, 0xAA000000);
+
+        // 脉动的金紫色
+        long time = System.currentTimeMillis();
+        float pulse = (float) (Math.sin(time / 300.0) * 0.3 + 0.7);
+        int r = (int) (0xDD * pulse + 0xAA * (1 - pulse));
+        int g = (int) (0x88 * pulse + 0x55 * (1 - pulse));
+        int b = (int) (0xFF * pulse);
+        int color = 0xFF000000 | (r << 16) | (g << 8) | b;
+
+        graphics.drawString(font, mark, markX, markY, color, false);
     }
 
     public static void clearIconCache() {

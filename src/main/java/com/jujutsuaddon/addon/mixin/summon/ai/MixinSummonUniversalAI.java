@@ -17,15 +17,6 @@ public abstract class MixinSummonUniversalAI extends TamableAnimal {
         super(type, level);
     }
 
-    // ==============================================================
-    // 辅助判断：是否为鵺 (Nue) 或 浑 (Nue Totality)
-    // ==============================================================
-/*    @Unique
-    private boolean isNue() {
-        // 通过类名判断，简单粗暴且有效，不需要导入额外的类
-        String name = this.getClass().getSimpleName();
-        return name.contains("Nue");
-    }*/
 
     @Override
     public boolean canBreatheUnderwater() {
@@ -34,12 +25,6 @@ public abstract class MixinSummonUniversalAI extends TamableAnimal {
 
     @Override
     public void setOnGround(boolean state) {
-/*        // 【终极修复】如果是鵺，或者正在被骑乘，直接滚蛋，不要碰我的物理状态
-        if (isNue() || this.isVehicle()) {
-            super.setOnGround(state);
-            return;
-        }*/
-
         // 下面是原有的下潜逻辑，完全保留
         if (shouldDive()) {
             super.setOnGround(false);

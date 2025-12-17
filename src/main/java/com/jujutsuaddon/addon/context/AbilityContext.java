@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.util.context;
+package com.jujutsuaddon.addon.context;
 
 import radon.jujutsu_kaisen.ability.base.Ability;
 

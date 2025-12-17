@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.util.context;
+package com.jujutsuaddon.addon.context;
 
 public class WeaponProxyContext {
     private static final ThreadLocal<Boolean> FORCE_FULL_CHARGE = ThreadLocal.withInitial(() -> false);

@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin.core;
 
-import com.jujutsuaddon.addon.util.context.WeaponProxyContext;
+import com.jujutsuaddon.addon.context.WeaponProxyContext;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;

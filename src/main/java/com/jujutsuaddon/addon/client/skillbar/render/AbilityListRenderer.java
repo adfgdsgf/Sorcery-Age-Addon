@@ -175,7 +175,7 @@ public class AbilityListRenderer {
         boolean useTenShadows = TenShadowsHelper.isEnabled();
         boolean hasNativeTenShadows = nativeTechnique == CursedTechnique.TEN_SHADOWS;
         List<Ability> tenShadowsAbilities = useTenShadows && TenShadowsHelper.hasTenShadows(player)
-                ? TenShadowsHelper.getAllAvailableTenShadowsAbilities(player) : Collections.emptyList();
+                ? TenShadowsHelper.getAllTenShadowsAbilitiesIncludingDead(player) : Collections.emptyList();
 
         // =====================================================
         // 1. 原生术式

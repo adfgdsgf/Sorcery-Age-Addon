@@ -54,20 +54,25 @@ public class TriggerTenShadowsAbilityC2SPacket {
             Ability ability = JJKAbilities.getValue(this.abilityKey);
             if (ability == null) return;
 
+            // ★★★ 先获取 TenShadowsData ★★★
+            ITenShadowsData tenData = player.getCapability(TenShadowsDataHandler.INSTANCE).resolve().orElse(null);
+
             // 如果配置启用且需要切换模式，先切换
-            if (AddonConfig.COMMON.enableTenShadowsModeBypass.get() && this.requiredMode != null) {
-                ITenShadowsData tenData = player.getCapability(TenShadowsDataHandler.INSTANCE).resolve().orElse(null);
-                if (tenData != null && tenData.getMode() != this.requiredMode) {
+            if (AddonConfig.COMMON.enableTenShadowsModeBypass.get() && this.requiredMode != null && tenData != null) {
+                if (tenData.getMode() != this.requiredMode) {
                     tenData.setMode(this.requiredMode);
-                    // ★★★ 缺失的代码：同步十影数据到客户端 ★★★
-                    PacketHandler.sendToClient(new SyncTenShadowsDataS2CPacket(tenData.serializeNBT()), player);
                 }
             }
 
             // 触发技能
             AbilityHandler.trigger(player, ability);
 
-            // ★★★ 关键修复：同步状态到客户端 ★★★
+            // ★★★ 关键修复：始终同步两个数据到客户端 ★★★
+            // 这确保调伏状态、召唤状态等都能正确同步
+            if (tenData != null) {
+                PacketHandler.sendToClient(new SyncTenShadowsDataS2CPacket(tenData.serializeNBT()), player);
+            }
+
             player.getCapability(SorcererDataHandler.INSTANCE).ifPresent(cap -> {
                 PacketHandler.sendToClient(new SyncSorcererDataS2CPacket(cap.serializeNBT()), player);
             });

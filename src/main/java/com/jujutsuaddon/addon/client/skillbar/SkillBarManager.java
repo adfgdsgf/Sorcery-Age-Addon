@@ -247,18 +247,18 @@ public class SkillBarManager {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return false;
-
         Ability ability = data.getSlot(slot);
         if (ability == null) return false;
-
+        // 普通技能列表
         List<Ability> playerAbilities = JJKAbilities.getAbilities(player);
         if (playerAbilities.contains(ability)) return true;
-
-        if (TenShadowsHelper.isEnabled() && TenShadowsHelper.hasTenShadows(player)) {
-            List<Ability> tenShadowsAbilities = TenShadowsHelper.getAllAvailableTenShadowsAbilities(player);
+        // ★★★ 十影技能（包括死亡的式神）★★★
+        if (TenShadowsHelper.hasTenShadows(player)) {
+            // 使用包含死亡式神的方法
+            List<Ability> tenShadowsAbilities = TenShadowsHelper.getAllTenShadowsAbilitiesIncludingDead(player);
             if (tenShadowsAbilities.contains(ability)) return true;
         }
-
+        // 复制的术式技能
         ISorcererData sorcererData = player.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
         if (sorcererData != null) {
             for (CursedTechnique technique : sorcererData.getCopied()) {

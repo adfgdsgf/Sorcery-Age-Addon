@@ -22,6 +22,8 @@ public class AddonNetwork {
             PROTOCOL_VERSION::equals
     );
 
+
+
     private static int packetId = 0;
 
     public static void register() {
@@ -67,6 +69,13 @@ public class AddonNetwork {
                 ToggleExtraTechniqueC2SPacket::encode,
                 ToggleExtraTechniqueC2SPacket::new,
                 ToggleExtraTechniqueC2SPacket::handle
+        );
+
+        CHANNEL.registerMessage(packetId++,
+                TriggerAbilityWithSyncC2SPacket.class,
+                TriggerAbilityWithSyncC2SPacket::encode,
+                TriggerAbilityWithSyncC2SPacket::new,
+                TriggerAbilityWithSyncC2SPacket::handle
         );
 
         CHANNEL.registerMessage(packetId++,

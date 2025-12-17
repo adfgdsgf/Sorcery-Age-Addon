@@ -64,6 +64,43 @@ public class AddonClientConfig {
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> searchMods;
         public final ForgeConfigSpec.EnumValue<ShadowStorageSortMode> shadowStorageSortMode;
 
+        // ==========================================
+        // 自瞄辅助 (Aim Assist)
+        // ==========================================
+        // 基础
+        public final ForgeConfigSpec.BooleanValue aimAssistEnabled;
+        public final ForgeConfigSpec.DoubleValue aimAssistMaxDistance;
+        public final ForgeConfigSpec.DoubleValue aimAssistLockDistance;
+        public final ForgeConfigSpec.DoubleValue aimAssistFovAngle;
+        // 瞄准行为
+        public final ForgeConfigSpec.DoubleValue aimAssistSpeed;
+        public final ForgeConfigSpec.DoubleValue aimAssistMaxTurnSpeed;
+        public final ForgeConfigSpec.ConfigValue<String> aimAssistTargetPart;
+        public final ForgeConfigSpec.DoubleValue aimAssistHeightOffset;
+        // 穿墙与视线
+        public final ForgeConfigSpec.BooleanValue aimAssistThroughWalls;
+        public final ForgeConfigSpec.BooleanValue aimAssistRequireInitialSight;
+        // 目标选择
+        public final ForgeConfigSpec.BooleanValue aimAssistTargetPlayers;
+        public final ForgeConfigSpec.BooleanValue aimAssistTargetMonsters;
+        public final ForgeConfigSpec.BooleanValue aimAssistTargetNeutrals;
+        public final ForgeConfigSpec.BooleanValue aimAssistTargetSummons;
+        public final ForgeConfigSpec.BooleanValue aimAssistIgnoreTeammates;
+        public final ForgeConfigSpec.BooleanValue aimAssistIgnoreInvisible;
+        // 优先级
+        public final ForgeConfigSpec.ConfigValue<String> aimAssistPriority;
+        public final ForgeConfigSpec.BooleanValue aimAssistStickyTarget;
+        // 击杀切换
+        public final ForgeConfigSpec.BooleanValue aimAssistAutoSwitch;
+        public final ForgeConfigSpec.IntValue aimAssistSwitchDelay;
+        // 触发模式
+        public final ForgeConfigSpec.ConfigValue<String> aimAssistTriggerMode;
+        public final ForgeConfigSpec.BooleanValue aimAssistOnlyOnAttack;
+        // 视觉效果
+        public final ForgeConfigSpec.BooleanValue aimAssistGlowingTarget;
+        public final ForgeConfigSpec.ConfigValue<String> aimAssistGlowColor;
+        public final ForgeConfigSpec.BooleanValue aimAssistShowIndicator;
+
 
 
         public Client(ForgeConfigSpec.Builder builder) {
@@ -280,7 +317,7 @@ public class AddonClientConfig {
                             " - 灰色(-)：功能性技能（无伤害）",
                             "================================================================")
                     .translation("config.jujutsu_addon.client.show_skill_bar_damage")
-                    .define("ShowSkillBarDamage", true);
+                    .define("ShowSkillBarDamage", false);  // ★★★ 改为 false ★★★
 
             showActiveIndicator = builder
                     .comment(" ",
@@ -419,6 +456,253 @@ public class AddonClientConfig {
                     .translation("config.jujutsu_addon.client.shadow_storage_sort_mode")
                     .defineEnum("ShadowStorageSortMode", ShadowStorageSortMode.NONE);
 
+            builder.pop();
+
+            // ===== 自瞄辅助配置 =====
+            builder.push("Aim_Assist");
+            aimAssistEnabled = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Master Switch]",
+                            " Enable or disable the entire Aim Assist system.",
+                            " Use the keybind (default: `) to toggle in-game.",
+                            "----------------------------------------------------------------",
+                            " [总开关]",
+                            " 启用或禁用整个自瞄系统。",
+                            " 游戏内使用快捷键（默认：`）切换。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_enabled")
+                    .define("Enabled", true);
+            aimAssistMaxDistance = builder
+                    .comment(" Maximum detection distance (blocks).",
+                            " 最大检测距离（格）。")
+                    .translation("config.jujutsu_addon.client.aim_assist_max_distance")
+                    .defineInRange("MaxDistance", 64.0, 1.0, 444.0);
+            aimAssistLockDistance = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Lock Keep Distance]",
+                            " Maximum distance to KEEP tracking a locked target.",
+                            " Set higher than MaxDistance to maintain lock even when target moves away.",
+                            " Set to 0 to never lose lock due to distance (only death breaks lock).",
+                            "----------------------------------------------------------------",
+                            " [锁定保持距离]",
+                            " 保持锁定的最大距离。设为0表示永不因距离丢失锁定。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_lock_distance")
+                    .defineInRange("LockKeepDistance", 0.0, 0.0, 512.0);
+
+
+            aimAssistFovAngle = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [FOV Detection Angle]",
+                            " The cone angle (in degrees) around your crosshair.",
+                            " 60 = targets within 30° left/right of crosshair.",
+                            " 180 = half of your screen.",
+                            "----------------------------------------------------------------",
+                            " [视野检测角度]",
+                            " 准星周围的锥形检测角度（度数）。",
+                            " 60 = 准星左右各30°范围内的目标。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_fov")
+                    .defineInRange("FovAngle", 60.0, 10.0, 360.0);
+            // ========== 瞄准行为 ==========
+            aimAssistSpeed = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Aim Speed]",
+                            " How fast your crosshair moves toward the target.",
+                            " 0.1 = Slow, smooth tracking.",
+                            " 0.5 = Medium speed.",
+                            " 1.0 = Instant snap (not recommended).",
+                            "----------------------------------------------------------------",
+                            " [瞄准速度]",
+                            " 准星向目标移动的速度。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_speed")
+                    .defineInRange("AimSpeed", 0.7, 0.05, 100.0);
+            aimAssistMaxTurnSpeed = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Max Turn Speed] (Degrees per tick)",
+                            " Limits how fast your view can rotate.",
+                            " Prevents unnatural 180° instant turns.",
+                            " 0 = No limit. | 15 = Smooth, human-like.",
+                            "----------------------------------------------------------------",
+                            " [最大转向速度]（度/tick）",
+                            " 限制视角旋转的最大速度，防止不自然的瞬间转头。",
+                            " 0 = 无限制。| 15 = 平滑。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_max_turn")
+                    .defineInRange("MaxTurnSpeed", 15.0, 0.0, 180.0);
+            aimAssistTargetPart = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Target Part]",
+                            " Which part of the entity to aim at.",
+                            " HEAD = Eye position (headshots).",
+                            " BODY = Center of hitbox.",
+                            " FEET = Bottom of hitbox.",
+                            "----------------------------------------------------------------",
+                            " [瞄准部位]",
+                            " HEAD = 眼睛位置。BODY = 中心。FEET = 底部。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_target_part")
+                    .define("TargetPart", "HEAD");
+            aimAssistHeightOffset = builder
+                    .comment(" Fine-tune the aim height. Positive = higher, Negative = lower.",
+                            " 微调瞄准高度。正数更高，负数更低。")
+                    .translation("config.jujutsu_addon.client.aim_assist_height_offset")
+                    .defineInRange("HeightOffset", 0.0, -2.0, 2.0);
+            // ========== 穿墙与视线 ==========
+            aimAssistThroughWalls = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Through Walls Tracking]",
+                            " If TRUE, continues tracking a locked target through walls.",
+                            " If FALSE, loses target when line of sight is blocked.",
+                            "----------------------------------------------------------------",
+                            " [穿墙跟踪]",
+                            " 若为真，锁定目标后即使被墙挡住也会继续跟踪。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_through_walls")
+                    .define("ThroughWalls", false);
+            aimAssistRequireInitialSight = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Require Initial Line of Sight]",
+                            " If TRUE, you must SEE the target first before locking on.",
+                            " Works with ThroughWalls: Lock requires sight, then tracks through walls.",
+                            "----------------------------------------------------------------",
+                            " [首次锁定需要视线]",
+                            " 若为真，必须先看到目标才能锁定。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_require_sight")
+                    .define("RequireInitialSight", true);
+            // ========== 目标选择 ==========
+            aimAssistTargetPlayers = builder
+                    .comment(" Target other players. | 瞄准其他玩家。")
+                    .translation("config.jujutsu_addon.client.aim_assist_target_players")
+                    .define("TargetPlayers", true);
+            aimAssistTargetMonsters = builder
+                    .comment(" Target hostile mobs. | 瞄准敌对生物。")
+                    .translation("config.jujutsu_addon.client.aim_assist_target_monsters")
+                    .define("TargetMonsters", true);
+            aimAssistTargetNeutrals = builder
+                    .comment(" Target neutral mobs (Wolves, Iron Golems, etc.). | 瞄准中立生物。")
+                    .translation("config.jujutsu_addon.client.aim_assist_target_neutrals")
+                    .define("TargetNeutrals", false);
+            aimAssistTargetSummons = builder
+                    .comment(" Target summons/shikigami. | 瞄准召唤物/式神。")
+                    .translation("config.jujutsu_addon.client.aim_assist_target_summons")
+                    .define("TargetSummons", true);
+            aimAssistIgnoreTeammates = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Ignore Teammates]",
+                            " Skip entities on the same team (scoreboard team or JJK faction).",
+                            "----------------------------------------------------------------",
+                            " [忽略队友]",
+                            " 跳过同一队伍的实体（记分板队伍或JJK阵营）。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_ignore_teammates")
+                    .define("IgnoreTeammates", true);
+            aimAssistIgnoreInvisible = builder
+                    .comment(" Ignore invisible entities. | 忽略隐身实体。")
+                    .translation("config.jujutsu_addon.client.aim_assist_ignore_invisible")
+                    .define("IgnoreInvisible", true);
+            // ========== 优先级 ==========
+            aimAssistPriority = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Target Priority]",
+                            " How to choose the best target when multiple are in range.",
+                            " ANGLE = Closest to crosshair (default).",
+                            " DISTANCE = Closest to you.",
+                            " HEALTH = Lowest health (finish off weak enemies).",
+                            "----------------------------------------------------------------",
+                            " [目标优先级]",
+                            " ANGLE = 离准星最近。DISTANCE = 离你最近。HEALTH = 血量最低。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_priority")
+                    .define("Priority", "ANGLE");
+            aimAssistStickyTarget = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Sticky Target]",
+                            " Prefer to keep tracking the current target instead of switching.",
+                            " Prevents aim from jumping between targets rapidly.",
+                            "----------------------------------------------------------------",
+                            " [粘性目标]",
+                            " 优先保持跟踪当前目标，防止准星在目标之间快速跳跃。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_sticky")
+                    .define("StickyTarget", true);
+            // ========== 击杀切换 ==========
+            aimAssistAutoSwitch = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Auto Switch on Kill]",
+                            " Automatically find a new target after killing the current one.",
+                            "----------------------------------------------------------------",
+                            " [击杀自动切换]",
+                            " 击杀当前目标后自动寻找新目标。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_auto_switch")
+                    .define("AutoSwitchOnKill", true);
+            aimAssistSwitchDelay = builder
+                    .comment(" Delay (ticks) before switching after kill. 20 = 1 second.",
+                            " 击杀后切换延迟（tick）。20 = 1秒。")
+                    .translation("config.jujutsu_addon.client.aim_assist_switch_delay")
+                    .defineInRange("SwitchDelay", 5, 0, 100);
+            // ========== 触发模式 ==========
+            aimAssistTriggerMode = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Trigger Mode]",
+                            " TOGGLE = Press key to enable/disable.",
+                            " HOLD = Only active while holding the key.",
+                            "----------------------------------------------------------------",
+                            " [触发模式]",
+                            " TOGGLE = 按键切换开关。HOLD = 按住时才生效。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_trigger_mode")
+                    .define("TriggerMode", "TOGGLE");
+            aimAssistOnlyOnAttack = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Only When Attacking]",
+                            " If TRUE, only tracks when you're holding attack button.",
+                            " Prevents aim from moving while you're just looking around.",
+                            "----------------------------------------------------------------",
+                            " [仅攻击时生效]",
+                            " 若为真，只有按住攻击键时才跟踪。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_only_attack")
+                    .define("OnlyOnAttack", false);
+            // ========== 视觉效果 ==========
+            aimAssistGlowingTarget = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Glowing Target]",
+                            " Make the current target glow (outline effect).",
+                            "----------------------------------------------------------------",
+                            " [目标发光]",
+                            " 让当前目标发光（轮廓高亮效果）。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.aim_assist_glow")
+                    .define("GlowingTarget", true);
+            aimAssistGlowColor = builder
+                    .comment(" Glow color in HEX format (e.g., FF0000 = Red).",
+                            " 发光颜色，HEX格式（如 FF0000 = 红色）。")
+                    .translation("config.jujutsu_addon.client.aim_assist_glow_color")
+                    .define("GlowColor", "FF5555");
+            aimAssistShowIndicator = builder
+                    .comment(" Show a lock-on indicator on the target.",
+                            " 在目标上显示锁定指示器。")
+                    .translation("config.jujutsu_addon.client.aim_assist_indicator")
+                    .define("ShowLockIndicator", true);
             builder.pop();
         }
     }

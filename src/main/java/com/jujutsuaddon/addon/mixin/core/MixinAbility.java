@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin.core;
 
-import com.jujutsuaddon.addon.util.context.AbilityContext;
+import com.jujutsuaddon.addon.context.AbilityContext;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

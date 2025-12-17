@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.util.helper;
+package com.jujutsuaddon.addon.summon;
 
 import com.google.common.collect.Multimap;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;

@@ -24,8 +24,8 @@ import radon.jujutsu_kaisen.entity.ten_shadows.ToadEntity;
         GreatSerpentEntity.class,
         MahoragaEntity.class,
         MaxElephantEntity.class,
-        NueEntity.class,
-        NueTotalityEntity.class,
+        //NueEntity.class,
+        //NueTotalityEntity.class,
         ToadEntity.class,
         KuchisakeOnnaEntity.class,
         TransfiguredSoulEntity.class

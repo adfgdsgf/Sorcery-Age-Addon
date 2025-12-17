@@ -71,7 +71,7 @@ public abstract class MixinSummonAI extends LivingEntity {
             return;
         }
 
-        // ★ 修复：只有被玩家骑乘时才跳过攻击 ★
+      /*  // ★ 修复：只有被玩家骑乘时才跳过攻击 ★
         if (summon.isVehicle()) {
             boolean riddenByPlayer = summon.getPassengers().stream()
                     .anyMatch(e -> e instanceof Player);
@@ -80,7 +80,7 @@ public abstract class MixinSummonAI extends LivingEntity {
                 return;
             }
             // 被武器实体等骑乘时继续正常 AI
-        }
+        }*/
 
         LivingEntity currentTarget = summon.getTarget();
         LivingEntity owner = summon.getOwner();

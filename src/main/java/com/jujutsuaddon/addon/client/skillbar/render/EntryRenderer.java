@@ -173,64 +173,107 @@ public class EntryRenderer {
         Ability ability = entry.ability;
         AbilityStatus status = entry.status;
         if (ability == null || status == null) return;
-
         int indent = entry.getIndentPixels();
         int startX = listX + 2 + indent;
         int contentX = startX + 2;
-
+        // ★★★ 融合式神和死亡式神特殊处理 ★★★
+        boolean isFusion = status.isFusion;
+        boolean isDead = status.isDead;
         // 背景和边框颜色
-        int bgColor = RenderHelper.getIconBgColor(status.isDead, status.techniqueNotActive,
-                status.canUse, status.isActive, status.hasSummon, status.summonConflict);
-        int borderColor = RenderHelper.getBorderColor(
-                status.isDead, status.techniqueNotActive,
-                status.canUse, status.isActive, status.hasSummon,
-                status.summonConflict, true,
-                status.conditionsNotMet);  // ★ 新增参数
-
-        graphics.fill(startX, y, listX + listWidth - 8, y + ITEM_HEIGHT - 2, (bgColor & 0x00FFFFFF) | 0x40000000);
+        int bgColor;
+        int borderColor;
+        if (isDead) {
+            // ★★★ 死亡式神：红色背景 ★★★
+            bgColor = 0x60441111;
+            borderColor = 0xFFAA3333;
+        } else if (isFusion) {
+            // ★★★ 融合式神：紫色背景 ★★★
+            bgColor = status.isActive || status.hasSummon ? 0x603A2A5A : 0x402A2A4A;
+            borderColor = RenderHelper.getFusionPulsingBorderColor();
+        } else {
+            bgColor = RenderHelper.getIconBgColor(status.isDead, status.techniqueNotActive,
+                    status.canUse, status.isActive, status.hasSummon, status.summonConflict);
+            borderColor = RenderHelper.getBorderColor(
+                    status.isDead, status.techniqueNotActive,
+                    status.canUse, status.isActive, status.hasSummon,
+                    status.summonConflict, true,
+                    status.conditionsNotMet);
+        }
+        graphics.fill(startX, y, listX + listWidth - 8, y + ITEM_HEIGHT - 2, bgColor);
         graphics.fill(startX, y, startX + 1, y + ITEM_HEIGHT - 2, borderColor);
-
+        // ★★★ 融合式神：额外的内边框光效 ★★★
+        if (isFusion && !isDead) {
+            int innerGlow = 0x30AA55FF;
+            graphics.fill(startX + 1, y + 1, listX + listWidth - 9, y + ITEM_HEIGHT - 3, innerGlow);
+        }
         // 图标
-        if (status.techniqueNotActive) {
+        if (isDead) {
+            // ★★★ 死亡式神：灰色图标 + ☠ 覆盖 ★★★
+            RenderHelper.renderAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, true);
+            graphics.drawString(font, "☠", contentX + 4, y + 4, 0xFF4444, true);
+        } else if (status.techniqueNotActive) {
             RenderHelper.renderAbilityIconWithTint(graphics, ability, contentX, y, ENTRY_ICON_SIZE, true);
+        } else if (isFusion) {
+            // ★★★ 融合式神：特殊图标渲染 ★★★
+            boolean grayed = !status.canUse || status.summonConflict;
+            RenderHelper.renderFusionAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, grayed);
         } else {
             boolean grayed = !status.canUse || status.summonConflict;
             RenderHelper.renderAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, grayed);
         }
-
         // 名称（为伤害显示留出空间）
-        int nameColor = RenderHelper.getTextColor(status.isDead, status.techniqueNotActive,
-                status.canUse, status.isActive, status.hasSummon, status.summonConflict);
+        int nameColor;
+        if (isDead) {
+            nameColor = 0xFF6666;  // 红色
+        } else if (isFusion) {
+            nameColor = status.isActive || status.hasSummon ? 0xDDAAFF : 0xBB99DD;  // 紫色
+        } else {
+            nameColor = RenderHelper.getTextColor(status.isDead, status.techniqueNotActive,
+                    status.canUse, status.isActive, status.hasSummon, status.summonConflict);
+        }
         int damageDisplayWidth = status.canPredictDamage ? 40 : 15;
         int nameMaxWidth = listWidth - 85 - indent - damageDisplayWidth;
-        renderTruncatedText(graphics, ability.getName().getString(), contentX + 20, y + 4, nameMaxWidth, nameColor);
-
-        // ★★★ 伤害显示 ★★★
-        renderDamageDisplay(graphics, status, y);
-
+        // ★★★ 融合式神：名称前加 ◆ ★★★
+        String displayName = ability.getName().getString();
+        if (isFusion && !isDead) {
+            displayName = "◆ " + displayName;
+        } else if (isDead) {
+            displayName = "☠ " + displayName;
+        }
+        renderTruncatedText(graphics, displayName, contentX + 20, y + 4, nameMaxWidth, nameColor);
+        // ★★★ 伤害显示（死亡式神显示"已死亡"）★★★
+        if (isDead) {
+            String deadText = Component.translatable("gui.jujutsu_addon.shikigami.dead").getString();
+            int textWidth = font.width(deadText);
+            int dmgX = listX + listWidth - 58;
+            graphics.drawString(font, deadText, dmgX - textWidth, y + 4, 0xFF4444, false);
+        } else {
+            renderDamageDisplay(graphics, status, y);
+        }
         // 状态指示器
-        // ★★★ 状态指示器（调整顺序）★★★
         int indicatorX = contentX + 12;
         int indicatorY = y + 10;
-        if (status.isTenShadowsSummon && status.isDead) {
-            graphics.drawString(font, "✗", indicatorX, indicatorY, 0xFF4444, false);
-        } else if (status.conditionsNotMet) {  // ★ 条件未满足优先于未调伏
+
+        if (status.isTenShadowsSummon && isDead) {
+            // 死亡状态已在名称前显示
+        } else if (status.isTenShadowsSummon && !status.isTamed) {
+            // ★★★ 未调伏要先检查！★★★
+            graphics.drawString(font, "?", indicatorX + 2, indicatorY, 0xFFFF44, false);
+        } else if (status.conditionsNotMet) {
             graphics.drawString(font, "⚠", indicatorX, indicatorY, 0xFFAA00, false);
         } else if (status.techniqueNotActive) {
             graphics.drawString(font, "⚡", indicatorX, indicatorY, 0xFF6666, false);
         } else if (status.summonConflict) {
             graphics.drawString(font, "!", indicatorX + 2, indicatorY, 0xFFAA00, false);
-        } else if (status.isTenShadowsSummon && !status.isTamed) {
-            graphics.drawString(font, "?", indicatorX + 2, indicatorY, 0xFFFF44, false);
         }
-
-        // 开关按钮
-        if (status.isToggleable || status.isSummon) {
+        // ★★★ 开关按钮（死亡式神显示 "---"）★★★
+        if (isDead) {
+            renderDeadButton(graphics, y);
+        } else if (status.isToggleable || status.isSummon) {
             renderToggleButton(graphics, ability, status, y, mouseX, mouseY);
         }
-
-        // 冷却条
-        if (status.cooldown > 0 && status.maxCooldown > 0) {
+        // 冷却条（死亡式神不显示）
+        if (!isDead && status.cooldown > 0 && status.maxCooldown > 0) {
             float progress = 1.0f - (float) status.cooldown / status.maxCooldown;
             int barWidth = Math.min(50, listWidth - 100 - indent);
             int barX = contentX + 20;
@@ -238,6 +281,18 @@ public class EntryRenderer {
             graphics.fill(barX, barY, barX + barWidth, barY + 2, 0xFF333333);
             graphics.fill(barX, barY, barX + (int)(barWidth * progress), barY + 2, 0xFFFFAA00);
         }
+    }
+    /**
+     * ★★★ 渲染死亡式神的禁用按钮 ★★★
+     */
+    private void renderDeadButton(GuiGraphics graphics, int y) {
+        int btnX = listX + listWidth - 28;
+        int btnY = y;
+        int btnW = 22;
+        int btnH = ITEM_HEIGHT - 2;
+        graphics.fill(btnX, btnY, btnX + btnW, btnY + btnH, 0xFF331111);
+        graphics.renderOutline(btnX, btnY, btnW, btnH, 0xFF663333);
+        graphics.drawString(font, "---", btnX + (btnW - font.width("---")) / 2, y + 4, 0xFF4444, false);
     }
 
     /**

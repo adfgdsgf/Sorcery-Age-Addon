@@ -1,6 +1,7 @@
 package com.jujutsuaddon.addon;
 
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
+import com.jujutsuaddon.addon.damage.cache.DamageUtil;
 import com.jujutsuaddon.addon.inventory.ShadowStorageMenu;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import net.minecraftforge.common.MinecraftForge;
@@ -56,7 +57,7 @@ public class JujutsuAddon {
     // ★★★ 新增：统一清理缓存的方法 ★★★
     private void clearAllCaches() {
         // 刷新伤害计算相关的缓存
-        com.jujutsuaddon.addon.util.calc.DamageUtil.reload();
+        DamageUtil.reload();
         // 刷新投射物判定缓存
         com.jujutsuaddon.addon.util.helper.ProjectileHitTracker.reloadConfig();
         // 标记生物配置为脏数据（下次使用时自动重载）
