@@ -71,11 +71,11 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
-        // ... 这个方法不用改，保持原样 ...
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return;
         if (mc.screen == null && event.getAction() != org.lwjgl.glfw.GLFW.GLFW_REPEAT) {
+            // ===== 自瞄切换 =====
             if (AddonKeyBindings.TOGGLE_AIM_ASSIST != null) {
                 if (AddonKeyBindings.TOGGLE_AIM_ASSIST.matches(event.getKey(), event.getScanCode())) {
                     if (AddonClientConfig.CLIENT != null && AddonClientConfig.CLIENT.aimAssistEnabled.get()) {
@@ -95,23 +95,52 @@ public class ClientEvents {
                     return;
                 }
             }
+            // ===== 切换技能栏快捷键开关 =====
+            if (AddonKeyBindings.TOGGLE_SKILL_KEYS != null) {
+                if (AddonKeyBindings.TOGGLE_SKILL_KEYS.matches(event.getKey(), event.getScanCode())) {
+                    if (event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                        skillKeysEnabled = !skillKeysEnabled;
+                        String key = skillKeysEnabled
+                                ? "message.jujutsu_addon.keys_enabled"
+                                : "message.jujutsu_addon.keys_disabled";
+                        player.displayClientMessage(Component.translatable(key), true);
+                    }
+                    return;
+                }
+            }
+            // ===== 打开HUD编辑界面 =====
+            if (AddonKeyBindings.OPEN_HUD_EDIT != null) {
+                if (AddonKeyBindings.OPEN_HUD_EDIT.matches(event.getKey(), event.getScanCode())) {
+                    if (event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                        mc.setScreen(new HUDEditScreen());
+                    }
+                    return;
+                }
+            }
         }
         if (!FeatureToggleManager.isSkillBarEnabled()) return;
         if (mc.screen == null && event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
-            if (AddonKeyBindings.OPEN_SKILL_CONFIG.consumeClick()) {
+            // ===== 打开技能栏配置 =====
+            if (AddonKeyBindings.OPEN_SKILL_CONFIG != null && AddonKeyBindings.OPEN_SKILL_CONFIG.consumeClick()) {
                 mc.setScreen(new SkillBarConfigScreen());
                 return;
             }
+
             if (!AddonClientConfig.CLIENT.enableSkillBar.get()) return;
-            if (AddonKeyBindings.NEXT_PRESET.consumeClick()) {
+
+            // ===== 下一个预设 =====
+            if (AddonKeyBindings.NEXT_PRESET != null && AddonKeyBindings.NEXT_PRESET.consumeClick()) {
                 SkillBarManager.nextPreset();
                 return;
             }
-            if (AddonKeyBindings.PREV_PRESET.consumeClick()) {
+
+            // ===== 上一个预设 =====
+            if (AddonKeyBindings.PREV_PRESET != null && AddonKeyBindings.PREV_PRESET.consumeClick()) {
                 SkillBarManager.prevPreset();
             }
         }
     }
+
 
     // ▼▼▼ 修改 onClientTick 方法 ▼▼▼
     @SubscribeEvent
