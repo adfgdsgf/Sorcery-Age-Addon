@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.util.helper;
+package com.jujutsuaddon.addon.util.helper.tenshadows.mahoraga;
 
 import com.jujutsuaddon.addon.mixin.access.SorcererDataAccess;
 import com.jujutsuaddon.addon.mixin.access.TenShadowsDataAccess;

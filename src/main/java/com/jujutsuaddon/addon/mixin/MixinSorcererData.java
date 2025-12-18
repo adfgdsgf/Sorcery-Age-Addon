@@ -1,7 +1,10 @@
+// src/main/java/com/jujutsuaddon/addon/mixin/MixinSorcererData.java
 package com.jujutsuaddon.addon.mixin;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import com.jujutsuaddon.addon.event.SorcererProtectionHandler;
+import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -11,7 +14,10 @@ import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import radon.jujutsu_kaisen.ability.JJKAbilities;
 import radon.jujutsu_kaisen.ability.base.Ability;
 import radon.jujutsu_kaisen.capability.data.sorcerer.SorcererData;
@@ -22,10 +28,49 @@ import radon.jujutsu_kaisen.util.EntityUtil;
 import java.util.UUID;
 
 @Mixin(SorcererData.class)
-public class MixinSorcererData {
+public class MixinSorcererData implements IInfinityPressureAccessor {
 
-    // 移除了 onTick 方法！我们不需要每 tick 扫描了，太耗性能且容易闪烁。
-    // 我们完全依赖 redirectApplyModifier 来拦截。
+    // ==================== 无下限压制等级 ====================
+
+    @Unique
+    private int jujutsuAddon$infinityPressure = 0;
+
+    @Override
+    public int jujutsuAddon$getInfinityPressure() {
+        return this.jujutsuAddon$infinityPressure;
+    }
+
+    @Override
+    public void jujutsuAddon$setInfinityPressure(int level) {
+        this.jujutsuAddon$infinityPressure = Math.max(0, Math.min(10, level));
+    }
+
+    @Override
+    public void jujutsuAddon$increaseInfinityPressure() {
+        jujutsuAddon$setInfinityPressure(this.jujutsuAddon$infinityPressure + 1);
+    }
+
+    @Override
+    public void jujutsuAddon$decreaseInfinityPressure() {
+        jujutsuAddon$setInfinityPressure(this.jujutsuAddon$infinityPressure - 1);
+    }
+
+    // ==================== NBT 序列化 ====================
+
+    @Inject(method = "serializeNBT", at = @At("RETURN"), remap = false)
+    private void jujutsuAddon$serializeInfinityPressure(CallbackInfoReturnable<CompoundTag> cir) {
+        CompoundTag nbt = cir.getReturnValue();
+        nbt.putInt("jujutsuAddon_infinityPressure", this.jujutsuAddon$infinityPressure);
+    }
+
+    @Inject(method = "deserializeNBT", at = @At("RETURN"), remap = false)
+    private void jujutsuAddon$deserializeInfinityPressure(CompoundTag nbt, CallbackInfo ci) {
+        if (nbt.contains("jujutsuAddon_infinityPressure")) {
+            this.jujutsuAddon$infinityPressure = nbt.getInt("jujutsuAddon_infinityPressure");
+        }
+    }
+
+    // ==================== 原有代码保持不变 ====================
 
     @Redirect(
             method = "toggle",
@@ -52,27 +97,21 @@ public class MixinSorcererData {
     )
     public boolean redirectApplyModifier(LivingEntity entity, Attribute attribute, UUID uuid, String name, double targetValue, AttributeModifier.Operation operation) {
 
-        // 1. 客户端逻辑：彻底封杀
-        // 只要是客户端，且涉及血量，直接返回 false。
-        // 这样 JJK 在客户端就永远无法修改血量，也就不会出现 60 血的显示 BUG。
-        // 也不需要我们事后再去 removeModifier 了。
         if (entity.level().isClientSide && attribute == Attributes.MAX_HEALTH) {
             return false;
         }
 
-        // 2. 式神逻辑
         if (entity instanceof SummonEntity) {
             if (attribute == Attributes.MAX_HEALTH) {
                 entity.getPersistentData().putDouble("jjk_addon_main_mod_hp_bonus", targetValue);
-                return false; // 拦截！不让 JJK 加血，我们自己会在 SummonScalingHelper 里统一管理
+                return false;
             }
             if (attribute == Attributes.ATTACK_DAMAGE) {
                 entity.getPersistentData().putDouble("jjk_addon_main_mod_atk_bonus", targetValue);
-                return false; // 拦截！
+                return false;
             }
         }
 
-        // 3. 玩家血量转护甲逻辑 (服务端)
         if (entity instanceof Player player && AddonConfig.COMMON.enableHealthToArmor.get() && attribute == Attributes.MAX_HEALTH) {
             if (!entity.level().isClientSide) {
                 double jjkExtraHealth = targetValue;
@@ -89,16 +128,13 @@ public class MixinSorcererData {
                     cleanupArmor(entity);
                 }
 
-                // 这里不需要再 removeModifier 了，因为我们直接 return false，JJK 根本就没加上去！
-                // 只需要处理回血逻辑
                 if (player.getHealth() > player.getMaxHealth()) {
                     player.setHealth(player.getMaxHealth());
                 }
             }
-            return false; // 拦截！
+            return false;
         }
 
-        // 放行其他属性
         return EntityUtil.applyModifier(entity, attribute, uuid, name, targetValue, operation);
     }
 

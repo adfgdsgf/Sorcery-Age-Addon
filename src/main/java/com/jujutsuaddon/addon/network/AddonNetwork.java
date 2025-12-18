@@ -133,6 +133,14 @@ public class AddonNetwork {
                 .decoder(SyncDamagePredictionsS2CPacket::decode)
                 .consumerMainThread(SyncDamagePredictionsS2CPacket::handle)
                 .add();
+
+        // ★★★ 无下限压制等级同步包 (C2S) ★★★
+        CHANNEL.registerMessage(packetId++,
+                SyncInfinityPressureC2SPacket.class,
+                SyncInfinityPressureC2SPacket::encode,
+                SyncInfinityPressureC2SPacket::new,
+                SyncInfinityPressureC2SPacket::handle
+        );
     }
 
     // ==================== 发送方法 ====================

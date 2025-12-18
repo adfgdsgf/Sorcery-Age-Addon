@@ -31,6 +31,7 @@ public class JujutsuAddon {
 
         MinecraftForge.EVENT_BUS.register(this);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AddonConfig.COMMON_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AbilityConfig.COMMON_SPEC, "jujutsu_addon-abilities.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, AddonClientConfig.CLIENT_SPEC);
     }
 

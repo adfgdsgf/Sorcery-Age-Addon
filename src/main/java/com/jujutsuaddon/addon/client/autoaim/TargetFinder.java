@@ -15,10 +15,13 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import radon.jujutsu_kaisen.entity.base.SummonEntity;
+import radon.jujutsu_kaisen.entity.ten_shadows.base.TenShadowsSummon;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 public class TargetFinder {
@@ -102,7 +105,6 @@ public class TargetFinder {
                         double dot = lookVec.dot(toTarget);
                         dot = Math.max(-1.0, Math.min(1.0, dot));
                         double angle = Math.acos(dot);
-                        // 角度权重高，距离权重低
                         return angle * 1000 + e.distanceTo(player) * 0.01;
                     });
         };
@@ -138,10 +140,8 @@ public class TargetFinder {
         double x = target.getX();
         double z = target.getZ();
 
-        // 预测目标移动（基于当前速度）
         if (predict) {
             Vec3 velocity = target.getDeltaMovement();
-            // 预测 2-3 tick 后的位置
             double predictionTicks = 2.5;
             x += velocity.x * predictionTicks;
             z += velocity.z * predictionTicks;
@@ -151,7 +151,6 @@ public class TargetFinder {
         return new Vec3(x, y + heightOffset, z);
     }
 
-    // 重载保持兼容
     public Vec3 getAimPoint(LivingEntity target, String targetPart, double heightOffset) {
         return getAimPoint(target, targetPart, heightOffset, true);
     }
@@ -161,39 +160,57 @@ public class TargetFinder {
      */
     public boolean isValidTarget(LivingEntity entity, LocalPlayer player) {
         AddonClientConfig.Client config = AddonClientConfig.CLIENT;
+        UUID playerUUID = player.getUUID();
+
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        // ★★★ 优先检查：十影式神（最高优先级判断）★★★
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        if (entity instanceof TenShadowsSummon shikigami) {
+            return handleTenShadowsTarget(shikigami, playerUUID, config);
+        }
+
+        // ★★★ 检查其他 JJK 召唤物（里香等）★★★
+        if (entity instanceof SummonEntity summon) {
+            return handleSummonTarget(summon, playerUUID, config);
+        }
 
         // ========== 玩家 ==========
         if (entity instanceof Player targetPlayer) {
             if (!config.aimAssistTargetPlayers.get()) return false;
-            // 不瞄准自己（理论上已经排除了，双重保险）
             if (targetPlayer == player) return false;
         }
-        // ========== 敌对生物（包括史莱姆、女巫等） ==========
+        // ========== 敌对生物 ==========
         else if (isHostile(entity)) {
             if (!config.aimAssistTargetMonsters.get()) return false;
         }
         // ========== 驯服动物/宠物 ==========
         else if (entity instanceof TamableAnimal tamable) {
             if (!config.aimAssistTargetNeutrals.get()) return false;
-            // 忽略自己的宠物
-            if (tamable.isTame() && tamable.getOwner() == player) return false;
+            // ★★★ 修复：使用 UUID 比较 ★★★
+            if (tamable.isTame()) {
+                LivingEntity petOwner = tamable.getOwner();
+                if (petOwner != null && petOwner.getUUID().equals(playerUUID)) {
+                    return false;
+                }
+            }
         }
         // ========== 普通动物 ==========
         else if (entity instanceof Animal) {
             if (!config.aimAssistTargetNeutrals.get()) return false;
         }
-        // ========== 其他实体（包括JJK生物、NPC等） ==========
+        // ========== 其他实体 ==========
         else {
-            // 检查是否是 JJK 的召唤物/式神
             String className = entity.getClass().getName().toLowerCase();
             if (className.contains("jujutsu") || className.contains("summon") || className.contains("shikigami")) {
                 if (!config.aimAssistTargetSummons.get()) return false;
-                // 检查是否是自己的召唤物
+                // ★★★ 修复：使用 UUID 比较 ★★★
                 if (entity instanceof net.minecraft.world.entity.OwnableEntity ownable) {
-                    if (ownable.getOwner() == player) return false;
+                    LivingEntity ownableOwner = ownable.getOwner();
+                    if (ownableOwner != null && ownableOwner.getUUID().equals(playerUUID)) {
+                        return false;
+                    }
                 }
             } else {
-                // 其他非标准实体，归类为中立
                 if (!config.aimAssistTargetNeutrals.get()) return false;
             }
         }
@@ -207,26 +224,110 @@ public class TargetFinder {
         return true;
     }
 
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★★★ 处理十影式神（使用 UUID 比较）★★★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    private boolean handleTenShadowsTarget(TenShadowsSummon shikigami, UUID playerUUID, AddonClientConfig.Client config) {
+        LivingEntity owner = shikigami.getOwner();
+        boolean isTamed = shikigami.isTame();
+
+        // ★★★ 关键修复：使用 UUID 比较 ★★★
+        boolean isMyShikigami = owner != null && owner.getUUID().equals(playerUUID);
+
+        // ========== 情况1：自己的式神 ==========
+        if (isMyShikigami) {
+            if (isTamed) {
+                // 自己的已调伏式神 = 友方，永远不瞄准
+                return false;
+            } else {
+                // 自己的未调伏式神 = 敌对！（调伏战）
+                return config.aimAssistTargetMonsters.get();
+            }
+        }
+
+        // ========== 情况2：别人的式神 ==========
+        if (owner != null) {
+            // 检查队友的式神
+            if (config.aimAssistIgnoreTeammates.get()) {
+                LocalPlayer player = Minecraft.getInstance().player;
+                if (player != null) {
+                    if (owner.isAlliedTo(player)) return false;
+                    if (player.getTeam() != null && owner.getTeam() == player.getTeam()) return false;
+                }
+            }
+
+            if (isTamed) {
+                // 别人的已调伏式神 = 按召唤物设置
+                return config.aimAssistTargetSummons.get();
+            } else {
+                // 别人的未调伏式神 = 敌对
+                return config.aimAssistTargetMonsters.get();
+            }
+        }
+
+        // ========== 情况3：无主式神 ==========
+        return config.aimAssistTargetMonsters.get();
+    }
+
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★★★ 处理其他 JJK 召唤物（里香等）★★★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    private boolean handleSummonTarget(SummonEntity summon, UUID playerUUID, AddonClientConfig.Client config) {
+        LivingEntity owner = summon.getOwner();
+        boolean isTamed = summon.isTame();
+
+        // ★★★ 使用 UUID 比较 ★★★
+        boolean isMySummon = owner != null && owner.getUUID().equals(playerUUID);
+
+        // 自己的已调伏召唤物 = 友方
+        if (isMySummon && isTamed) {
+            return false;
+        }
+
+        // 自己的未调伏召唤物 = 敌对
+        if (isMySummon && !isTamed) {
+            return config.aimAssistTargetMonsters.get();
+        }
+
+        // 别人的召唤物
+        if (owner != null) {
+            if (config.aimAssistIgnoreTeammates.get()) {
+                LocalPlayer player = Minecraft.getInstance().player;
+                if (player != null) {
+                    if (owner.isAlliedTo(player)) return false;
+                    if (player.getTeam() != null && owner.getTeam() == player.getTeam()) return false;
+                }
+            }
+
+            if (isTamed) {
+                return config.aimAssistTargetSummons.get();
+            } else {
+                return config.aimAssistTargetMonsters.get();
+            }
+        }
+
+        // 无主召唤物
+        return config.aimAssistTargetMonsters.get();
+    }
+
     /**
      * 判断实体是否是敌对的
-     * 使用 Enemy 接口而不是 Monster 类，这样可以包含史莱姆、女巫等
      */
     private boolean isHostile(LivingEntity entity) {
-        // Enemy 接口：史莱姆、女巫、幻翼等都实现了这个接口
+        // 未调伏的式神视为敌对（这里不需要再判断，因为已经在前面处理了）
+
         if (entity instanceof Enemy) {
             return true;
         }
 
-        // 检查生物类别
         if (entity.getType().getCategory() == MobCategory.MONSTER) {
             return true;
         }
 
-        // 检查是否是愤怒的中立生物（如被攻击的狼、蜜蜂等）
         if (entity instanceof Mob mob) {
             LivingEntity target = mob.getTarget();
             if (target instanceof Player) {
-                return true; // 正在攻击玩家的生物
+                return true;
             }
         }
 

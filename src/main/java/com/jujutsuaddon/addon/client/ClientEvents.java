@@ -11,16 +11,14 @@ import com.jujutsuaddon.addon.client.skillbar.*;
 import com.jujutsuaddon.addon.client.util.AbilityTriggerHelper;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.jujutsuaddon.addon.network.*;
-import com.jujutsuaddon.addon.network.c2s.StopChannelingC2SPacket;
-import com.jujutsuaddon.addon.network.c2s.StoreShadowItemC2SPacket;
-import com.jujutsuaddon.addon.network.c2s.TriggerTenShadowsAbilityC2SPacket;
+import com.jujutsuaddon.addon.network.c2s.*;
 // ▼▼▼ 新增 import ▼▼▼
-import com.jujutsuaddon.addon.network.c2s.TriggerAbilityWithSyncC2SPacket;
 // ▲▲▲ 新增 import 结束 ▲▲▲
 import com.jujutsuaddon.addon.util.helper.TechniqueAccessHelper;
-import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
+import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -39,8 +37,6 @@ import radon.jujutsu_kaisen.capability.data.sorcerer.SorcererDataHandler;
 import radon.jujutsu_kaisen.capability.data.ten_shadows.ITenShadowsData;
 import radon.jujutsu_kaisen.capability.data.ten_shadows.TenShadowsDataHandler;
 import radon.jujutsu_kaisen.capability.data.ten_shadows.TenShadowsMode;
-import radon.jujutsu_kaisen.network.PacketHandler;
-import radon.jujutsu_kaisen.network.packet.c2s.TriggerAbilityC2SPacket;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -462,4 +458,30 @@ public class ClientEvents {
         channelingStartTime.clear(); // ★ 新增
     }
     // ▲▲▲ 修改 stopAllChanneling 方法结束 ▲▲▲
+
+    // ==================== 新增方法 ====================
+    @SubscribeEvent
+    public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+
+        if (player == null || mc.screen != null) return;
+
+        // 必须按住 Shift
+        if (!Screen.hasShiftDown()) return;
+
+        // 必须开启了 Infinity
+        if (!JJKAbilities.hasToggled(player, JJKAbilities.INFINITY.get())) return;
+
+        double scrollDelta = event.getScrollDelta();
+
+        if (scrollDelta != 0) {
+            // 向上滚 = 增加压制，向下滚 = 减少压制
+            boolean increase = scrollDelta > 0;
+            AddonNetwork.sendToServer(new SyncInfinityPressureC2SPacket(increase));
+
+            // 取消原版滚动（切换快捷栏）
+            event.setCanceled(true);
+        }
+    }
 }

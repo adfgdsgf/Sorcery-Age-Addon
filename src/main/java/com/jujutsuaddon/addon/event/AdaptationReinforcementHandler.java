@@ -2,7 +2,7 @@ package com.jujutsuaddon.addon.event;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
-import com.jujutsuaddon.addon.util.helper.AdaptationUtil; // 导入我们的新工具类
+import com.jujutsuaddon.addon.util.helper.tenshadows.mahoraga.AdaptationUtil; // 导入我们的新工具类
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;

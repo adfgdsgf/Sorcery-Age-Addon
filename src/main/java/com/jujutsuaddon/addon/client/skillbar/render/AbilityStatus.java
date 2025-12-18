@@ -2,7 +2,7 @@ package com.jujutsuaddon.addon.client.skillbar.render;
 
 import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
-import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
+import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;

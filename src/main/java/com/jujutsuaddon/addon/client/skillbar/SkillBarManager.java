@@ -3,7 +3,7 @@ package com.jujutsuaddon.addon.client.skillbar;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.client.ClientEvents;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
-import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
+import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.player.LocalPlayer;

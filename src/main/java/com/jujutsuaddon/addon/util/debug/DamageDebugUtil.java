@@ -344,8 +344,8 @@ public class DamageDebugUtil {
         }
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.formula_label"));
         player.sendSystemMessage(Component.literal(String.format(
-                "   §8(§f%.2f §7* §f%.2f §7* §f%.2f§8) §7+ §8(§f%.2f §7* §a%.2f §7* §b%.2f §7* §6%.2f §7* §d%.2f§8)",
-                originalBase, preservationRatio, baseMultiplier, totalPanel, classMult, speedMult, panelMult, balancerMult)));
+                "   §8(§f%.2f §7* §f%.2f§8) §7+ §8(§f%.2f §7* §a%.2f §7* §b%.2f §7* §6%.2f§8) §7* §d%.2f",
+                originalBase, preservationRatio, totalPanel, classMult, speedMult, panelMult, balancerMult)));
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.crit_stats",
                 String.format("%.1f", critChance * 100), String.format("%.2f", critMult), isCrit ? "§a✓" : "§7✗"));
         MutableComponent finalLine = Component.translatable("debug.jujutsu_addon.calc.final_output", String.format("%.2f", finalDamage));

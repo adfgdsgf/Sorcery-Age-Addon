@@ -24,7 +24,6 @@
     "summon.MixinSummonCost",
     "summon.MixinSummonFriendlyFire",
     "summon.ai.MixinBetterFollowOwnerGoal",
-    "summon.ai.MixinSummonAI",
     "summon.ai.MixinRikaMovementFix",
     "summon.ai.MixinStupidMovementFix",
     "summon.ai.MixinSummonUniversalAI",

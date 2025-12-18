@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.client.skillbar.render;
 
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
-import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
+import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

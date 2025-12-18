@@ -425,6 +425,73 @@
   "config.jujutsu_addon.enable_ten_shadows_mode_bypass": "启用十影模式绕过",
   "config.jujutsu_addon.allow_simultaneous_summon_and_ability": "允许召唤与技能同时使用",
 
+  "config.jujutsu_addon.infinity_pressure.enable": "启用无下限压力系统",
+
+  "config.jujutsu_addon.infinity_pressure.range.level0": "等级0范围",
+  "config.jujutsu_addon.infinity_pressure.range.level1": "等级1范围",
+  "config.jujutsu_addon.infinity_pressure.range.level10": "等级10范围",
+
+  "config.jujutsu_addon.infinity_pressure.halt.level1": "等级1停止距离",
+  "config.jujutsu_addon.infinity_pressure.halt.level5": "等级5停止距离",
+  "config.jujutsu_addon.infinity_pressure.halt.level10": "等级10停止距离",
+  "config.jujutsu_addon.infinity_pressure.halt.transition": "停止过渡区宽度",
+
+  "config.jujutsu_addon.infinity_pressure.pressure.base": "基础压力值",
+  "config.jujutsu_addon.infinity_pressure.pressure.decay": "距离衰减系数",
+  "config.jujutsu_addon.infinity_pressure.pressure.approach": "靠近时压力倍率",
+  "config.jujutsu_addon.infinity_pressure.pressure.breach": "突破边界压力倍率",
+
+  "config.jujutsu_addon.infinity_pressure.force.base": "基础推力",
+  "config.jujutsu_addon.infinity_pressure.force.min_level": "最低等级倍率",
+  "config.jujutsu_addon.infinity_pressure.force.max_level": "最高等级倍率",
+  "config.jujutsu_addon.infinity_pressure.force.max": "最大推力",
+  "config.jujutsu_addon.infinity_pressure.force.pin": "钉住时额外力",
+  "config.jujutsu_addon.infinity_pressure.force.halt_repel": "停止边界反推力",
+  "config.jujutsu_addon.infinity_pressure.force.breach_repel": "突破边界反推力",
+
+  "config.jujutsu_addon.infinity_pressure.resist.lateral": "侧向阻力",
+  "config.jujutsu_addon.infinity_pressure.resist.escape": "逃跑阻力",
+  "config.jujutsu_addon.infinity_pressure.resist.approach_base": "靠近基础阻力",
+  "config.jujutsu_addon.infinity_pressure.resist.approach_max": "靠近最大阻力",
+
+  "config.jujutsu_addon.infinity_pressure.threshold.push": "推力最低压力要求",
+  "config.jujutsu_addon.infinity_pressure.threshold.damage": "伤害最低压力要求",
+  "config.jujutsu_addon.infinity_pressure.threshold.block": "破坏方块最低压力要求",
+  "config.jujutsu_addon.infinity_pressure.block.actually_break": "真正破坏方块",
+  "config.jujutsu_addon.infinity_pressure.block.drop_items": "方块掉落物品",
+
+  "config.jujutsu_addon.infinity_pressure.projectile.enable": "影响投射物",
+  "config.jujutsu_addon.infinity_pressure.projectile.min_level": "影响投射物最低压力等级",
+  "config.jujutsu_addon.infinity_pressure.projectile.slowdown": "投射物减速率",
+  "config.jujutsu_addon.infinity_pressure.projectile.min_speed": "投射物最低速度（悬浮）",
+  "config.jujutsu_addon.infinity_pressure.projectile.repel": "投射物推回力",
+
+  "config.jujutsu_addon.infinity_pressure.block.decay": "方块压力衰减速度",
+  "config.jujutsu_addon.infinity_pressure.block.threshold": "破坏阈值倍率",
+  "config.jujutsu_addon.infinity_pressure.block.stages": "破坏阶段数",
+  "config.jujutsu_addon.infinity_pressure.block.timeout": "压力超时时间（毫秒）",
+
+  "config.jujutsu_addon.infinity_pressure.damage.base": "压力转伤害系数",
+  "config.jujutsu_addon.infinity_pressure.damage.change": "压力变化伤害倍率",
+  "config.jujutsu_addon.infinity_pressure.damage.max_interval": "最大伤害间隔",
+  "config.jujutsu_addon.infinity_pressure.damage.min_interval": "最小伤害间隔",
+  "config.jujutsu_addon.infinity_pressure.damage.interval_scale": "间隔压力缩放系数",
+  "config.jujutsu_addon.infinity_pressure.damage.max": "单次最大伤害",
+
+  "config.jujutsu_addon.infinity_pressure.warning.ticks": "伤害预警时间",
+  "config.jujutsu_addon.infinity_pressure.warning.surge_threshold": "冲击触发阈值",
+  "config.jujutsu_addon.infinity_pressure.warning.surge_mult": "冲击伤害倍率",
+
+  "config.jujutsu_addon.infinity_pressure.effects.particles": "启用压力粒子效果",
+  "config.jujutsu_addon.infinity_pressure.effects.sounds": "启用压力音效",
+
+  "config.jujutsu_addon.infinity_pressure.items.push": "推开掉落物",
+  "config.jujutsu_addon.infinity_pressure.items.force_mult": "掉落物推力倍率",
+  "config.jujutsu_addon.infinity_pressure.items.min_pressure": "推开掉落物最低压力等级",
+
+  "config.jujutsu_addon.infinity_pressure.domain.respect_sure_hit": "尊重领域必中效果",
+  "config.jujutsu_addon.infinity_pressure.domain.respect_amplification": "尊重领域增幅效果",
+
   "_comment_aim_assist": "========== 自瞄辅助配置 ==========",
   "config.jujutsu_addon.client.aim_assist_enabled": "启用自瞄辅助",
   "config.jujutsu_addon.client.aim_assist_max_distance": "最大检测距离",
@@ -473,6 +540,8 @@
   "command.jujutsu_addon.status_sorcerer": "§b咒术师:§r 护甲 §e%s§r | 韧性 §e%s",
   "command.jujutsu_addon.clear_adaptation_on_death": "死亡清除适应性",
 
+  "message.jujutsu_addon.infinity_pressure": "无下限压制等级: %s",
+
   "debug.jujutsu_addon.tick_total": "§6[理论总伤害/Tick] ➤ §c%s",
   "debug.jujutsu_addon.tick_actual": "§c[实际造成伤害] ➤ %s §7(经过防御)",
   "debug.jujutsu_addon.accumulate": "§8[累积] +%s (当前总计: %s)",
@@ -510,7 +579,7 @@
   "debug.jujutsu_addon.calc.external_details": " §7外部明细: %s",
   "debug.jujutsu_addon.calc_prefix": "§b[计算] ",
 
-  "debug.jujutsu_addon.calc.formula_label": " §3[公式] §8(基础 × 保留 × 基础倍率) + (面板 × 职业 × 攻速 × 外部 × 平衡):",
+  "debug.jujutsu_addon.calc.formula_label": " §3[公式] §8[(基础 × 保留) + (面板 × 职业 × 攻速 × 外部)] × 平衡:",
   "debug.jujutsu_addon.calc.final_line": " §7= 理论输出: §e§l%s",
   "debug.jujutsu_addon.calc.final_output": " §7= 理论输出: §e§l%s",
   "debug.jujutsu_addon.calc.crit_append": " §c[暴击! x%s]",

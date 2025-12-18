@@ -18,6 +18,13 @@ import radon.jujutsu_kaisen.entity.ten_shadows.base.TenShadowsSummon;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 十影式神特有逻辑（不要动！调了半天才调好的）
+ *
+ * 职责分工：
+ * - 未调伏式神：由这个 Mixin 处理（攻击参与者）
+ * - 已调伏式神：由 SummonAIManager 处理（护主、索敌等）
+ */
 @Mixin(TenShadowsSummon.class)
 public abstract class MixinTenShadowsSmartAI extends TamableAnimal {
 
@@ -52,6 +59,7 @@ public abstract class MixinTenShadowsSmartAI extends TamableAnimal {
                 }
             }
         }
+        // 已调伏的式神：不在这里处理，由 SummonAIManager.tickSummonAI() 处理
     }
 
     // 拦截坐下：战斗中禁止坐下

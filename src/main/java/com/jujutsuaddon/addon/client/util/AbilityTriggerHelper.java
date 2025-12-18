@@ -5,7 +5,7 @@ import com.jujutsuaddon.addon.network.c2s.ToggleExtraTechniqueC2SPacket;
 import com.jujutsuaddon.addon.network.c2s.TriggerTenShadowsAbilityC2SPacket;
 import com.jujutsuaddon.addon.network.c2s.UntriggerAbilityC2SPacket;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
-import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
+import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.ResourceLocation;

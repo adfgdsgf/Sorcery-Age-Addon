@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.util.helper;
+package com.jujutsuaddon.addon.util.helper.tenshadows;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import net.minecraft.core.Registry;

@@ -5,7 +5,7 @@ import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig.AnchorPoint;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.jujutsuaddon.addon.client.util.HudPositionHelper;
-import com.jujutsuaddon.addon.util.helper.TenShadowsHelper;
+import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
