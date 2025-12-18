@@ -9,6 +9,7 @@
     "MixinResistanceCalculation",
     "MixinSorcererData",
     "MixinKeyMapping",
+    "InfinityCostMixin",
     "core.MixinAbility",
     "core.MixinLivingEntity",
     "core.MixinCursedSpirit",

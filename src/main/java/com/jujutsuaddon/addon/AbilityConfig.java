@@ -75,6 +75,23 @@ public class AbilityConfig {
         public final ForgeConfigSpec.DoubleValue projectileReflectMaxSpeed;
         public final ForgeConfigSpec.IntValue projectileReflectImmuneTicks;
 
+        // ========== 投射物高级设置 ==========
+        public final ForgeConfigSpec.DoubleValue projectileStopZoneBuffer;
+        public final ForgeConfigSpec.DoubleValue projectileStopZoneBufferPerLevel;
+        public final ForgeConfigSpec.DoubleValue projectileStopZoneMinInner;
+        public final ForgeConfigSpec.IntValue projectileSurgeCheckInterval;
+        public final ForgeConfigSpec.IntValue projectileSurgeLevelThreshold;
+        public final ForgeConfigSpec.DoubleValue projectileSurgeOutputThreshold;
+        public final ForgeConfigSpec.DoubleValue projectileSurgeBaseMult;
+        public final ForgeConfigSpec.DoubleValue projectileSurgeLevelFactor;
+        public final ForgeConfigSpec.DoubleValue projectileSurgeOutputFactor;
+        public final ForgeConfigSpec.DoubleValue projectileSurgeMaxMult;
+        public final ForgeConfigSpec.DoubleValue projectileSurgePushBase;
+        public final ForgeConfigSpec.DoubleValue projectileSurgePushMax;
+        public final ForgeConfigSpec.DoubleValue projectilePushZoneBase;
+        public final ForgeConfigSpec.DoubleValue projectilePushZonePenetrationFactor;
+        public final ForgeConfigSpec.DoubleValue projectilePushZoneMax;
+
         // ========== 伤害 ==========
         public final ForgeConfigSpec.DoubleValue pressureToDamage;
         public final ForgeConfigSpec.DoubleValue pressureChangeDamageMult;
@@ -101,6 +118,12 @@ public class AbilityConfig {
         public final ForgeConfigSpec.BooleanValue respectDomainSureHit;
         public final ForgeConfigSpec.BooleanValue respectDomainAmplification;
 
+        // ========== 咒力消耗 ========== ★ 新增
+        public final ForgeConfigSpec.BooleanValue enablePressureCost;
+        public final ForgeConfigSpec.DoubleValue baseCursedEnergyCost;
+        public final ForgeConfigSpec.DoubleValue costPerPressureLevel;
+        public final ForgeConfigSpec.DoubleValue maxCostMultiplier;
+
         public Common(ForgeConfigSpec.Builder builder) {
 
             builder.push("01_Infinity_Pressure");
@@ -115,13 +138,13 @@ public class AbilityConfig {
 
             // --- 总开关 ---
             enableInfinityPressure = builder
-                    .comment(" ", " Enable or disable the entire Infinity Pressure system.",
+                    .comment( " Enable or disable the entire Infinity Pressure system.",
                             " 启用或禁用整个无下限压力系统。")
                     .translation("config.jujutsu_addon.infinity_pressure.enable")
                     .define("EnableInfinityPressure", true);
 
             // ==================== 范围 ====================
-            builder.comment(" ", "========== Range Settings / 范围设置 ==========").push("Range");
+            builder.comment( " Range Settings / 范围设置 ").push("Range");
 
             level0Range = builder
                     .comment(" Range when pressure level is 0.", " 压力等级为0时的范围。")
@@ -141,7 +164,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 停止距离 ====================
-            builder.comment(" ", "========== Halt Distance / 停止距离 ==========").push("HaltDistance");
+            builder.comment( "Halt Distance / 停止距离").push("HaltDistance");
 
             level1HaltDistance = builder
                     .comment(" Halt distance at level 1 (blocks).", " 等级1的停止距离（格）。")
@@ -166,7 +189,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 压力值 ====================
-            builder.comment(" ", "========== Pressure Value / 压力值计算 ==========").push("PressureValue");
+            builder.comment(" Pressure Value / 压力值计算 ").push("PressureValue");
 
             basePressure = builder
                     .comment(" Base pressure value.", " 基础压力值。")
@@ -191,7 +214,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 推力 ====================
-            builder.comment(" ", "========== Push Force / 推力设置 ==========").push("Force");
+            builder.comment(" Push Force / 推力设置 ").push("Force");
 
             basePushForce = builder
                     .comment(" Base push force per tick.", " 每tick的基础推力。")
@@ -231,7 +254,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 阻力 ====================
-            builder.comment(" ", "========== Resistance / 阻力设置 ==========").push("Resistance");
+            builder.comment(" Resistance / 阻力设置 ").push("Resistance");
 
             lateralResistance = builder
                     .comment(" Resistance to sideways movement.", " 侧向移动阻力。")
@@ -256,7 +279,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 阈值 ====================
-            builder.comment(" ", "========== Thresholds / 触发阈值 ==========").push("Thresholds");
+            builder.comment(" Thresholds / 触发阈值 ").push("Thresholds");
 
             minPressureForPush = builder
                     .comment(" Min pressure to push.", " 触发推力的最低压力。")
@@ -276,7 +299,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 方块破坏 ====================
-            builder.comment(" ", "========== Block Breaking / 方块破坏 ==========").push("BlockBreaking");
+            builder.comment(" Block Breaking / 方块破坏 ").push("BlockBreaking");
 
             pressureDecayRate = builder
                     .comment(" Pressure decay rate per tick.", " 每tick压力衰减速度。")
@@ -324,7 +347,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 投射物 ====================
-            builder.comment(" ", "========== Projectiles / 投射物 ==========").push("Projectiles");
+            builder.comment(" Projectiles / 投射物 ").push("Projectiles");
             affectProjectiles = builder
                     .comment(" ",
                             " Whether pressure affects projectiles (arrows, fireballs, etc.).",
@@ -399,10 +422,106 @@ public class AbilityConfig {
                     .translation("config.jujutsu_addon.infinity_pressure.projectile.reflect_immune")
                     .defineInRange("ProjectileReflectImmuneTicks", 15, 5, 60);
 
+            builder.comment(" ", " [Advanced] Projectile Stop Zone / [高级] 投射物停止区 ").push("StopZone");
+            projectileStopZoneBuffer = builder
+                    .comment(" ",
+                            " Base width of the stop zone buffer.",
+                            " 停止区缓冲的基础宽度。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.stop_zone_buffer")
+                    .defineInRange("StopZoneBuffer", 0.4, 0.1, 2.0);
+            projectileStopZoneBufferPerLevel = builder
+                    .comment(" ",
+                            " Additional buffer width per pressure level.",
+                            " 每级压力增加的缓冲宽度。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.stop_zone_per_level")
+                    .defineInRange("StopZoneBufferPerLevel", 0.03, 0.0, 0.2);
+            projectileStopZoneMinInner = builder
+                    .comment(" ",
+                            " Minimum inner boundary of stop zone.",
+                            " 停止区内边界的最小值。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.stop_zone_min_inner")
+                    .defineInRange("StopZoneMinInner", 0.3, 0.1, 1.0);
+            builder.pop();
+            builder.comment(" ", " [Advanced] Power Surge Detection / [高级] 出力突变检测 ").push("PowerSurge");
+            projectileSurgeCheckInterval = builder
+                    .comment(" ",
+                            " Ticks between surge checks (when projectile is stopped).",
+                            " 检测突变的间隔（投射物停止时）。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_check_interval")
+                    .defineInRange("SurgeCheckInterval", 5, 1, 20);
+            projectileSurgeLevelThreshold = builder
+                    .comment(" ",
+                            " Minimum pressure level increase to trigger surge.",
+                            " 触发突变需要的最小压力等级增加。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_level_threshold")
+                    .defineInRange("SurgeLevelThreshold", 2, 1, 5);
+            projectileSurgeOutputThreshold = builder
+                    .comment(" ",
+                            " Minimum cursed energy output increase to trigger surge.",
+                            " 触发突变需要的最小咒力出力增加。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_output_threshold")
+                    .defineInRange("SurgeOutputThreshold", 0.25, 0.1, 1.0);
+            projectileSurgeBaseMult = builder
+                    .comment(" ",
+                            " Base multiplier when surge is triggered.",
+                            " 突变触发时的基础倍率。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_base_mult")
+                    .defineInRange("SurgeBaseMult", 1.5, 1.0, 3.0);
+            projectileSurgeLevelFactor = builder
+                    .comment(" ",
+                            " How much each level difference adds to surge multiplier.",
+                            " 每级差异对突变倍率的加成。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_level_factor")
+                    .defineInRange("SurgeLevelFactor", 0.5, 0.1, 2.0);
+            projectileSurgeOutputFactor = builder
+                    .comment(" ",
+                            " How much output difference affects surge multiplier.",
+                            " 出力差异对突变倍率的影响系数。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_output_factor")
+                    .defineInRange("SurgeOutputFactor", 2.5, 0.5, 5.0);
+            projectileSurgeMaxMult = builder
+                    .comment(" ",
+                            " Maximum surge multiplier cap.",
+                            " 突变倍率上限。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_max_mult")
+                    .defineInRange("SurgeMaxMult", 5.0, 2.0, 10.0);
+            projectileSurgePushBase = builder
+                    .comment(" ",
+                            " Base push strength when surge repels projectile.",
+                            " 突变弹开投射物时的基础推力。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_push_base")
+                    .defineInRange("SurgePushBase", 0.6, 0.1, 2.0);
+            projectileSurgePushMax = builder
+                    .comment(" ",
+                            " Maximum push strength from surge.",
+                            " 突变推力上限。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_push_max")
+                    .defineInRange("SurgePushMax", 3.0, 1.0, 5.0);
+            builder.pop();
+            builder.comment(" ", " [Advanced] Push Zone / [高级] 推力区 ").push("PushZone");
+            projectilePushZoneBase = builder
+                    .comment(" ",
+                            " Base push force in the push zone.",
+                            " 推力区的基础推力。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.push_zone_base")
+                    .defineInRange("PushZoneBase", 0.012, 0.001, 0.1);
+            projectilePushZonePenetrationFactor = builder
+                    .comment(" ",
+                            " How much penetration depth increases push force.",
+                            " 穿透深度对推力的增益系数。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.push_zone_penetration")
+                    .defineInRange("PushZonePenetrationFactor", 0.8, 0.1, 2.0);
+            projectilePushZoneMax = builder
+                    .comment(" ",
+                            " Maximum push force in push zone.",
+                            " 推力区的推力上限。")
+                    .translation("config.jujutsu_addon.infinity_pressure.projectile.push_zone_max")
+                    .defineInRange("PushZoneMax", 0.06, 0.01, 0.2);
+
             builder.pop();
 
             // ==================== 伤害 ====================
-            builder.comment(" ", "========== Damage / 伤害设置 ==========").push("Damage");
+            builder.comment(" Damage / 伤害设置 ").push("Damage");
 
             pressureToDamage = builder
                     .comment(" Damage per pressure point.", " 每点压力的伤害。")
@@ -437,7 +556,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 伤害预兆 ====================
-            builder.comment(" ", "========== Damage Warning / 伤害预兆 ==========").push("DamageWarning");
+            builder.comment(" Damage Warning / 伤害预兆 ").push("DamageWarning");
 
             damageWarningTicks = builder
                     .comment(" Warning ticks before damage.", " 伤害前的预警tick数。")
@@ -457,7 +576,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 效果 ====================
-            builder.comment(" ", "========== Effects / 效果设置 ==========").push("Effects");
+            builder.comment(" Effects / 效果设置 ").push("Effects");
 
             enablePressureParticles = builder
                     .comment(" Enable particles.", " 启用粒子效果。")
@@ -472,7 +591,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 掉落物 ==================== ★ 新增
-            builder.comment(" ", "========== Dropped Items / 掉落物推开 ==========").push("DroppedItems");
+            builder.comment(" Dropped Items / 掉落物推开 ").push("DroppedItems");
 
             pushDroppedItems = builder
                     .comment(" ",
@@ -501,7 +620,7 @@ public class AbilityConfig {
             builder.pop();
 
             // ==================== 领域交互 ====================
-            builder.comment(" ", "========== Domain Interaction / 领域交互 ==========").push("DomainInteraction");
+            builder.comment(" Domain Interaction / 领域交互 ").push("DomainInteraction");
             respectDomainSureHit = builder
                     .comment(" ",
                             " Whether domain sure-hit effect bypasses pressure.",
@@ -519,6 +638,45 @@ public class AbilityConfig {
                             " 领域增幅是否能穿透压力。")
                     .translation("config.jujutsu_addon.infinity_pressure.domain.respect_amplification")
                     .define("RespectDomainAmplification", true);
+            builder.pop();
+
+            // ==================== 咒力消耗 ====================
+            builder.comment(" Cursed Energy Cost / 咒力消耗 ").push("CursedEnergyCost");
+            enablePressureCost = builder
+                    .comment(" ",
+                            " Whether pressure level affects cursed energy cost.",
+                            " Higher pressure = more energy consumption.",
+                            "----------------------------------------------------------------",
+                            " 压力等级是否影响咒力消耗。",
+                            " 压力越高 = 消耗越多。")
+                    .translation("config.jujutsu_addon.infinity_pressure.cost.enable")
+                    .define("EnablePressureCost", true);
+            baseCursedEnergyCost = builder
+                    .comment(" ",
+                            " Base cost at pressure level 0 (vanilla value is 0.8).",
+                            " 压力等级0时的基础消耗（原版值为0.8）。")
+                    .translation("config.jujutsu_addon.infinity_pressure.cost.base")
+                    .defineInRange("BaseCursedEnergyCost", 0.8, 0.0, 5.0);
+            costPerPressureLevel = builder
+                    .comment(" ",
+                            " Additional cost multiplier per pressure level.",
+                            " Formula: baseCost × (1 + level × this)",
+                            " Example with 0.2: Level 5 = 0.8 × 2.0 = 1.6 cost",
+                            "----------------------------------------------------------------",
+                            " 每级压力增加的消耗倍率。",
+                            " 公式：基础消耗 × (1 + 等级 × 此值)",
+                            " 以0.2为例：等级5 = 0.8 × 2.0 = 1.6消耗")
+                    .translation("config.jujutsu_addon.infinity_pressure.cost.per_level")
+                    .defineInRange("CostPerPressureLevel", 0.2, 0.0, 1.0);
+            maxCostMultiplier = builder
+                    .comment(" ",
+                            " Maximum cost multiplier cap.",
+                            " Prevents extremely high costs at max level.",
+                            "----------------------------------------------------------------",
+                            " 最大消耗倍率上限。",
+                            " 防止最高等级时消耗过高。")
+                    .translation("config.jujutsu_addon.infinity_pressure.cost.max_mult")
+                    .defineInRange("MaxCostMultiplier", 4.0, 1.0, 10.0);
             builder.pop();
 
             builder.pop(); // 结束 01_Infinity_Pressure

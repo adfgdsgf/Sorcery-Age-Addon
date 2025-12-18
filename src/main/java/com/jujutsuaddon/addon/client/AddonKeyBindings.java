@@ -27,11 +27,12 @@ public class AddonKeyBindings {
     // ===== 自瞄按键 =====
     public static KeyMapping TOGGLE_AIM_ASSIST;
 
-    // ★★★ 防止重复初始化的标志 ★★★
+    // ★★★ 新增：无下限滚轮修饰键 ★★★
+    public static KeyMapping INFINITY_SCROLL_MODIFIER;
+
     private static boolean initialized = false;
 
     public static void init() {
-        // ★★★ 如果已经初始化过，直接返回 ★★★
         if (initialized) {
             return;
         }
@@ -93,12 +94,20 @@ public class AddonKeyBindings {
                 CATEGORY
         );
 
-        // ===== 自瞄按键 =====
         TOGGLE_AIM_ASSIST = new KeyMapping(
                 "key.jujutsu_addon.toggle_aim_assist",
                 KeyConflictContext.IN_GAME,
                 InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_GRAVE_ACCENT,  // ` 键
+                GLFW.GLFW_KEY_GRAVE_ACCENT,
+                CATEGORY
+        );
+
+        // ★★★ 无下限滚轮修饰键 - 默认 Left Control ★★★
+        INFINITY_SCROLL_MODIFIER = new KeyMapping(
+                "key.jujutsu_addon.infinity_scroll_modifier",
+                KeyConflictContext.IN_GAME,
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_LEFT_CONTROL,  // 默认左Ctrl
                 CATEGORY
         );
     }
@@ -110,7 +119,8 @@ public class AddonKeyBindings {
         all.add(PREV_PRESET);
         all.add(TOGGLE_SKILL_KEYS);
         all.add(OPEN_HUD_EDIT);
-        all.add(TOGGLE_AIM_ASSIST);  // ← 添加
+        all.add(TOGGLE_AIM_ASSIST);
+        all.add(INFINITY_SCROLL_MODIFIER);  // ★ 添加
         return all;
     }
 }

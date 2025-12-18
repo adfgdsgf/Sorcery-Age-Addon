@@ -11,7 +11,6 @@ public class PushForceApplier {
                                       PressureStateManager stateManager) {
 
         CollisionInfo info = new CollisionInfo();
-        Vec3 currentVelocity = target.getDeltaMovement();
 
         Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
         Vec3 targetCenter = target.position().add(0, target.getBbHeight() / 2, 0);
@@ -42,6 +41,14 @@ public class PushForceApplier {
 
         info.isColliding = CollisionHandler.isCollidingInForceDirection(target, forceDirection);
 
+        // ★★★ 使用通用速度控制器进行预处理 ★★★
+        VelocityController.VelocityResult velocityResult = VelocityController.processEntityVelocity(
+                target, ownerCenter, pressureLevel, cursedEnergyOutput, maxRange);
+
+        Vec3 currentVelocity = velocityResult.processedVelocity;  // 使用限制后的速度
+        double resistanceStrength = velocityResult.resistanceStrength;
+        info.resistanceStrength = resistanceStrength;
+
         Vec3 horizontalForce = new Vec3(forceDirection.x, 0, forceDirection.z);
         double hForceLen = horizontalForce.length();
         if (hForceLen > 0.01) {
@@ -55,9 +62,6 @@ public class PushForceApplier {
         if (target.hurtTime > 0 && newVelY > 0.1) {
             newVelY *= 0.3;
         }
-
-        double resistanceStrength = PressureCalculator.calculateResistanceStrength(
-                pressureLevel, distance3D, maxRange);
 
         if (distanceFromHalt < 0) {
             // ==================== 突破停止边界 ====================
@@ -78,11 +82,12 @@ public class PushForceApplier {
                 newVelY += 0.02 * breachForce;
             }
 
-            double approachVelX = -(currentVelocity.x * horizontalForce.x +
+            // ★★★ 强制抵消所有接近速度 ★★★
+            double approachVel = -(currentVelocity.x * horizontalForce.x +
                     currentVelocity.z * horizontalForce.z);
-            if (approachVelX > 0) {
-                newVelX += horizontalForce.x * approachVelX * 0.95;
-                newVelZ += horizontalForce.z * approachVelX * 0.95;
+            if (approachVel > 0) {
+                newVelX += horizontalForce.x * approachVel;  // 完全抵消
+                newVelZ += horizontalForce.z * approachVel;
             }
 
             if (info.isColliding) {
@@ -155,47 +160,20 @@ public class PushForceApplier {
             // ==================== 未碰撞、未突破 ====================
             stateManager.resetPinnedTicks(target.getUUID());
 
+            double pushForce = PressureCalculator.calculatePushForce(
+                    pressureLevel, cursedEnergyOutput, distance3D, maxRange);
+
             if (distanceFromHalt < PressureConfig.getHaltTransitionZone()) {
-                double pushForce = PressureCalculator.calculatePushForce(
-                        pressureLevel, cursedEnergyOutput, distance3D, maxRange);
+                // 接近停止边界，增强推力
+                double proximityMult = 1.0 + (1.0 - distanceFromHalt / PressureConfig.getHaltTransitionZone()) * 0.5;
+                pushForce *= proximityMult;
+            }
 
-                newVelX += horizontalForce.x * pushForce * 0.5;
-                newVelZ += horizontalForce.z * pushForce * 0.5;
+            newVelX += horizontalForce.x * pushForce;
+            newVelZ += horizontalForce.z * pushForce;
 
-                double approachVelX = -currentVelocity.x * horizontalForce.x;
-                double approachVelZ = -currentVelocity.z * horizontalForce.z;
-
-                if (approachVelX > 0) {
-                    newVelX += horizontalForce.x * approachVelX * resistanceStrength;
-                }
-                if (approachVelZ > 0) {
-                    newVelZ += horizontalForce.z * approachVelZ * resistanceStrength;
-                }
-
-                double slowdown = 1.0 - resistanceStrength * 0.4;
-                newVelX *= slowdown;
-                newVelZ *= slowdown;
-
-            } else {
-                double pushForce = PressureCalculator.calculatePushForce(
-                        pressureLevel, cursedEnergyOutput, distance3D, maxRange);
-
-                newVelX += horizontalForce.x * pushForce;
-                newVelZ += horizontalForce.z * pushForce;
-
-                if (forceDirection.y < -0.3) {
-                    newVelY += forceDirection.y * pushForce * 0.5;
-                }
-
-                double approachVelX = -currentVelocity.x * horizontalForce.x;
-                double approachVelZ = -currentVelocity.z * horizontalForce.z;
-
-                if (approachVelX > 0) {
-                    newVelX += horizontalForce.x * approachVelX * resistanceStrength;
-                }
-                if (approachVelZ > 0) {
-                    newVelZ += horizontalForce.z * approachVelZ * resistanceStrength;
-                }
+            if (forceDirection.y < -0.3) {
+                newVelY += forceDirection.y * pushForce * 0.5;
             }
         }
 
@@ -211,7 +189,6 @@ public class PushForceApplier {
 
         info.forceDirection = forceDirection;
         info.distance = distance3D;
-        info.resistanceStrength = resistanceStrength;
 
         return info;
     }

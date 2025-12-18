@@ -16,6 +16,7 @@ import com.jujutsuaddon.addon.network.c2s.*;
 // ▲▲▲ 新增 import 结束 ▲▲▲
 import com.jujutsuaddon.addon.util.helper.TechniqueAccessHelper;
 import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -28,6 +29,7 @@ import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.lwjgl.glfw.GLFW;
 import radon.jujutsu_kaisen.ability.JJKAbilities;
 import radon.jujutsu_kaisen.ability.base.Ability;
 import radon.jujutsu_kaisen.ability.base.Summon;
@@ -464,24 +466,40 @@ public class ClientEvents {
     public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-
         if (player == null || mc.screen != null) return;
-
-        // 必须按住 Shift
-        if (!Screen.hasShiftDown()) return;
-
+        // ★★★ 检查自定义修饰键是否被按下 ★★★
+        if (AddonKeyBindings.INFINITY_SCROLL_MODIFIER == null) return;
+        if (!isKeyDown(AddonKeyBindings.INFINITY_SCROLL_MODIFIER)) return;
         // 必须开启了 Infinity
         if (!JJKAbilities.hasToggled(player, JJKAbilities.INFINITY.get())) return;
-
         double scrollDelta = event.getScrollDelta();
-
         if (scrollDelta != 0) {
             // 向上滚 = 增加压制，向下滚 = 减少压制
             boolean increase = scrollDelta > 0;
             AddonNetwork.sendToServer(new SyncInfinityPressureC2SPacket(increase));
-
             // 取消原版滚动（切换快捷栏）
             event.setCanceled(true);
         }
+    }
+    /**
+     * 检查 KeyMapping 对应的按键是否被按住
+     * 支持任意按键，包括鼠标按钮
+     */
+    private static boolean isKeyDown(KeyMapping keyMapping) {
+        if (keyMapping.isUnbound()) return false;
+
+        Minecraft mc = Minecraft.getInstance();
+        InputConstants.Key key = keyMapping.getKey();
+        long window = mc.getWindow().getWindow();
+
+        if (key.getType() == InputConstants.Type.KEYSYM) {
+            // 键盘按键
+            return InputConstants.isKeyDown(window, key.getValue());
+        } else if (key.getType() == InputConstants.Type.MOUSE) {
+            // 鼠标按键
+            return GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+        }
+
+        return false;
     }
 }

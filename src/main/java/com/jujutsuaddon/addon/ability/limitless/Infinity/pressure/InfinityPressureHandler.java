@@ -33,16 +33,20 @@ public class InfinityPressureHandler {
     @SubscribeEvent
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
         LivingEntity owner = event.getEntity();
-
         if (!PressureConfig.isEnabled()) return;
         if (owner.level().isClientSide) return;
-        if (!JJKAbilities.hasToggled(owner, JJKAbilities.INFINITY.get())) return;
 
+        // ★★★ 修复：无下限关闭时也要清理投射物 ★★★
+        if (!JJKAbilities.hasToggled(owner, JJKAbilities.INFINITY.get())) {
+            PressureStateManager stateManager = stateManagers.get(owner.getUUID());
+            if (stateManager != null && stateManager.getTrackedProjectileCount() > 0) {
+                stateManager.releaseAllProjectiles(owner);
+            }
+            return;
+        }
         ISorcererData data = owner.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
         if (data == null) return;
-
         if (!(data instanceof IInfinityPressureAccessor accessor)) return;
-
         int pressureLevel = accessor.jujutsuAddon$getInfinityPressure();
         if (pressureLevel <= 0) {
             PressureStateManager stateManager = stateManagers.get(owner.getUUID());
@@ -145,34 +149,28 @@ public class InfinityPressureHandler {
     private static void pushItem(LivingEntity owner, ItemEntity item,
                                  int pressureLevel, float cursedEnergyOutput,
                                  double maxRange) {
-
         Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
-        Vec3 itemPos = item.position();
-
-        double distance = ownerCenter.distanceTo(itemPos);
-        if (distance < 0.1) distance = 0.1;
-        if (distance > maxRange) return;
-
-        Vec3 direction = itemPos.subtract(ownerCenter).normalize();
-
+        // ★★★ 使用通用速度控制器 ★★★
+        VelocityController.VelocityResult result = VelocityController.processEntityVelocity(
+                item, ownerCenter, pressureLevel, cursedEnergyOutput, maxRange);
+        if (result.distance > maxRange) return;
+        Vec3 direction = result.directionFromOwner;
+        double distance = result.distance;
+        // 计算推力
         double levelFactor = PressureCalculator.calculateLevelFactor(pressureLevel);
         double distanceFactor = 1.0 - (distance / maxRange);
         distanceFactor = Math.max(0, distanceFactor);
-
         double baseForce = PressureConfig.getBasePushForce() * levelFactor * cursedEnergyOutput;
         double itemForce = baseForce * distanceFactor * PressureConfig.getItemPushForceMultiplier();
-
         itemForce = Math.min(itemForce, PressureConfig.getMaxPushForce() * 1.5);
-
-        Vec3 currentVel = item.getDeltaMovement();
+        // 从限制后的速度开始
+        Vec3 currentVel = result.processedVelocity;
         double newVelX = currentVel.x + direction.x * itemForce;
         double newVelY = currentVel.y + direction.y * itemForce * 0.3 + 0.02;
         double newVelZ = currentVel.z + direction.z * itemForce;
-
         newVelX = Math.max(-2.0, Math.min(2.0, newVelX));
         newVelY = Math.max(-1.0, Math.min(1.5, newVelY));
         newVelZ = Math.max(-2.0, Math.min(2.0, newVelZ));
-
         item.setDeltaMovement(newVelX, newVelY, newVelZ);
         item.hurtMarked = true;
     }

@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,28 +30,83 @@ public class PressureStateManager {
     private final Map<BlockPos, Integer> blockBreakerId = new HashMap<>();
     private int breakerIdCounter = 0;
 
-    // ==================== 投射物状态 ==================== ★ 新增
-    private final Map<UUID, ProjectileState> affectedProjectiles = new HashMap<>();
+    // ==================== 投射物状态 ====================
+    private final Map<UUID, ProjectileState> projectileStates = new HashMap<>();
+    private final Map<UUID, Integer> repelledProjectiles = new HashMap<>();
 
-    /**
-     * 投射物状态记录
-     */
     public static class ProjectileState {
-        public final boolean originalNoGravity;  // 原始重力状态
-        public final long firstAffectedTime;     // 首次受影响时间
-        public double lastDistance;              // 上次距离
-        public boolean isHovering;               // 是否悬浮中
-        public int hoverTicks;                   // 悬浮时长
-        public int immuneTicks;                  // ★ 新增：豁免时间（刚被弹开后不受影响）
-        public double lastApproachSpeed;         // ★ 新增：上次接近速度（用于计算反弹）
-        public ProjectileState(boolean originalNoGravity) {
+        public final boolean originalNoGravity;
+        public final long firstAffectedTime;
+        public final Vec3 originalVelocity;
+        public double lastDistance;
+        public boolean isFullyStopped;
+        public int stoppedTicks;
+        public int immuneTicks;
+        public int baselinePressureLevel;
+        public float baselineCursedOutput;
+        public int ticksSinceBaseline;
+
+        // 位置锁定
+        public Vec3 haltPosition;
+        public Vec3 lastAppliedPosition;
+        public boolean positionLocked;
+        public int positionResetCount;
+
+        // ★★★ 火焰弹等特殊投射物的动力值 ★★★
+        public boolean isHurtingProjectile;
+        public double originalXPower;
+        public double originalYPower;
+        public double originalZPower;
+        public boolean powerSaved;
+
+        public ProjectileState(boolean originalNoGravity, Vec3 originalVelocity) {
             this.originalNoGravity = originalNoGravity;
+            this.originalVelocity = originalVelocity;
             this.firstAffectedTime = System.currentTimeMillis();
             this.lastDistance = 0;
-            this.isHovering = false;
-            this.hoverTicks = 0;
+            this.isFullyStopped = false;
+            this.stoppedTicks = 0;
             this.immuneTicks = 0;
-            this.lastApproachSpeed = 0;
+            this.baselinePressureLevel = 0;
+            this.baselineCursedOutput = 0;
+            this.ticksSinceBaseline = 0;
+
+            this.haltPosition = null;
+            this.lastAppliedPosition = null;
+            this.positionLocked = false;
+            this.positionResetCount = 0;
+
+            // 火焰弹相关
+            this.isHurtingProjectile = false;
+            this.originalXPower = 0;
+            this.originalYPower = 0;
+            this.originalZPower = 0;
+            this.powerSaved = false;
+        }
+
+        public void lockPosition(Vec3 position) {
+            this.haltPosition = position;
+            this.lastAppliedPosition = position;
+            this.positionLocked = true;
+        }
+
+        public void unlockPosition() {
+            this.positionLocked = false;
+            this.haltPosition = null;
+            this.lastAppliedPosition = null;
+            this.positionResetCount = 0;
+        }
+
+        public boolean updateAndCheckPosition(Vec3 currentPosition) {
+            if (!positionLocked || lastAppliedPosition == null) {
+                return false;
+            }
+            double drift = currentPosition.distanceTo(lastAppliedPosition);
+            if (drift > 0.01) {
+                positionResetCount++;
+                return true;
+            }
+            return false;
         }
     }
 
@@ -191,82 +247,183 @@ public class PressureStateManager {
         blockLastPressureTime.remove(pos);
     }
 
-    // ==================== 投射物状态方法 ==================== ★ 新增
+    // ==================== 投射物状态方法 ====================
 
-    /**
-     * 开始跟踪投射物，记录其原始状态
-     * @return 投射物状态（新建或已存在）
-     */
     public ProjectileState trackProjectile(Projectile projectile) {
         UUID id = projectile.getUUID();
-        if (!affectedProjectiles.containsKey(id)) {
-            affectedProjectiles.put(id, new ProjectileState(projectile.isNoGravity()));
+        if (!projectileStates.containsKey(id)) {
+            ProjectileState state = new ProjectileState(
+                    projectile.isNoGravity(),
+                    projectile.getDeltaMovement()
+            );
+            projectileStates.put(id, state);
+            return state;
         }
-        return affectedProjectiles.get(id);
+        return projectileStates.get(id);
     }
 
-    /**
-     * 获取投射物状态
-     */
     public ProjectileState getProjectileState(UUID projectileId) {
-        return affectedProjectiles.get(projectileId);
+        return projectileStates.get(projectileId);
     }
 
+    public void forceRemoveProjectile(UUID projectileId) {
+        projectileStates.remove(projectileId);
+    }
+
+    // ==================== 火焰弹专用方法 ====================
+
     /**
-     * 更新投射物状态
+     * 保存火焰弹的动力值
      */
-    public void updateProjectileState(UUID projectileId, double distance, boolean hovering) {
-        ProjectileState state = affectedProjectiles.get(projectileId);
-        if (state != null) {
-            state.lastDistance = distance;
-            state.isHovering = hovering;
-            if (hovering) {
-                state.hoverTicks++;
-            } else {
-                state.hoverTicks = 0;
+    public void saveHurtingProjectilePower(Projectile projectile, ProjectileState state) {
+        if (projectile instanceof AbstractHurtingProjectile hurting) {
+            if (!state.powerSaved) {
+                state.isHurtingProjectile = true;
+                state.originalXPower = hurting.xPower;
+                state.originalYPower = hurting.yPower;
+                state.originalZPower = hurting.zPower;
+                state.powerSaved = true;
             }
         }
     }
 
     /**
-     * 释放投射物，恢复其原始状态
+     * 清零火焰弹的动力值（停止时调用）
      */
-    public void releaseProjectile(Projectile projectile) {
-        UUID id = projectile.getUUID();
-        ProjectileState state = affectedProjectiles.remove(id);
-        if (state != null) {
-            // 恢复原始重力状态
-            projectile.setNoGravity(state.originalNoGravity);
+    public void clearHurtingProjectilePower(Projectile projectile) {
+        if (projectile instanceof AbstractHurtingProjectile hurting) {
+            hurting.xPower = 0;
+            hurting.yPower = 0;
+            hurting.zPower = 0;
         }
     }
 
     /**
-     * 检查投射物是否被跟踪
+     * 恢复火焰弹的动力值（释放时调用）
      */
+    public void restoreHurtingProjectilePower(Projectile projectile, ProjectileState state) {
+        if (projectile instanceof AbstractHurtingProjectile hurting && state.powerSaved) {
+            hurting.xPower = state.originalXPower;
+            hurting.yPower = state.originalYPower;
+            hurting.zPower = state.originalZPower;
+        }
+    }
+
+    /**
+     * 设置火焰弹的动力值（减速/推力时调用）
+     */
+    public void setHurtingProjectilePower(Projectile projectile, double xPower, double yPower, double zPower) {
+        if (projectile instanceof AbstractHurtingProjectile hurting) {
+            hurting.xPower = xPower;
+            hurting.yPower = yPower;
+            hurting.zPower = zPower;
+        }
+    }
+
+    // ==================== 投射物控制方法 ====================
+
+    /**
+     * 强制保持投射物位置（包括火焰弹动力清零）
+     */
+    public void enforceProjectilePosition(Projectile projectile, ProjectileState state) {
+        if (state == null || !state.positionLocked || state.haltPosition == null) {
+            return;
+        }
+
+        // 强制设置位置
+        projectile.setPos(state.haltPosition);
+        projectile.setOldPosAndRot();  // 防止插值导致的抖动
+
+        // 清零速度
+        projectile.setDeltaMovement(Vec3.ZERO);
+        projectile.setNoGravity(true);
+
+        // ★★★ 清零火焰弹的动力 ★★★
+        clearHurtingProjectilePower(projectile);
+
+        // 记录应用的位置
+        state.lastAppliedPosition = state.haltPosition;
+
+        // 标记同步
+        projectile.hurtMarked = true;
+        projectile.hasImpulse = false;  // 防止物理引擎干扰
+    }
+
+    /**
+     * 释放投射物（恢复原始状态）
+     */
+    public void releaseProjectile(Projectile projectile) {
+        UUID id = projectile.getUUID();
+        ProjectileState state = projectileStates.remove(id);
+        if (state != null) {
+            Vec3 currentPos = projectile.position();
+
+            // 恢复原始重力设置
+            projectile.setNoGravity(state.originalNoGravity);
+
+            // ★★★ 恢复火焰弹的动力值 ★★★
+            if (state.isHurtingProjectile && state.powerSaved) {
+                restoreHurtingProjectilePower(projectile, state);
+                // 火焰弹会自己根据 power 飞行，给一个小的初始速度帮助启动
+                Vec3 powerDir = new Vec3(state.originalXPower, state.originalYPower, state.originalZPower);
+                if (powerDir.lengthSqr() > 0.0001) {
+                    projectile.setDeltaMovement(powerDir.normalize().scale(0.1));
+                }
+            } else {
+                // 普通投射物
+                if (!state.originalNoGravity) {
+                    projectile.setDeltaMovement(0, -0.05, 0);
+                } else {
+                    projectile.setDeltaMovement(Vec3.ZERO);
+                }
+            }
+
+            projectile.setPos(currentPos);
+            projectile.hurtMarked = true;
+            projectile.hasImpulse = true;
+        }
+    }
+
     public boolean isProjectileTracked(UUID projectileId) {
-        return affectedProjectiles.containsKey(projectileId);
+        return projectileStates.containsKey(projectileId);
     }
 
-    /**
-     * 获取所有被跟踪的投射物ID
-     */
     public Set<UUID> getTrackedProjectileIds() {
-        return new HashSet<>(affectedProjectiles.keySet());
+        return new HashSet<>(projectileStates.keySet());
     }
 
-    /**
-     * 清理超出范围的投射物
-     */
+    // ==================== 弹开豁免机制 ====================
+
+    public void markAsRepelled(UUID projectileId, int immuneTicks) {
+        repelledProjectiles.put(projectileId, immuneTicks);
+    }
+
+    public boolean isRepelled(UUID projectileId) {
+        return repelledProjectiles.containsKey(projectileId);
+    }
+
+    public void tickRepelledProjectiles() {
+        if (repelledProjectiles.isEmpty()) return;
+
+        repelledProjectiles.entrySet().removeIf(entry -> {
+            int remaining = entry.getValue() - 1;
+            if (remaining <= 0) {
+                return true;
+            }
+            entry.setValue(remaining);
+            return false;
+        });
+    }
+
     public void cleanupProjectiles(LivingEntity owner, double currentMaxRange) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
         Set<UUID> toRemove = new HashSet<>();
         Vec3 ownerPos = owner.position();
 
-        for (UUID id : affectedProjectiles.keySet()) {
+        for (UUID id : projectileStates.keySet()) {
             Entity entity = level.getEntity(id);
 
-            // 投射物不存在、已死亡或已移除
             if (entity == null || !entity.isAlive() || entity.isRemoved()) {
                 toRemove.add(id);
                 continue;
@@ -277,42 +434,33 @@ public class PressureStateManager {
                 continue;
             }
 
-            // 投射物超出当前范围的1.5倍
             double distance = ownerPos.distanceTo(projectile.position());
             if (distance > currentMaxRange * 1.5) {
-                // 超出范围，释放并恢复重力
                 releaseProjectile(projectile);
-                // 已经在 releaseProjectile 中移除了，这里确保移除
                 toRemove.add(id);
             }
         }
 
-        // 移除已清理的条目
         for (UUID id : toRemove) {
-            affectedProjectiles.remove(id);
+            projectileStates.remove(id);
         }
     }
 
-    /**
-     * 释放所有被跟踪的投射物（压力关闭或等级归零时调用）
-     */
     public void releaseAllProjectiles(LivingEntity owner) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
-        for (UUID id : new HashSet<>(affectedProjectiles.keySet())) {
+        for (UUID id : new HashSet<>(projectileStates.keySet())) {
             Entity entity = level.getEntity(id);
             if (entity instanceof Projectile projectile) {
                 releaseProjectile(projectile);
             }
         }
-        affectedProjectiles.clear();
+        projectileStates.clear();
+        repelledProjectiles.clear();
     }
 
-    /**
-     * 获取被跟踪的投射物数量
-     */
     public int getTrackedProjectileCount() {
-        return affectedProjectiles.size();
+        return projectileStates.size();
     }
 
     // ==================== 清理方法 ====================
@@ -326,8 +474,8 @@ public class PressureStateManager {
         previousPressure.clear();
         damageWarningTicks.clear();
 
-        // ★ 释放所有投射物 ★
         releaseAllProjectiles(owner);
+        repelledProjectiles.clear();
 
         if (owner.level() instanceof ServerLevel level) {
             for (BlockPos pos : new HashSet<>(blockBreakerId.keySet())) {
@@ -378,7 +526,6 @@ public class PressureStateManager {
             return entity == null || owner.distanceTo(entity) > range * 1.5;
         });
 
-        // ★ 清理投射物 ★
         cleanupProjectiles(owner, range);
 
         long currentTime = System.currentTimeMillis();

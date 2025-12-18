@@ -271,6 +271,59 @@ public class PressureConfig {
         return AbilityConfig.COMMON.projectileReflectImmuneTicks.get();
     }
 
+    // ==================== 投射物高级设置 ====================
+
+    // --- 停止区 ---
+    public static double getProjectileStopZoneBuffer() {
+        return AbilityConfig.COMMON.projectileStopZoneBuffer.get();
+    }
+    public static double getProjectileStopZoneBufferPerLevel() {
+        return AbilityConfig.COMMON.projectileStopZoneBufferPerLevel.get();
+    }
+    public static double getProjectileStopZoneMinInner() {
+        return AbilityConfig.COMMON.projectileStopZoneMinInner.get();
+    }
+
+    // --- 出力突变 ---
+    public static int getProjectileSurgeCheckInterval() {
+        return AbilityConfig.COMMON.projectileSurgeCheckInterval.get();
+    }
+    public static int getProjectileSurgeLevelThreshold() {
+        return AbilityConfig.COMMON.projectileSurgeLevelThreshold.get();
+    }
+    public static double getProjectileSurgeOutputThreshold() {
+        return AbilityConfig.COMMON.projectileSurgeOutputThreshold.get();
+    }
+    public static double getProjectileSurgeBaseMult() {
+        return AbilityConfig.COMMON.projectileSurgeBaseMult.get();
+    }
+    public static double getProjectileSurgeLevelFactor() {
+        return AbilityConfig.COMMON.projectileSurgeLevelFactor.get();
+    }
+    public static double getProjectileSurgeOutputFactor() {
+        return AbilityConfig.COMMON.projectileSurgeOutputFactor.get();
+    }
+    public static double getProjectileSurgeMaxMult() {
+        return AbilityConfig.COMMON.projectileSurgeMaxMult.get();
+    }
+    public static double getProjectileSurgePushBase() {
+        return AbilityConfig.COMMON.projectileSurgePushBase.get();
+    }
+    public static double getProjectileSurgePushMax() {
+        return AbilityConfig.COMMON.projectileSurgePushMax.get();
+    }
+
+    // --- 推力区 ---
+    public static double getProjectilePushZoneBase() {
+        return AbilityConfig.COMMON.projectilePushZoneBase.get();
+    }
+    public static double getProjectilePushZonePenetrationFactor() {
+        return AbilityConfig.COMMON.projectilePushZonePenetrationFactor.get();
+    }
+    public static double getProjectilePushZoneMax() {
+        return AbilityConfig.COMMON.projectilePushZoneMax.get();
+    }
+
     // ==================== 等级因子计算 ====================
 
     public static double calculateLevelFactor(int level) {
@@ -278,6 +331,51 @@ public class PressureConfig {
         if (level >= 10) return getMaxLevelMult();
 
         return getMinLevelMult() + (level - 1) * (getMaxLevelMult() - getMinLevelMult()) / 9.0;
+    }
+    // ==================== 咒力消耗 ====================
+    public static boolean isPressureCostEnabled() {
+        return AbilityConfig.COMMON.enablePressureCost.get();
+    }
+    public static float getBaseCursedEnergyCost() {
+        return AbilityConfig.COMMON.baseCursedEnergyCost.get().floatValue();
+    }
+    public static float getCostPerPressureLevel() {
+        return AbilityConfig.COMMON.costPerPressureLevel.get().floatValue();
+    }
+    public static float getMaxCostMultiplier() {
+        return AbilityConfig.COMMON.maxCostMultiplier.get().floatValue();
+    }
+    /**
+     * 根据压制等级计算咒力消耗
+     *
+     * 公式: baseCost × (1 + pressureLevel × costPerLevel)
+     *
+     * 默认配置下的示例:
+     * - 等级 0: 0.8 × 1.0 = 0.80 (原版消耗)
+     * - 等级 1: 0.8 × 1.2 = 0.96
+     * - 等级 3: 0.8 × 1.6 = 1.28
+     * - 等级 5: 0.8 × 2.0 = 1.60
+     * - 等级 7: 0.8 × 2.4 = 1.92
+     * - 等级 10: 0.8 × 3.0 = 2.40
+     *
+     * @param pressureLevel 当前压制等级 (0-10)
+     * @return 计算后的咒力消耗
+     */
+    public static float calculatePressureCost(int pressureLevel) {
+        float baseCost = getBaseCursedEnergyCost();
+
+        if (pressureLevel <= 0) {
+            return baseCost;
+        }
+
+        float costPerLevel = getCostPerPressureLevel();
+        float multiplier = 1.0F + (pressureLevel * costPerLevel);
+
+        // 限制最大倍率
+        float maxMult = getMaxCostMultiplier();
+        multiplier = Math.min(multiplier, maxMult);
+
+        return baseCost * multiplier;
     }
 
     private PressureConfig() {}
