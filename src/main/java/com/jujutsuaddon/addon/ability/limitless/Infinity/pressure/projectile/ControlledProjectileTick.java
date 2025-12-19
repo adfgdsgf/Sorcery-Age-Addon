@@ -1,5 +1,6 @@
-package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
+package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -22,8 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ControlledProjectileTick {
-
-    private static final float BUFFER_ZONE = 0.3f;
 
     // 玩家位置追踪
     private static final Map<UUID, PlayerMovementData> PLAYER_MOVEMENT = new ConcurrentHashMap<>();
@@ -67,9 +66,6 @@ public class ControlledProjectileTick {
 
     public static void tick(Projectile projectile) {
         if (!(projectile instanceof IFrozenProjectile fp)) return;
-
-        // ★★★ 和参考代码一样，不区分客户端/服务端 ★★★
-        // Mixin已经在服务端调用，客户端会通过MC默认同步收到位置
         tickProjectile(projectile, fp);
     }
 
@@ -89,7 +85,7 @@ public class ControlledProjectileTick {
     private static void tickProjectile(Projectile projectile, IFrozenProjectile fp) {
         Vec3 deltaMovement = projectile.getDeltaMovement();
 
-        // 初始化旋转（和参考代码一样）
+        // 初始化旋转
         if (projectile.xRotO == 0.0F && projectile.yRotO == 0.0F) {
             double horizontalDist = deltaMovement.horizontalDistance();
             projectile.setYRot((float) (Mth.atan2(deltaMovement.x, deltaMovement.z) * 180.0F / (float) Math.PI));
@@ -129,11 +125,9 @@ public class ControlledProjectileTick {
             return;
         }
 
-        // 获取速度倍率
         float speedMod = fp.jujutsuAddon$getSpeedMultiplier();
         Vec3 position = projectile.position();
 
-        // 钓鱼钩重力
         if (projectile instanceof FishingHook) {
             projectile.setDeltaMovement(projectile.getDeltaMovement().add(0.0, -0.03 * speedMod, 0.0));
         }
@@ -155,19 +149,17 @@ public class ControlledProjectileTick {
         float stopDistance = fp.jujutsuAddon$getStopDistance();
         float maxRange = fp.jujutsuAddon$getMaxRange();
 
-        // 超出范围释放
         if (distance > maxRange + 0.5) {
             releaseProjectile(projectile, fp);
             return;
         }
 
-        // ==================== 碰撞检测（和参考代码一样）====================
+        // ==================== 碰撞检测 ====================
         if (speedMod > 0.01) {
             Vec3 pos = position;
             Vec3 pos2 = position.add(deltaMovement).add(deltaMovement).add(reducedDelta);
             float inflateDist = (float) Math.max(Math.max(Math.abs(reducedDelta.x), Math.abs(reducedDelta.y)), Math.abs(reducedDelta.z)) * 2;
 
-            // 第一次检测
             EntityHitResult mobHit = ProjectileUtil.getEntityHitResult(
                     projectile.level(), projectile, pos, pos2,
                     projectile.getBoundingBox().expandTowards(deltaMovement).inflate(1 + inflateDist),
@@ -177,7 +169,6 @@ public class ControlledProjectileTick {
                 speedMod *= 0.7F;
             }
 
-            // 第二次检测
             reducedDelta = deltaMovement.scale(speedMod);
             pos2 = position.add(deltaMovement).add(reducedDelta);
             EntityHitResult mobHit2 = ProjectileUtil.getEntityHitResult(
@@ -197,7 +188,6 @@ public class ControlledProjectileTick {
             }
         }
 
-        // 方块碰撞检测
         Vec3 endPos = position.add(deltaMovement);
         HitResult blockHit = projectile.level().clip(new ClipContext(
                 position, endPos, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, projectile
@@ -206,7 +196,6 @@ public class ControlledProjectileTick {
             endPos = blockHit.getLocation();
         }
 
-        // 实体碰撞
         EntityHitResult entityHit = findHitEntity(projectile, position, endPos, deltaMovement);
         HitResult finalHit = entityHit != null ? entityHit : blockHit;
 
@@ -220,27 +209,63 @@ public class ControlledProjectileTick {
             }
         }
 
-        // 碰撞后释放
         if (finalHit != null && finalHit.getType() != HitResult.Type.MISS) {
             fp.jujutsuAddon$setSpeedMultiplier(0);
             fp.jujutsuAddon$setControlled(false);
             return;
         }
 
-        // ==================== 停止区处理 ====================
-        if (distance <= stopDistance) {
+        // ==================== ★★★ 区域判断和处理 ★★★ ====================
+        if (ProjectileZoneHelper.isInStopZone(projectile, distance, stopDistance)) {
             fp.jujutsuAddon$setSpeedMultiplier(0);
 
-            // 计算推动
-            Vec3 pushVelocity = calculatePushVelocity(owner, ownerCenter, position, stopDistance);
+            // ★★★ 1. 检查是否在缓冲区 ★★★
+            if (ProjectileZoneHelper.isInBufferZone(distance, stopDistance)) {
+                // 缓冲区：完全静止，不受任何力，不转向
+                projectile.setDeltaMovement(Vec3.ZERO);
+                return;
+            }
 
-            if (pushVelocity.lengthSqr() > 0.001) {
-                Vec3 newPos = position.add(pushVelocity);
+            // ★★★ 2. 检查是否在推力区（太近了）★★★
+            if (ProjectileZoneHelper.isInPushZone(distance, stopDistance)) {
+                // 推力区：强力推出到缓冲区
+                Vec3 toProjectile = position.subtract(ownerCenter);
+                if (toProjectile.lengthSqr() < 0.01) {
+                    toProjectile = new Vec3(0.1, 0.05, 0.1);
+                }
+                Vec3 pushDir = toProjectile.normalize();
+
+                // 推到缓冲区中间位置
+                float bufferMiddle = stopDistance - ProjectileZoneHelper.BUFFER_ZONE_THICKNESS * 0.5f;
+                bufferMiddle = Math.max(bufferMiddle, 0.2f);
+                double pushAmount = Math.max(0.1, bufferMiddle - distance);
+                pushAmount = Math.min(pushAmount, 0.5); // 限制单次推动距离
+
+                Vec3 newPos = position.add(pushDir.scale(pushAmount));
                 BlockPos bp = BlockPos.containing(newPos);
                 if (projectile.level().getBlockState(bp).isAir()) {
-                    // ★★★ 直接setPos，不设置hurtMarked ★★★
                     projectile.setPos(newPos.x, newPos.y, newPos.z);
-                    updateRotation(projectile, pushVelocity);
+                    // 推力区推出时更新旋转
+                    updateRotation(projectile, pushDir);
+                }
+
+                projectile.setDeltaMovement(Vec3.ZERO);
+                return;
+            }
+
+            // ★★★ 3. 静止区（缓冲区外侧）：正常的推动逻辑 ★★★
+            PushResult pushResult = calculatePushVelocity(owner, ownerCenter, position, stopDistance, projectile);
+
+            if (ProjectileZoneHelper.isSignificantPush(pushResult.velocity)) {
+                Vec3 newPos = position.add(pushResult.velocity);
+                BlockPos bp = BlockPos.containing(newPos);
+                if (projectile.level().getBlockState(bp).isAir()) {
+                    projectile.setPos(newPos.x, newPos.y, newPos.z);
+
+                    // 只有玩家移动推动才转向
+                    if (pushResult.isPlayerPush) {
+                        updateRotation(projectile, pushResult.velocity);
+                    }
                 }
             }
 
@@ -249,11 +274,15 @@ public class ControlledProjectileTick {
         }
 
         // ==================== 减速区处理 ====================
-        float targetSpeed = calculateSpeedFromDistance((float) distance, stopDistance, maxRange);
+        float entrySpeed = (float) PressureConfig.getProjectileEntrySpeed();
+        float stopSpeed = (float) PressureConfig.getProjectileStopSpeed();
+        float targetSpeed = ProjectileZoneHelper.calculateSlowdownSpeed(
+                (float) distance, stopDistance, maxRange, entrySpeed, stopSpeed);
+
         speedMod = fp.jujutsuAddon$getSpeedMultiplier();
 
         if (speedMod > targetSpeed) {
-            speedMod = Math.max(targetSpeed, speedMod * 0.87F);  // ★★★ 和参考代码一样用0.87 ★★★
+            speedMod = Math.max(targetSpeed, speedMod * 0.87F);
         } else {
             speedMod = targetSpeed;
         }
@@ -261,84 +290,83 @@ public class ControlledProjectileTick {
         fp.jujutsuAddon$setSpeedMultiplier(speedMod);
         reducedDelta = deltaMovement.scale(speedMod);
 
-        // ★★★ 关键：和参考代码一样，只有速度>0.01才移动 ★★★
         if (speedMod > 0.01) {
-            // ★★★ 直接setPos，不设置hurtMarked，不设置xOld ★★★
             projectile.setPos(
                     position.x + reducedDelta.x,
                     position.y + reducedDelta.y,
                     position.z + reducedDelta.z
             );
 
-            // 更新旋转
             if (reducedDelta.lengthSqr() > 0.0001) {
                 updateRotation(projectile, reducedDelta);
             }
         } else {
-            // 速度太小，释放
             releaseProjectile(projectile, fp);
         }
     }
 
-    // ==================== 辅助方法 ====================
+    // ==================== 推动结果 ====================
 
-    private static Vec3 calculatePushVelocity(LivingEntity owner,
-                                              Vec3 ownerCenter, Vec3 projectilePos,
-                                              float stopDistance) {
-        Vec3 ownerMovement = getPlayerMovement(owner.getUUID());
-        double ownerSpeed = ownerMovement.length();
+    /**
+     * 推动计算结果
+     */
+    private static class PushResult {
+        final Vec3 velocity;
+        final boolean isPlayerPush;  // ★★★ 是否是玩家移动产生的推动 ★★★
 
+        PushResult(Vec3 velocity, boolean isPlayerPush) {
+            this.velocity = velocity;
+            this.isPlayerPush = isPlayerPush;
+        }
+
+        static PushResult none() {
+            return new PushResult(Vec3.ZERO, false);
+        }
+    }
+
+    /**
+     * 计算推动速度
+     * ★★★ 只处理玩家移动产生的推动，边界推动在缓冲区已经处理 ★★★
+     */
+    private static PushResult calculatePushVelocity(LivingEntity owner,
+                                                    Vec3 ownerCenter, Vec3 projectilePos,
+                                                    float stopDistance, Projectile projectile) {
         Vec3 toProjectile = projectilePos.subtract(ownerCenter);
         double distToProjectile = toProjectile.length();
 
-        if (distToProjectile < 0.1 || ownerSpeed < 0.005) {
-            return Vec3.ZERO;
+        if (distToProjectile < 0.1) {
+            return new PushResult(new Vec3(0.1, 0.05, 0.1), false);
         }
 
         Vec3 pushDir = toProjectile.normalize();
-        double approachSpeed = ownerMovement.dot(pushDir);
 
-        if (approachSpeed <= 0) {
-            return Vec3.ZERO;
+        // ==================== 玩家移动产生的推动 ====================
+        Vec3 ownerMovement = getPlayerMovement(owner.getUUID());
+        double ownerSpeed = ownerMovement.length();
+
+        // ★★★ 只有玩家明显移动时才产生推动 ★★★
+        if (ownerSpeed < ProjectileZoneHelper.PLAYER_MOVEMENT_THRESHOLD) {
+            return PushResult.none();
         }
 
-        double distance = projectilePos.distanceTo(ownerCenter);
-        double targetDist = stopDistance + 0.3;
+        double approachSpeed = ownerMovement.dot(pushDir);
 
-        if (distance >= targetDist) {
-            return Vec3.ZERO;
+        // ★★★ 只有玩家明显接近投射物时才推动 ★★★
+        if (approachSpeed < ProjectileZoneHelper.PLAYER_APPROACH_THRESHOLD) {
+            return PushResult.none();
         }
 
         double maxPushSpeed = PressureConfig.getMaxPushForce();
         double basePushSpeed = PressureConfig.getBasePushForce();
 
-        double pushSpeed = approachSpeed * 1.5;
-        pushSpeed = Math.min(pushSpeed, maxPushSpeed);
-        pushSpeed = Math.max(pushSpeed, basePushSpeed);
+        double ownerPush = approachSpeed * 1.5;
+        ownerPush = Math.min(ownerPush, maxPushSpeed);
+        ownerPush = Math.max(ownerPush, basePushSpeed * 0.5);
 
-        return pushDir.scale(pushSpeed);
+        return new PushResult(pushDir.scale(ownerPush), true);
     }
 
-    private static float calculateSpeedFromDistance(float distance, float stopDistance, float maxRange) {
-        if (distance <= stopDistance) return 0f;
-
-        float entrySpeed = (float) PressureConfig.getProjectileEntrySpeed();
-        float stopSpeed = (float) PressureConfig.getProjectileStopSpeed();
-        float bufferEnd = stopDistance + BUFFER_ZONE;
-
-        if (distance <= bufferEnd) {
-            float bufferRatio = (distance - stopDistance) / BUFFER_ZONE;
-            return stopSpeed + bufferRatio * (0.10f - stopSpeed);
-        }
-
-        float slowdownZoneSize = maxRange - bufferEnd;
-        if (slowdownZoneSize < 0.5f) slowdownZoneSize = 0.5f;
-
-        float distanceFromBuffer = distance - bufferEnd;
-        float t = Math.min(1.0f, distanceFromBuffer / slowdownZoneSize);
-        float easeOut = 1.0f - (1.0f - t) * (1.0f - t);
-        return 0.10f + (entrySpeed - 0.10f) * easeOut;
-    }
+    // ==================== 辅助方法 ====================
 
     private static void updateRotation(Projectile projectile, Vec3 velocity) {
         Vec3 direction = velocity.normalize();
@@ -349,12 +377,10 @@ public class ControlledProjectileTick {
         float targetYaw = (float) (Mth.atan2(direction.x, direction.z) * (180.0 / Math.PI));
         float targetPitch = (float) (Mth.atan2(direction.y, horizDist) * (180.0 / Math.PI));
 
-        // ★★★ 平滑插值，和参考代码的lerpRotation类似 ★★★
         projectile.setYRot(lerpRotation(projectile.getYRot(), targetYaw));
         projectile.setXRot(Mth.clamp(lerpRotation(projectile.getXRot(), targetPitch), -90.0F, 90.0F));
     }
 
-    // ★★★ 从参考代码复制的旋转插值 ★★★
     private static float lerpRotation(float current, float target) {
         while (target - current < -180.0F) {
             current -= 360.0F;

@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.mixin.projectile;
 
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
-import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.ControlledProjectileTick;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ControlledProjectileTick;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;

@@ -52,6 +52,14 @@ public class AddonClientConfig {
         public final ForgeConfigSpec.BooleanValue hideSkillBarWhenDisabled;
 
         // ==========================================
+// 投射物反弹 (Projectile Reflection)
+// ==========================================
+        public final ForgeConfigSpec.BooleanValue enableProjectileReflection;
+        public final ForgeConfigSpec.ConfigValue<String> reflectToOwnerModifier;
+        public final ForgeConfigSpec.ConfigValue<String> reflectToCursorModifier;
+        public final ForgeConfigSpec.DoubleValue reflectSpeedMultiplier;
+
+        // ==========================================
         // 影子库存 (Shadow Storage)
         // ==========================================
         public final ForgeConfigSpec.BooleanValue showShadowStorageHUD;
@@ -351,6 +359,58 @@ public class AddonClientConfig {
                     .translation("config.jujutsu_addon.client.hide_skill_bar_when_disabled")
                     .define("HideSkillBarWhenDisabled", true);
 
+            builder.pop();
+
+            // ===== 投射物反弹配置 =====
+            builder.push("Projectile_Reflection");
+            enableProjectileReflection = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Enable Projectile Reflection]",
+                            " Allow reflecting frozen projectiles back by pressing",
+                            " modifier key + Infinity skill key.",
+                            "----------------------------------------------------------------",
+                            " [启用投射物反弹]",
+                            " 允许通过按住修饰键+无下限技能键来反弹静止的投射物。",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.enable_projectile_reflection")
+                    .define("EnableProjectileReflection", true);
+            reflectToOwnerModifier = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Reflect to Original Owner - Modifier Key]",
+                            " Which modifier key to hold for reflecting toward the",
+                            " projectile's original shooter.",
+                            " Options: SHIFT, CTRL, ALT, NONE (disabled)",
+                            "----------------------------------------------------------------",
+                            " [反弹至原发射者 - 修饰键]",
+                            " 按住哪个键+技能键，将投射物反弹回原发射者。",
+                            " 选项：SHIFT, CTRL, ALT, NONE（禁用）",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.reflect_to_owner_modifier")
+                    .define("ReflectToOwnerModifier", "SHIFT");
+            reflectToCursorModifier = builder
+                    .comment(" ",
+                            "================================================================",
+                            " [Reflect to Cursor - Modifier Key]",
+                            " Which modifier key to hold for reflecting toward your",
+                            " crosshair/look direction.",
+                            " Options: SHIFT, CTRL, ALT, NONE (disabled)",
+                            "----------------------------------------------------------------",
+                            " [反弹至准星方向 - 修饰键]",
+                            " 按住哪个键+技能键，将投射物反弹至准星方向。",
+                            " 选项：SHIFT, CTRL, ALT, NONE（禁用）",
+                            "================================================================")
+                    .translation("config.jujutsu_addon.client.reflect_to_cursor_modifier")
+                    .define("ReflectToCursorModifier", "CTRL");
+            reflectSpeedMultiplier = builder
+                    .comment(" ",
+                            " [Reflect Speed Multiplier]",
+                            " How fast the reflected projectile travels.",
+                            " 1.0 = Original speed, 2.0 = Double speed.",
+                            " [反弹速度倍率] 反弹后投射物的速度倍率。")
+                    .translation("config.jujutsu_addon.client.reflect_speed_multiplier")
+                    .defineInRange("ReflectSpeedMultiplier", 1.5, 0.5, 5.0);
             builder.pop();
 
             // ===== 影子库存配置 =====

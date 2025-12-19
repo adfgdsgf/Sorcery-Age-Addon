@@ -1,5 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
 
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import net.minecraft.world.phys.Vec3;
 
 public class PressureCalculator {
@@ -27,7 +28,6 @@ public class PressureCalculator {
 
     /**
      * ★★★ 计算压力值（不含方块硬度）★★★
-     * 用于一般计算，方块硬度在碰撞时额外乘
      */
     public static double calculatePressure(int pressureLevel, float cursedEnergyOutput,
                                            double distance3D, double maxRange,
@@ -38,9 +38,6 @@ public class PressureCalculator {
 
     /**
      * ★★★ 计算压力值（含碰撞和方块硬度）★★★
-     *
-     * @param isColliding 目标是否正在碰撞方块
-     * @param blockHardness 碰撞方块的硬度（只在 isColliding=true 时有效）
      */
     public static double calculatePressure(int pressureLevel, float cursedEnergyOutput,
                                            double distance3D, double maxRange,
@@ -68,47 +65,67 @@ public class PressureCalculator {
         double collisionMult = 1.0;
         double hardnessMult = 1.0;
         if (isColliding) {
-            collisionMult = 3.0;  // 碰撞时压力×3
+            collisionMult = 3.0;
             hardnessMult = PressureConfig.getHardnessPressureMult(blockHardness);
         }
 
         double pressure;
 
         if (distanceFromPush <= 0) {
-            // ==================== 推力区 ====================
-            double breachDepth = Math.abs(distanceFromPush);
+            // ==================== ★★★ 推力区（核心修改）★★★ ====================
 
-            // 深度因子：越深入压力越大
-            double depthFactor = 1.0 + breachDepth * 0.5;
-            double breachMult = 1.0 + breachDepth * PressureConfig.getBreachPressureMult();
+            // ★★★ 1. 深度归一化：0（推力区边界）→ 1（玩家位置/脸贴脸）★★★
+            double breachDepth = (pushRadius - distance3D) / pushRadius;
+            breachDepth = Math.max(0, Math.min(1, breachDepth));
 
-            double basePressure = PressureConfig.getBasePressure() * levelFactor
-                    * cursedEnergyOutput * depthFactor * breachMult;
+            // ★★★ 2. 深度曲线：pow(0.6) 让边界处压力上升更快，深处增长放缓 ★★★
+            // breachDepth=0.3 → depthCurve≈0.47
+            // breachDepth=0.5 → depthCurve≈0.66
+            // breachDepth=1.0 → depthCurve=1.0
+            double depthCurve = Math.pow(breachDepth, 0.6);
 
-            // ★★★ 修复：提高基础压力比例 ★★★
-            // 推力自身产生的压力（即使 owner 不动也有）
-            double pushPressure = basePressure * 0.5;  // 从 0.15 改成 0.5
+            // ★★★ 3. 等级平方：让低等级和高等级差距更大 ★★★
+            // 等级1: levelFactor=0.1 → levelSquared=0.01 (极弱)
+            // 等级5: levelFactor=0.5 → levelSquared=0.25 (中等)
+            // 等级10: levelFactor=1.0 → levelSquared=1.0 (最强)
+            double levelSquared = levelFactor * levelFactor;
 
-            // owner 接近产生的额外压力
-            double approachPressure = basePressure * approachFactor * PressureConfig.getApproachMultiplier();
+            // ★★★ 4. 使用 breachPressureMult 作为推力区基础倍率 ★★★
+            double breachBaseMult = PressureConfig.getBreachPressureMult();  // 默认 3.0
+
+            // ★★★ 5. 计算基础压力 ★★★
+            // 公式: basePressure × breachMult × 深度曲线 × 等级² × 咒力输出
+            double basePressure = PressureConfig.getBasePressure()
+                    * breachBaseMult
+                    * depthCurve
+                    * levelSquared
+                    * cursedEnergyOutput;
+
+            // ★★★ 6. 推力区自身压力（玩家不动也有）★★★
+            // 这是被动压力，只要在推力区内就有
+            double pushPressure = basePressure * 0.6;
+
+            // ★★★ 7. 玩家移动额外压力 ★★★
+            double approachPressure = basePressure * approachFactor
+                    * PressureConfig.getApproachMultiplier();
 
             pressure = pushPressure + approachPressure;
 
         } else {
-            // ==================== 静止区 ====================
+            // ==================== 停止区 ====================
             double t = distanceFromPush / stopZoneWidth;
             double distanceFactor = 1.0 - t * 0.85;
 
             double basePressure = PressureConfig.getBasePressure() * levelFactor
                     * cursedEnergyOutput * distanceFactor;
 
-            // 推力在静止区产生的微小压力
+            // 停止区边缘有微小压力
             double pushPressure = 0;
             if (t < 0.3) {
                 pushPressure = basePressure * 0.1 * (1.0 - t / 0.3);
             }
 
-            // owner 接近产生的压力
+            // 玩家移动产生的压力
             double approachPressure = 0;
             if (approachFactor > 0.05) {
                 approachPressure = basePressure * approachFactor * PressureConfig.getApproachMultiplier();

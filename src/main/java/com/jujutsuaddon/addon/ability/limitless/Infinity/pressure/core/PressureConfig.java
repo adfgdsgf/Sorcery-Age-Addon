@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
+package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core;
 
 import com.jujutsuaddon.addon.AbilityConfig;
 
@@ -209,6 +209,11 @@ public class PressureConfig {
 
     public static double getProjectileStopSpeed() {
         return AbilityConfig.COMMON.projectileStopSpeed.get();
+    }
+
+    // ★★★ 新增：投射物反弹速度倍率 ★★★
+    public static double getReflectSpeedMultiplier() {
+        return AbilityConfig.COMMON.reflectSpeedMultiplier.get();
     }
 
     // ==================== 方块 ====================

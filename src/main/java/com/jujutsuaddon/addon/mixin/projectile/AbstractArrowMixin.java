@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin.projectile;
 
-import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.ControlledProjectileTick;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ControlledProjectileTick;
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;

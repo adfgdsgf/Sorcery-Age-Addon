@@ -116,6 +116,13 @@ public class AddonNetwork {
                 ShadowStorageSyncS2CPacket::handle
         );
 
+        CHANNEL.registerMessage(packetId++,
+                ReflectProjectilesC2SPacket.class,
+                ReflectProjectilesC2SPacket::encode,
+                ReflectProjectilesC2SPacket::new,
+                ReflectProjectilesC2SPacket::handle
+        );
+
         CHANNEL.messageBuilder(OpenShadowStorageC2SPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(OpenShadowStorageC2SPacket::encode)
                 .decoder(OpenShadowStorageC2SPacket::new)
@@ -127,6 +134,7 @@ public class AddonNetwork {
                 .decoder(CurseBaselineSyncS2CPacket::decode)
                 .consumerMainThread(CurseBaselineSyncS2CPacket::handle)
                 .add();
+
 
         // ★★★ 伤害预测同步包 (S2C) ★★★
         CHANNEL.messageBuilder(SyncDamagePredictionsS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)

@@ -38,6 +38,9 @@
   "key.jujutsu_addon.edit_skill_bar_position": "编辑技能栏位置",
   "key.jujutsu_addon.toggle_aim_assist": "切换自瞄辅助",
   "key.jujutsu_addon.infinity_scroll_modifier": "无下限滚轮修饰键",
+  "key.jujutsu_addon.reflect_to_owner": "反弹至发射者 (修饰键)",
+  "key.jujutsu_addon.reflect_to_cursor": "反弹至准星 (修饰键)",
+  "config.jujutsu_addon.client.aim_assist_lock_distance": "锁定保持距离",
 
   "_comment4": "========== 技能栏配置界面 ==========",
   "gui.jujutsu_addon.skill_bar_config.title": "技能栏配置",
@@ -482,6 +485,7 @@
   "config.jujutsu_addon.pressure.cost.base": "基础咒力消耗",
   "config.jujutsu_addon.pressure.cost.per_level": "每级增加消耗倍率",
   "config.jujutsu_addon.pressure.cost.max_mult": "最大消耗倍率上限",
+  "config.jujutsu_addon.pressure.reflect_speed": "反弹速度倍率",
 
   "config.jujutsu_addon.infinity_pressure.projectile.stop_zone_buffer": "停止区缓冲基础宽度",
   "config.jujutsu_addon.infinity_pressure.projectile.stop_zone_per_level": "每级停止区缓冲增加",

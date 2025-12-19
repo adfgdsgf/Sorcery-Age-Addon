@@ -30,6 +30,10 @@ public class AddonKeyBindings {
     // ★★★ 新增：无下限滚轮修饰键 ★★★
     public static KeyMapping INFINITY_SCROLL_MODIFIER;
 
+    // ★★★ 新增：投射物反弹修饰键 ★★★
+    public static KeyMapping REFLECT_TO_OWNER_MODIFIER;   // 反弹到原发射者
+    public static KeyMapping REFLECT_TO_CURSOR_MODIFIER;  // 反弹到准星方向
+
     private static boolean initialized = false;
 
     public static void init() {
@@ -110,6 +114,22 @@ public class AddonKeyBindings {
                 GLFW.GLFW_KEY_LEFT_CONTROL,  // 默认左Ctrl
                 CATEGORY
         );
+        // ★★★ 投射物反弹 - 反弹到原发射者 - 默认 Left Shift ★★★
+        REFLECT_TO_OWNER_MODIFIER = new KeyMapping(
+                "key.jujutsu_addon.reflect_to_owner",
+                KeyConflictContext.IN_GAME,
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_LEFT_SHIFT,
+                CATEGORY
+        );
+        // ★★★ 投射物反弹 - 反弹到准星方向 - 默认 Left Control ★★★
+        REFLECT_TO_CURSOR_MODIFIER = new KeyMapping(
+                "key.jujutsu_addon.reflect_to_cursor",
+                KeyConflictContext.IN_GAME,
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_LEFT_CONTROL,
+                CATEGORY
+        );
     }
 
     public static List<KeyMapping> getAllKeys() {
@@ -121,6 +141,8 @@ public class AddonKeyBindings {
         all.add(OPEN_HUD_EDIT);
         all.add(TOGGLE_AIM_ASSIST);
         all.add(INFINITY_SCROLL_MODIFIER);  // ★ 添加
+        all.add(REFLECT_TO_OWNER_MODIFIER);   // ★ 新增
+        all.add(REFLECT_TO_CURSOR_MODIFIER);
         return all;
     }
 }

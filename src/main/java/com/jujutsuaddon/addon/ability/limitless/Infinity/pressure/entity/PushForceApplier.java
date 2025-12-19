@@ -1,5 +1,8 @@
-package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
+package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity;
 
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.PressureCalculator;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;

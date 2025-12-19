@@ -1,10 +1,17 @@
-package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
+package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core;
 
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.*;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.block.BlockPressureManager;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.conflict.InfinityConflictResolver;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.effect.PressureEffectRenderer;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.CollisionHandler;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.PushForceApplier;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.VelocityController;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ProjectilePressureHandler;
 import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -28,6 +35,9 @@ public class InfinityPressureHandler {
 
     private static PressureStateManager getStateManager(UUID ownerId) {
         return stateManagers.computeIfAbsent(ownerId, id -> new PressureStateManager());
+    }
+    public static PressureStateManager getStateManagerFor(UUID ownerId) {
+        return stateManagers.get(ownerId);
     }
 
     @SubscribeEvent
@@ -180,25 +190,32 @@ public class InfinityPressureHandler {
                                       double maxRange,
                                       PressureStateManager stateManager,
                                       Set<BlockPos> allActiveBlocks) {
+        // ★★★ 新增：无下限冲突检测 ★★★
+        InfinityConflictResolver.ConflictResult conflict =
+                InfinityConflictResolver.resolveConflict(owner, target);
+        if (!conflict.canAffect) {
+            // 目标的无下限更强或相等，完全无效
+            stateManager.clearEntityState(target.getUUID());
+            return;
+        }
+        // ★★★ 使用有效倍率调整咒力输出 ★★★
+        float effectiveCursedEnergy = (float) (cursedEnergyOutput * conflict.effectiveMultiplier);
+        // ★★★ 使用调整后的咒力输出 ★★★
         PushForceApplier.CollisionInfo collisionInfo = PushForceApplier.apply(
-                owner, target, pressureLevel, cursedEnergyOutput, maxRange, stateManager);
+                owner, target, pressureLevel, effectiveCursedEnergy, maxRange, stateManager);
         double currentPressure = collisionInfo.pressureValue;
         PressureEffectRenderer.renderPressureEffect(owner, target,
                 currentPressure, collisionInfo.distanceFromHalt,
                 collisionInfo.isBreaching, stateManager);
-        // ★★★ 获取碰撞方块 ★★★
         Set<BlockPos> collidedBlocks = CollisionHandler.getCollidingBlocks(
                 owner, target, collisionInfo.forceDirection);
         BlockPos ownerFeetPos = owner.blockPosition();
         BlockPos ownerBelowPos = ownerFeetPos.below();
         Set<BlockPos> breakableBlocks = CollisionHandler.getBreakableBlocks(
                 collidedBlocks, target, ownerFeetPos, ownerBelowPos);
-        // ★★★ 原始碰撞检测：有方块就是碰撞 ★★★
         boolean rawColliding = target.horizontalCollision || !collidedBlocks.isEmpty();
-        // ★★★ 使用状态机进行防抖处理 ★★★
         PressureStateManager.CollisionStateChange stateChange =
                 stateManager.updateCollisionState(target.getUUID(), rawColliding);
-        // ★★★ 碰撞期间持续更新峰值压力 ★★★
         if (stateChange == PressureStateManager.CollisionStateChange.STILL_COLLIDING ||
                 stateChange == PressureStateManager.CollisionStateChange.JUST_COLLIDED) {
             stateManager.updatePeakPressure(target.getUUID(), currentPressure);
@@ -206,12 +223,9 @@ public class InfinityPressureHandler {
         double prevPressure = stateManager.getPreviousPressure(target.getUUID());
         switch (stateChange) {
             case JUST_COLLIDED:
-                // 刚进入碰撞，初始化峰值
                 stateManager.resetPeakPressure(target.getUUID());
                 stateManager.updatePeakPressure(target.getUUID(), currentPressure);
-                // fall through 继续执行 STILL_COLLIDING 的逻辑
             case STILL_COLLIDING:
-                // 持续碰撞中
                 allActiveBlocks.addAll(breakableBlocks);
                 stateManager.setCollidingBlocks(target.getUUID(), collidedBlocks);
                 for (BlockPos pos : breakableBlocks) {
@@ -222,11 +236,10 @@ public class InfinityPressureHandler {
                         true, collidedBlocks, stateManager);
                 break;
             case JUST_RELEASED:
-                // ★★★ 刚脱离碰撞 = 方块被破坏，触发突破伤害！ ★★★
                 double peakPressure = stateManager.getPeakPressure(target.getUUID());
                 if (peakPressure >= PressureConfig.getMinPressureForDamage()) {
                     CollisionHandler.handleBreakthroughDamage(owner, target,
-                            peakPressure, stateManager);  // 用峰值压力！
+                            peakPressure, stateManager);
                 }
                 stateManager.resetPeakPressure(target.getUUID());
                 stateManager.setCollidingBlocks(target.getUUID(), Collections.emptySet());
@@ -234,7 +247,6 @@ public class InfinityPressureHandler {
                 stateManager.resetPinnedTicks(target.getUUID());
                 break;
             case NOT_COLLIDING:
-                // 未碰撞
                 stateManager.setCollidingBlocks(target.getUUID(), Collections.emptySet());
                 stateManager.setDamageWarningTicks(target.getUUID(), 0);
                 CollisionHandler.handleDamage(owner, target,
@@ -257,27 +269,30 @@ public class InfinityPressureHandler {
         if (target == owner) return false;
         if (target.isDeadOrDying()) return false;
         if (target.isPassengerOfSameVehicle(owner)) return false;
-
         if (target instanceof TamableAnimal tamable &&
                 tamable.isTame() && tamable.getOwner() == owner) {
             return false;
         }
-
         if (target instanceof SummonEntity summon && summon.getOwner() == owner) {
             return false;
         }
-
-        // ★ 领域必中：如果target是对owner展开领域的人，不推开他 ★
+        // 领域必中：如果target是对owner展开领域的人，不推开他
         if (ownerInEnemyDomain && isTargetDomainOwnerWithSureHit(owner, target)) {
             return false;
         }
-
-        // ★ 检查target是否开启了领域增幅（Domain Amplification） ★
+        // 检查target是否开启了领域增幅
         ISorcererData targetData = target.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
         if (targetData != null && targetData.hasToggled(JJKAbilities.DOMAIN_AMPLIFICATION.get())) {
-            return false; // 领域增幅可以穿透无下限
+            return false;
         }
-
+        // ★★★ 新增：无下限冲突预检查（快速排除完全无法影响的目标）★★★
+        // 注意：这里只做快速预检查，详细处理在 processTarget 中
+        InfinityConflictResolver.InfinityStrength targetStrength =
+                InfinityConflictResolver.getInfinityStrength(target);
+        if (targetStrength.hasInfinity && targetStrength.pressureLevel > 0) {
+            // 目标有无下限，需要在 processTarget 中详细计算
+            // 这里不排除，让 processTarget 处理
+        }
         return true;
     }
 }

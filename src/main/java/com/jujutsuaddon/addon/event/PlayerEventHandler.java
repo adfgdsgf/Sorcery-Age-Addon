@@ -2,7 +2,7 @@ package com.jujutsuaddon.addon.event;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
-import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.ControlledProjectileTick;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ControlledProjectileTick;
 import com.jujutsuaddon.addon.damage.ServerDamagePredictor;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;

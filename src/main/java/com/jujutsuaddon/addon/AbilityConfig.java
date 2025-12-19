@@ -60,6 +60,7 @@ public class AbilityConfig {
         public final ForgeConfigSpec.IntValue projectileMinLevel;
         public final ForgeConfigSpec.DoubleValue projectileEntrySpeed;
         public final ForgeConfigSpec.DoubleValue projectileStopSpeed;
+        public final ForgeConfigSpec.DoubleValue reflectSpeedMultiplier;
 
         // ==================== 方块 ====================
         public final ForgeConfigSpec.BooleanValue actuallyBreakBlocks;
@@ -408,6 +409,13 @@ public class AbilityConfig {
                             " 停止区边界的速度比例（接近停止）。")
                     .translation("config.jujutsu_addon.pressure.projectile.stop_speed")
                     .defineInRange("StopSpeed", 0.02, 0.001, 0.1);
+
+            // ==================== 投射物反弹 ====================
+            reflectSpeedMultiplier = builder
+                    .comment(" Speed multiplier for reflected projectiles.",
+                            " 反弹投射物的速度倍率。")
+                    .translation("config.jujutsu_addon.pressure.reflect_speed")
+                    .defineInRange("ReflectSpeedMultiplier", 1.5, 0.5, 5.0);
 
             builder.pop(); // Projectiles
 

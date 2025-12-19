@@ -1,4 +1,4 @@
-package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
+package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
