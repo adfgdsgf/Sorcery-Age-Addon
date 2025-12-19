@@ -1,5 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
 
+import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -12,14 +13,31 @@ import java.util.*;
 
 public class PressureStateManager {
 
+    // ==================== 碰撞状态变化枚举 ====================
+    public enum CollisionStateChange {
+        NOT_COLLIDING,      // 未碰撞
+        JUST_COLLIDED,      // 刚进入碰撞
+        STILL_COLLIDING,    // 持续碰撞中
+        JUST_RELEASED       // 刚脱离碰撞（触发突破伤害！）
+    }
+
     // ==================== 实体状态 ====================
     private final Map<UUID, Vec3> previousVelocities = new HashMap<>();
-    private final Map<UUID, Boolean> wasColliding = new HashMap<>();
+    private final Map<UUID, Boolean> confirmedColliding = new HashMap<>();  // 经过防抖确认的碰撞状态
     private final Map<UUID, Set<BlockPos>> entityCollidingBlocks = new HashMap<>();
     private final Map<UUID, Integer> damageCooldowns = new HashMap<>();
     private final Map<UUID, Integer> pinnedTicks = new HashMap<>();
     private final Map<UUID, Double> previousPressure = new HashMap<>();
     private final Map<UUID, Integer> damageWarningTicks = new HashMap<>();
+
+    // ==================== 状态机新增字段 ====================
+    private final Map<UUID, Double> peakPressure = new HashMap<>();           // 碰撞期间的峰值压力
+    private final Map<UUID, Integer> collisionFrames = new HashMap<>();       // 连续碰撞帧数
+    private final Map<UUID, Integer> noCollisionFrames = new HashMap<>();     // 连续非碰撞帧数
+
+    // 碰撞状态确认所需的帧数（防抖）
+    private static final int COLLISION_CONFIRM_FRAMES = 2;
+    private static final int NO_COLLISION_CONFIRM_FRAMES = 2;
 
     // ==================== 玩家状态 ====================
     private final Map<UUID, Vec3> ownerPreviousPos = new HashMap<>();
@@ -31,83 +49,87 @@ public class PressureStateManager {
     private int breakerIdCounter = 0;
 
     // ==================== 投射物状态 ====================
-    private final Map<UUID, ProjectileState> projectileStates = new HashMap<>();
+    private final Set<UUID> trackedProjectiles = new HashSet<>();
     private final Map<UUID, Integer> repelledProjectiles = new HashMap<>();
 
-    public static class ProjectileState {
-        public final boolean originalNoGravity;
-        public final long firstAffectedTime;
-        public final Vec3 originalVelocity;
-        public double lastDistance;
-        public boolean isFullyStopped;
-        public int stoppedTicks;
-        public int immuneTicks;
-        public int baselinePressureLevel;
-        public float baselineCursedOutput;
-        public int ticksSinceBaseline;
+    // ==================== 状态机核心方法 ====================
 
-        // 位置锁定
-        public Vec3 haltPosition;
-        public Vec3 lastAppliedPosition;
-        public boolean positionLocked;
-        public int positionResetCount;
+    /**
+     * 更新碰撞状态，返回经过防抖处理后的状态变化
+     * @param entityId 实体ID
+     * @param rawColliding 原始碰撞检测结果（本帧是否检测到碰撞方块）
+     * @return 经过防抖确认的碰撞状态变化
+     */
+    public CollisionStateChange updateCollisionState(UUID entityId, boolean rawColliding) {
+        boolean wasConfirmedColliding = confirmedColliding.getOrDefault(entityId, false);
 
-        // ★★★ 火焰弹等特殊投射物的动力值 ★★★
-        public boolean isHurtingProjectile;
-        public double originalXPower;
-        public double originalYPower;
-        public double originalZPower;
-        public boolean powerSaved;
+        if (rawColliding) {
+            // 检测到碰撞
+            int frames = collisionFrames.getOrDefault(entityId, 0) + 1;
+            collisionFrames.put(entityId, frames);
+            noCollisionFrames.put(entityId, 0);  // 重置非碰撞计数
 
-        public ProjectileState(boolean originalNoGravity, Vec3 originalVelocity) {
-            this.originalNoGravity = originalNoGravity;
-            this.originalVelocity = originalVelocity;
-            this.firstAffectedTime = System.currentTimeMillis();
-            this.lastDistance = 0;
-            this.isFullyStopped = false;
-            this.stoppedTicks = 0;
-            this.immuneTicks = 0;
-            this.baselinePressureLevel = 0;
-            this.baselineCursedOutput = 0;
-            this.ticksSinceBaseline = 0;
-
-            this.haltPosition = null;
-            this.lastAppliedPosition = null;
-            this.positionLocked = false;
-            this.positionResetCount = 0;
-
-            // 火焰弹相关
-            this.isHurtingProjectile = false;
-            this.originalXPower = 0;
-            this.originalYPower = 0;
-            this.originalZPower = 0;
-            this.powerSaved = false;
-        }
-
-        public void lockPosition(Vec3 position) {
-            this.haltPosition = position;
-            this.lastAppliedPosition = position;
-            this.positionLocked = true;
-        }
-
-        public void unlockPosition() {
-            this.positionLocked = false;
-            this.haltPosition = null;
-            this.lastAppliedPosition = null;
-            this.positionResetCount = 0;
-        }
-
-        public boolean updateAndCheckPosition(Vec3 currentPosition) {
-            if (!positionLocked || lastAppliedPosition == null) {
-                return false;
+            // 连续碰撞足够帧数后确认
+            if (frames >= COLLISION_CONFIRM_FRAMES) {
+                confirmedColliding.put(entityId, true);
             }
-            double drift = currentPosition.distanceTo(lastAppliedPosition);
-            if (drift > 0.01) {
-                positionResetCount++;
-                return true;
+        } else {
+            // 未检测到碰撞
+            int frames = noCollisionFrames.getOrDefault(entityId, 0) + 1;
+            noCollisionFrames.put(entityId, frames);
+            collisionFrames.put(entityId, 0);  // 重置碰撞计数
+
+            // 连续不碰撞足够帧数后确认
+            if (frames >= NO_COLLISION_CONFIRM_FRAMES) {
+                confirmedColliding.put(entityId, false);
             }
-            return false;
         }
+
+        boolean isConfirmedColliding = confirmedColliding.getOrDefault(entityId, false);
+
+        // 检测状态变化
+        if (wasConfirmedColliding && !isConfirmedColliding) {
+            return CollisionStateChange.JUST_RELEASED;  // 刚脱离碰撞
+        } else if (!wasConfirmedColliding && isConfirmedColliding) {
+            return CollisionStateChange.JUST_COLLIDED;  // 刚进入碰撞
+        } else if (isConfirmedColliding) {
+            return CollisionStateChange.STILL_COLLIDING;  // 持续碰撞中
+        } else {
+            return CollisionStateChange.NOT_COLLIDING;  // 未碰撞
+        }
+    }
+
+    /**
+     * 获取当前确认的碰撞状态
+     */
+    public boolean isConfirmedColliding(UUID entityId) {
+        return confirmedColliding.getOrDefault(entityId, false);
+    }
+
+    // ==================== 峰值压力方法 ====================
+
+    /**
+     * 更新峰值压力（取最大值）
+     */
+    public void updatePeakPressure(UUID entityId, double currentPressure) {
+        double peak = peakPressure.getOrDefault(entityId, 0.0);
+        if (currentPressure > peak) {
+            peakPressure.put(entityId, currentPressure);
+        }
+    }
+
+    /**
+     * 获取峰值压力
+     */
+    public double getPeakPressure(UUID entityId) {
+        return peakPressure.getOrDefault(entityId, 0.0);
+    }
+
+    /**
+     * 重置峰值压力
+     */
+    public void resetPeakPressure(UUID entityId) {
+        peakPressure.remove(entityId);
     }
 
     // ==================== 实体状态方法 ====================
@@ -120,12 +142,21 @@ public class PressureStateManager {
         previousVelocities.put(entityId, velocity);
     }
 
+    /**
+     * @deprecated 使用 isConfirmedColliding 或 updateCollisionState 代替
+     */
+    @Deprecated
     public boolean wasColliding(UUID entityId) {
-        return wasColliding.getOrDefault(entityId, false);
+        return confirmedColliding.getOrDefault(entityId, false);
     }
 
+    /**
+     * @deprecated 碰撞状态现在由 updateCollisionState 自动管理
+     */
+    @Deprecated
     public void setColliding(UUID entityId, boolean colliding) {
-        wasColliding.put(entityId, colliding);
+        // 保留兼容性，但不再直接设置
+        // confirmedColliding.put(entityId, colliding);
     }
 
     public Set<BlockPos> getCollidingBlocks(UUID entityId) {
@@ -136,7 +167,7 @@ public class PressureStateManager {
         if (blocks.isEmpty()) {
             entityCollidingBlocks.remove(entityId);
         } else {
-            entityCollidingBlocks.put(entityId, blocks);
+            entityCollidingBlocks.put(entityId, new HashSet<>(blocks));
         }
     }
 
@@ -249,147 +280,20 @@ public class PressureStateManager {
 
     // ==================== 投射物状态方法 ====================
 
-    public ProjectileState trackProjectile(Projectile projectile) {
-        UUID id = projectile.getUUID();
-        if (!projectileStates.containsKey(id)) {
-            ProjectileState state = new ProjectileState(
-                    projectile.isNoGravity(),
-                    projectile.getDeltaMovement()
-            );
-            projectileStates.put(id, state);
-            return state;
-        }
-        return projectileStates.get(id);
-    }
-
-    public ProjectileState getProjectileState(UUID projectileId) {
-        return projectileStates.get(projectileId);
-    }
-
-    public void forceRemoveProjectile(UUID projectileId) {
-        projectileStates.remove(projectileId);
-    }
-
-    // ==================== 火焰弹专用方法 ====================
-
-    /**
-     * 保存火焰弹的动力值
-     */
-    public void saveHurtingProjectilePower(Projectile projectile, ProjectileState state) {
-        if (projectile instanceof AbstractHurtingProjectile hurting) {
-            if (!state.powerSaved) {
-                state.isHurtingProjectile = true;
-                state.originalXPower = hurting.xPower;
-                state.originalYPower = hurting.yPower;
-                state.originalZPower = hurting.zPower;
-                state.powerSaved = true;
-            }
-        }
-    }
-
-    /**
-     * 清零火焰弹的动力值（停止时调用）
-     */
-    public void clearHurtingProjectilePower(Projectile projectile) {
-        if (projectile instanceof AbstractHurtingProjectile hurting) {
-            hurting.xPower = 0;
-            hurting.yPower = 0;
-            hurting.zPower = 0;
-        }
-    }
-
-    /**
-     * 恢复火焰弹的动力值（释放时调用）
-     */
-    public void restoreHurtingProjectilePower(Projectile projectile, ProjectileState state) {
-        if (projectile instanceof AbstractHurtingProjectile hurting && state.powerSaved) {
-            hurting.xPower = state.originalXPower;
-            hurting.yPower = state.originalYPower;
-            hurting.zPower = state.originalZPower;
-        }
-    }
-
-    /**
-     * 设置火焰弹的动力值（减速/推力时调用）
-     */
-    public void setHurtingProjectilePower(Projectile projectile, double xPower, double yPower, double zPower) {
-        if (projectile instanceof AbstractHurtingProjectile hurting) {
-            hurting.xPower = xPower;
-            hurting.yPower = yPower;
-            hurting.zPower = zPower;
-        }
-    }
-
-    // ==================== 投射物控制方法 ====================
-
-    /**
-     * 强制保持投射物位置（包括火焰弹动力清零）
-     */
-    public void enforceProjectilePosition(Projectile projectile, ProjectileState state) {
-        if (state == null || !state.positionLocked || state.haltPosition == null) {
-            return;
-        }
-
-        // 强制设置位置
-        projectile.setPos(state.haltPosition);
-        projectile.setOldPosAndRot();  // 防止插值导致的抖动
-
-        // 清零速度
-        projectile.setDeltaMovement(Vec3.ZERO);
-        projectile.setNoGravity(true);
-
-        // ★★★ 清零火焰弹的动力 ★★★
-        clearHurtingProjectilePower(projectile);
-
-        // 记录应用的位置
-        state.lastAppliedPosition = state.haltPosition;
-
-        // 标记同步
-        projectile.hurtMarked = true;
-        projectile.hasImpulse = false;  // 防止物理引擎干扰
-    }
-
-    /**
-     * 释放投射物（恢复原始状态）
-     */
-    public void releaseProjectile(Projectile projectile) {
-        UUID id = projectile.getUUID();
-        ProjectileState state = projectileStates.remove(id);
-        if (state != null) {
-            Vec3 currentPos = projectile.position();
-
-            // 恢复原始重力设置
-            projectile.setNoGravity(state.originalNoGravity);
-
-            // ★★★ 恢复火焰弹的动力值 ★★★
-            if (state.isHurtingProjectile && state.powerSaved) {
-                restoreHurtingProjectilePower(projectile, state);
-                // 火焰弹会自己根据 power 飞行，给一个小的初始速度帮助启动
-                Vec3 powerDir = new Vec3(state.originalXPower, state.originalYPower, state.originalZPower);
-                if (powerDir.lengthSqr() > 0.0001) {
-                    projectile.setDeltaMovement(powerDir.normalize().scale(0.1));
-                }
-            } else {
-                // 普通投射物
-                if (!state.originalNoGravity) {
-                    projectile.setDeltaMovement(0, -0.05, 0);
-                } else {
-                    projectile.setDeltaMovement(Vec3.ZERO);
-                }
-            }
-
-            projectile.setPos(currentPos);
-            projectile.hurtMarked = true;
-            projectile.hasImpulse = true;
-        }
-    }
-
-    public boolean isProjectileTracked(UUID projectileId) {
-        return projectileStates.containsKey(projectileId);
+    public void trackProjectile(Projectile projectile) {
+        trackedProjectiles.add(projectile.getUUID());
     }
 
     public Set<UUID> getTrackedProjectileIds() {
-        return new HashSet<>(projectileStates.keySet());
+        return new HashSet<>(trackedProjectiles);
+    }
+
+    public void forceRemoveProjectile(UUID projectileId) {
+        trackedProjectiles.remove(projectileId);
+    }
+
+    public int getTrackedProjectileCount() {
+        return trackedProjectiles.size();
     }
 
     // ==================== 弹开豁免机制 ====================
@@ -415,13 +319,50 @@ public class PressureStateManager {
         });
     }
 
+    // ==================== 释放投射物 ====================
+
+    public void releaseProjectile(Projectile projectile) {
+        UUID id = projectile.getUUID();
+        trackedProjectiles.remove(id);
+
+        if (projectile instanceof IFrozenProjectile fp) {
+            fp.jujutsuAddon$setControlled(false);
+        }
+
+        projectile.setDeltaMovement(new Vec3(0, -0.05, 0));
+        projectile.setNoGravity(false);
+
+        if (projectile instanceof AbstractHurtingProjectile hurting) {
+            hurting.xPower = 0;
+            hurting.yPower = -0.01;
+            hurting.zPower = 0;
+        }
+
+        projectile.hurtMarked = true;
+    }
+
+    public void releaseAllProjectiles(LivingEntity owner) {
+        if (!(owner.level() instanceof ServerLevel level)) return;
+
+        for (UUID id : new HashSet<>(trackedProjectiles)) {
+            Entity entity = level.getEntity(id);
+            if (entity instanceof Projectile projectile) {
+                releaseProjectile(projectile);
+            }
+        }
+
+        trackedProjectiles.clear();
+        repelledProjectiles.clear();
+    }
+
     public void cleanupProjectiles(LivingEntity owner, double currentMaxRange) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
+        List<Projectile> toRelease = new ArrayList<>();
         Set<UUID> toRemove = new HashSet<>();
         Vec3 ownerPos = owner.position();
 
-        for (UUID id : projectileStates.keySet()) {
+        for (UUID id : new HashSet<>(trackedProjectiles)) {
             Entity entity = level.getEntity(id);
 
             if (entity == null || !entity.isAlive() || entity.isRemoved()) {
@@ -436,43 +377,47 @@ public class PressureStateManager {
 
             double distance = ownerPos.distanceTo(projectile.position());
             if (distance > currentMaxRange * 1.5) {
-                releaseProjectile(projectile);
-                toRemove.add(id);
+                toRelease.add(projectile);
             }
+        }
+
+        for (Projectile projectile : toRelease) {
+            releaseProjectile(projectile);
         }
 
         for (UUID id : toRemove) {
-            projectileStates.remove(id);
+            trackedProjectiles.remove(id);
         }
     }
 
-    public void releaseAllProjectiles(LivingEntity owner) {
-        if (!(owner.level() instanceof ServerLevel level)) return;
+    // ==================== 清理单个实体的所有状态 ====================
 
-        for (UUID id : new HashSet<>(projectileStates.keySet())) {
-            Entity entity = level.getEntity(id);
-            if (entity instanceof Projectile projectile) {
-                releaseProjectile(projectile);
-            }
-        }
-        projectileStates.clear();
-        repelledProjectiles.clear();
-    }
-
-    public int getTrackedProjectileCount() {
-        return projectileStates.size();
+    public void clearEntityState(UUID entityId) {
+        previousVelocities.remove(entityId);
+        confirmedColliding.remove(entityId);
+        entityCollidingBlocks.remove(entityId);
+        damageCooldowns.remove(entityId);
+        pinnedTicks.remove(entityId);
+        previousPressure.remove(entityId);
+        damageWarningTicks.remove(entityId);
+        peakPressure.remove(entityId);
+        collisionFrames.remove(entityId);
+        noCollisionFrames.remove(entityId);
     }
 
     // ==================== 清理方法 ====================
 
     public void clearAll(LivingEntity owner) {
         previousVelocities.clear();
-        wasColliding.clear();
+        confirmedColliding.clear();
         entityCollidingBlocks.clear();
         damageCooldowns.clear();
         pinnedTicks.clear();
         previousPressure.clear();
         damageWarningTicks.clear();
+        peakPressure.clear();
+        collisionFrames.clear();
+        noCollisionFrames.clear();
 
         releaseAllProjectiles(owner);
         repelledProjectiles.clear();
@@ -491,43 +436,27 @@ public class PressureStateManager {
     public void cleanup(LivingEntity owner, double range) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
-        previousVelocities.entrySet().removeIf(entry -> {
+        // 清理实体相关状态的通用方法
+        java.util.function.Predicate<Map.Entry<UUID, ?>> shouldRemove = entry -> {
             Entity entity = level.getEntity(entry.getKey());
             return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
+        };
 
-        wasColliding.entrySet().removeIf(entry -> {
-            Entity entity = level.getEntity(entry.getKey());
-            return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
+        previousVelocities.entrySet().removeIf(shouldRemove);
+        confirmedColliding.entrySet().removeIf(shouldRemove);
+        entityCollidingBlocks.entrySet().removeIf(shouldRemove);
+        damageCooldowns.entrySet().removeIf(shouldRemove);
+        pinnedTicks.entrySet().removeIf(shouldRemove);
+        previousPressure.entrySet().removeIf(shouldRemove);
+        damageWarningTicks.entrySet().removeIf(shouldRemove);
+        peakPressure.entrySet().removeIf(shouldRemove);
+        collisionFrames.entrySet().removeIf(shouldRemove);
+        noCollisionFrames.entrySet().removeIf(shouldRemove);
 
-        entityCollidingBlocks.entrySet().removeIf(entry -> {
-            Entity entity = level.getEntity(entry.getKey());
-            return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
-
-        damageCooldowns.entrySet().removeIf(entry -> {
-            Entity entity = level.getEntity(entry.getKey());
-            return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
-
-        pinnedTicks.entrySet().removeIf(entry -> {
-            Entity entity = level.getEntity(entry.getKey());
-            return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
-
-        previousPressure.entrySet().removeIf(entry -> {
-            Entity entity = level.getEntity(entry.getKey());
-            return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
-
-        damageWarningTicks.entrySet().removeIf(entry -> {
-            Entity entity = level.getEntity(entry.getKey());
-            return entity == null || owner.distanceTo(entity) > range * 1.5;
-        });
-
+        // 清理投射物
         cleanupProjectiles(owner, range);
 
+        // 清理方块压力
         long currentTime = System.currentTimeMillis();
         blockPressureAccum.entrySet().removeIf(entry -> {
             BlockPos pos = entry.getKey();

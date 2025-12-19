@@ -1,5 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
 
+import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -15,274 +16,217 @@ import radon.jujutsu_kaisen.entity.base.SummonEntity;
 import radon.jujutsu_kaisen.entity.projectile.base.JujutsuProjectile;
 import radon.jujutsu_kaisen.util.HelperMethods;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class ProjectilePressureHandler {
+
+    // ★★★ 性能优化：缓存领域检测结果 ★★★
+    private static final Map<UUID, Long> domainCheckCache = new HashMap<>();
+    private static final Map<UUID, Boolean> domainResultCache = new HashMap<>();
+    private static final long DOMAIN_CACHE_DURATION = 20; // 20 tick = 1 秒
+
+    // ★★★ 新增：高速投射物检测的额外范围 ★★★
+    private static final double HIGH_SPEED_DETECTION_MULTIPLIER = 2.5;  // 速度的2.5倍
+    private static final double MIN_EXTRA_RANGE = 3.0;  // 最小额外范围
+    private static final double MAX_EXTRA_RANGE = 20.0; // 最大额外范围
 
     public static void handleProjectiles(LivingEntity owner, int pressureLevel,
                                          float cursedEnergyOutput, double maxRange,
                                          PressureStateManager stateManager) {
-
         if (!PressureConfig.shouldAffectProjectiles()) {
-            stateManager.releaseAllProjectiles(owner);
+            releaseAll(owner, stateManager);
             return;
         }
-
         if (pressureLevel < PressureConfig.getProjectileMinPressure()) {
-            stateManager.releaseAllProjectiles(owner);
+            releaseAll(owner, stateManager);
             return;
         }
 
         stateManager.tickRepelledProjectiles();
 
+        // ★★★ 关键修复：扩大搜索范围以捕获高速投射物 ★★★
+        double searchRange = maxRange + MAX_EXTRA_RANGE;
+
         List<Projectile> projectilesInRange = owner.level().getEntitiesOfClass(
                 Projectile.class,
-                owner.getBoundingBox().inflate(maxRange),
+                owner.getBoundingBox().inflate(searchRange),
                 projectile -> shouldAffect(owner, projectile)
         );
 
         Set<UUID> currentlyAffected = new HashSet<>();
+        Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
 
         for (Projectile projectile : projectilesInRange) {
-            if (stateManager.isRepelled(projectile.getUUID())) {
+            if (stateManager.isRepelled(projectile.getUUID())) continue;
+
+            double distance = ownerCenter.distanceTo(projectile.position());
+
+            // ★★★ 关键修复：根据速度判断是否会进入范围 ★★★
+            if (!willEnterRange(projectile, ownerCenter, distance, maxRange)) {
                 continue;
             }
 
             currentlyAffected.add(projectile.getUUID());
-            applyPressure(owner, projectile, pressureLevel, cursedEnergyOutput,
-                    maxRange, stateManager);
+
+            initializeControlIfNeeded(projectile, owner, ownerCenter, distance, maxRange,
+                    pressureLevel, cursedEnergyOutput, stateManager);
         }
 
-        handleOutOfRangeProjectiles(owner, maxRange, currentlyAffected, stateManager);
+        releaseOutOfRange(owner, maxRange, currentlyAffected, stateManager);
+
+        // ★★★ 性能优化：定期清理缓存 ★★★
+        if (owner.tickCount % 100 == 0) {
+            cleanupDomainCache(owner.level().getGameTime());
+        }
     }
 
-    private static void applyPressure(LivingEntity owner, Projectile projectile,
-                                      int pressureLevel, float cursedEnergyOutput,
-                                      double maxRange,
-                                      PressureStateManager stateManager) {
-        Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
-        Vec3 projectilePos = projectile.position();
-        double distance = ownerCenter.distanceTo(projectilePos);
-        if (distance < 0.1) distance = 0.1;
-        if (distance > maxRange) return;
-
-        PressureStateManager.ProjectileState state = stateManager.trackProjectile(projectile);
-
-        // 首次追踪时保存火焰弹的动力值
-        stateManager.saveHurtingProjectilePower(projectile, state);
-        projectile.setNoGravity(true);
-
-        if (state.immuneTicks > 0) {
-            state.immuneTicks--;
-            if (state.positionLocked) {
-                stateManager.enforceProjectilePosition(projectile, state);
-            }
-            return;
+    /**
+     * ★★★ 新增：判断投射物是否会在下一帧进入范围 ★★★
+     */
+    private static boolean willEnterRange(Projectile projectile, Vec3 ownerCenter,
+                                          double currentDistance, double maxRange) {
+        // 已经在范围内
+        if (currentDistance <= maxRange) {
+            return true;
         }
 
-        double haltDistance = PressureCalculator.calculateHaltDistance(pressureLevel);
-        double levelFactor = PressureCalculator.calculateLevelFactor(pressureLevel);
+        // 计算投射物速度
+        Vec3 velocity = projectile.getDeltaMovement();
+        double speed = velocity.length();
 
-        double stopZoneBuffer = PressureConfig.getProjectileStopZoneBuffer()
-                + (pressureLevel * PressureConfig.getProjectileStopZoneBufferPerLevel());
-        double stopZoneOuter = haltDistance + stopZoneBuffer;
-        double stopZoneInner = haltDistance - stopZoneBuffer;
-        stopZoneInner = Math.max(PressureConfig.getProjectileStopZoneMinInner(), stopZoneInner);
-
-        Vec3 pushDirection = projectilePos.subtract(ownerCenter).normalize();
-        Vec3 originalVelocity = state.originalVelocity;
-
-        // ========== 出力突变检测 ==========
-        boolean isPowerSurge = false;
-        double surgeMult = 1.0;
-
-        if (state.baselinePressureLevel == 0 && state.baselineCursedOutput == 0) {
-            state.baselinePressureLevel = pressureLevel;
-            state.baselineCursedOutput = cursedEnergyOutput;
+        // 低速投射物，用普通检测
+        if (speed < 0.5) {
+            return false;  // 不在范围内且速度慢，不处理
         }
 
-        if (state.isFullyStopped || state.stoppedTicks > 0) {
-            state.ticksSinceBaseline++;
+        // ★★★ 高速投射物：检查是否正在接近 ★★★
+        Vec3 toOwner = ownerCenter.subtract(projectile.position());
+        double approachSpeed = velocity.dot(toOwner.normalize());
 
-            if (state.ticksSinceBaseline >= PressureConfig.getProjectileSurgeCheckInterval()) {
-                int levelDiff = pressureLevel - state.baselinePressureLevel;
-                float outputDiff = cursedEnergyOutput - state.baselineCursedOutput;
-
-                if (levelDiff >= PressureConfig.getProjectileSurgeLevelThreshold() ||
-                        (outputDiff >= PressureConfig.getProjectileSurgeOutputThreshold()
-                                && state.baselineCursedOutput > 0)) {
-                    isPowerSurge = true;
-                    surgeMult = PressureConfig.getProjectileSurgeBaseMult()
-                            + Math.max(
-                            levelDiff * PressureConfig.getProjectileSurgeLevelFactor(),
-                            outputDiff * PressureConfig.getProjectileSurgeOutputFactor()
-                    );
-                    surgeMult = Math.min(surgeMult, PressureConfig.getProjectileSurgeMaxMult());
-                }
-
-                state.baselinePressureLevel = pressureLevel;
-                state.baselineCursedOutput = cursedEnergyOutput;
-                state.ticksSinceBaseline = 0;
-            }
+        // 如果正在远离，不处理
+        if (approachSpeed <= 0) {
+            return false;
         }
 
-        // ========== 出力突变 → 弹开 ==========
-        if (isPowerSurge) {
-            double pushStrength = PressureConfig.getProjectileSurgePushBase()
-                    * surgeMult * levelFactor * cursedEnergyOutput;
-            pushStrength = Math.min(pushStrength, PressureConfig.getProjectileSurgePushMax());
+        // ★★★ 计算需要多少帧才能到达范围边界 ★★★
+        double distanceToRange = currentDistance - maxRange;
+        double framesToReach = distanceToRange / approachSpeed;
 
-            state.unlockPosition();
+        // 如果 2 帧内能到达，提前开始处理
+        // 这样即使下一帧跳过了边界，这一帧就已经开始减速了
+        return framesToReach <= 2.0;
+    }
 
-            Vec3 repelVelocity = pushDirection.scale(pushStrength);
-            projectile.setDeltaMovement(repelVelocity);
+    private static void initializeControlIfNeeded(Projectile projectile, LivingEntity owner,
+                                                  Vec3 ownerCenter, double distance, double maxRange,
+                                                  int pressureLevel, float cursedEnergyOutput,
+                                                  PressureStateManager stateManager) {
+        if (!(projectile instanceof IFrozenProjectile fp)) return;
+        boolean wasControlled = fp.jujutsuAddon$isControlled();
 
-            // 火焰弹弹开时设置反向动力
-            if (projectile instanceof AbstractHurtingProjectile hurting) {
-                hurting.xPower = pushDirection.x * pushStrength * 0.1;
-                hurting.yPower = pushDirection.y * pushStrength * 0.1;
-                hurting.zPower = pushDirection.z * pushStrength * 0.1;
-            }
+        // ★★★ 计算初始速度倍率 ★★★
+        float initialSpeedMod;
+        if (distance > maxRange) {
+            // 在范围外但即将进入，开始预减速
+            // 根据距离计算，越近减速越多
+            double distanceRatio = (distance - maxRange) / MAX_EXTRA_RANGE;
+            distanceRatio = Math.max(0, Math.min(1, distanceRatio));
+            // 范围边界处: 0.4, 预检测边界处: 0.8
+            initialSpeedMod = (float) (0.4 + distanceRatio * 0.4);
+        } else {
+            // 在范围内，使用正常入口速度
+            initialSpeedMod = (float) PressureConfig.getProjectileEntrySpeed();
+        }
 
-            projectile.setNoGravity(state.originalNoGravity);
-            projectile.hurtMarked = true;
-            projectile.hasImpulse = true;
+        if (!wasControlled) {
+            fp.jujutsuAddon$setOriginalVelocity(projectile.getDeltaMovement());
+            fp.jujutsuAddon$lockRotation(projectile.getYRot(), projectile.getXRot());
 
-            UUID projectileId = projectile.getUUID();
-            stateManager.forceRemoveProjectile(projectileId);
-            stateManager.markAsRepelled(projectileId, PressureConfig.getProjectileReflectImmuneTicks());
+            float stopDistance = (float) PressureConfig.getStopZoneRadius(pressureLevel);
+            fp.jujutsuAddon$setStopDistance(stopDistance);
+            fp.jujutsuAddon$setMaxRange((float) maxRange);
+
+            fp.jujutsuAddon$setSpeedMultiplier(initialSpeedMod);
+            fp.jujutsuAddon$setControlled(true);
+            fp.jujutsuAddon$setFreezeOwner(owner.getUUID());
+            projectile.setNoGravity(true);
+
+            // ★★★ 立即应用减速，防止下一帧穿透 ★★★
+            Vec3 currentVel = projectile.getDeltaMovement();
+            projectile.setDeltaMovement(currentVel.scale(initialSpeedMod));
 
             if (PressureConfig.areSoundsEnabled()) {
                 projectile.level().playSound(null,
                         projectile.getX(), projectile.getY(), projectile.getZ(),
-                        SoundEvents.SHIELD_BLOCK, SoundSource.NEUTRAL,
-                        0.6F, 0.7F);
+                        SoundEvents.SHIELD_BLOCK, SoundSource.NEUTRAL, 0.3F, 1.5F);
             }
-            if (PressureConfig.areParticlesEnabled()) {
-                spawnRepelParticles(projectile);
-            }
-            return;
+            spawnSlowdownParticles(projectile, 1.0);
         }
 
-        // ========== 三区域判断 ==========
-        if (distance > stopZoneOuter) {
-            // 【减速区】
-            if (state.positionLocked) {
-                state.unlockPosition();
-            }
+        stateManager.trackProjectile(projectile);
 
-            // ★★★ 使用通用方法计算 speedRatio ★★★
-            double speedRatio = VelocityController.calculateSpeedRatioWithCustomStop(
-                    pressureLevel, cursedEnergyOutput, distance, maxRange, stopZoneOuter);
-
-            Vec3 finalVelocity = originalVelocity.scale(speedRatio);
-            projectile.setDeltaMovement(finalVelocity);
-
-            // 火焰弹减速时也要调整动力
-            if (projectile instanceof AbstractHurtingProjectile hurting && state.powerSaved) {
-                hurting.xPower = state.originalXPower * speedRatio;
-                hurting.yPower = state.originalYPower * speedRatio;
-                hurting.zPower = state.originalZPower * speedRatio;
-            }
-
-            if (PressureConfig.areParticlesEnabled() && speedRatio < 0.95) {
-                int interval = 2 + (int) (speedRatio * 6);
-                if (projectile.tickCount % interval == 0) {
-                    spawnSlowdownParticles(projectile, 1.0 - speedRatio);
-                }
-            }
-            state.isFullyStopped = false;
-
-        } else if (distance >= stopZoneInner) {
-            // 【停止区】
-            if (!state.isFullyStopped) {
-                state.isFullyStopped = true;
-                state.stoppedTicks = 0;
-                state.baselinePressureLevel = pressureLevel;
-                state.baselineCursedOutput = cursedEnergyOutput;
-                state.ticksSinceBaseline = 0;
-
-                state.lockPosition(projectile.position());
-
-                if (PressureConfig.areSoundsEnabled()) {
-                    projectile.level().playSound(null,
-                            projectile.getX(), projectile.getY(), projectile.getZ(),
-                            SoundEvents.SHIELD_BLOCK, SoundSource.NEUTRAL,
-                            0.3F, 1.5F);
-                }
-                if (PressureConfig.areParticlesEnabled()) {
-                    spawnHaltParticles(projectile);
-                }
-            }
-
-            state.stoppedTicks++;
-
-            // 每tick强制保持位置（包括清零火焰弹动力）
-            stateManager.enforceProjectilePosition(projectile, state);
-
-            if (PressureConfig.areParticlesEnabled() && projectile.tickCount % 12 == 0) {
-                spawnHoverParticles(projectile);
-            }
-
-        } else {
-            // 【推力区】
-            if (state.positionLocked) {
-                state.unlockPosition();
-            }
-
-            double penetration = stopZoneInner - distance;
-            double pushStrength = PressureConfig.getProjectilePushZoneBase()
-                    * (1.0 + penetration * PressureConfig.getProjectilePushZonePenetrationFactor())
-                    * levelFactor * cursedEnergyOutput;
-            pushStrength = Math.min(pushStrength, PressureConfig.getProjectilePushZoneMax());
-
-            Vec3 finalVelocity = pushDirection.scale(pushStrength);
-            projectile.setDeltaMovement(finalVelocity);
-
-            // 火焰弹推力区也要设置反向动力
-            if (projectile instanceof AbstractHurtingProjectile hurting) {
-                hurting.xPower = pushDirection.x * pushStrength * 0.05;
-                hurting.yPower = pushDirection.y * pushStrength * 0.05;
-                hurting.zPower = pushDirection.z * pushStrength * 0.05;
-            }
-
-            state.isFullyStopped = false;
-
-            if (PressureConfig.areParticlesEnabled() && projectile.tickCount % 8 == 0) {
-                spawnPushParticles(projectile);
-            }
+        // ★★★ 性能优化：减少粒子频率 ★★★
+        float currentSpeedMod = fp.jujutsuAddon$getSpeedMultiplier();
+        if (PressureConfig.areParticlesEnabled() && currentSpeedMod < 0.3 && projectile.tickCount % 15 == 0) {
+            spawnSlowdownParticles(projectile, 1.0 - currentSpeedMod);
         }
-
-        state.lastDistance = distance;
     }
 
-    private static void handleOutOfRangeProjectiles(LivingEntity owner, double maxRange,
-                                                    Set<UUID> currentlyAffected,
-                                                    PressureStateManager stateManager) {
+    // ==================== 释放逻辑 ====================
+
+    private static void releaseOutOfRange(LivingEntity owner, double maxRange,
+                                          Set<UUID> currentlyAffected,
+                                          PressureStateManager stateManager) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
-        Set<UUID> trackedIds = new HashSet<>(stateManager.getTrackedProjectileIds());
-        Vec3 ownerPos = owner.position();
-
-        for (UUID trackedId : trackedIds) {
-            if (currentlyAffected.contains(trackedId)) {
-                continue;
-            }
+        for (UUID trackedId : new HashSet<>(stateManager.getTrackedProjectileIds())) {
+            if (currentlyAffected.contains(trackedId)) continue;
 
             Entity entity = level.getEntity(trackedId);
             if (entity instanceof Projectile projectile) {
-                double distance = ownerPos.distanceTo(projectile.position());
-                if (distance > maxRange || !shouldAffect(owner, projectile)) {
-                    stateManager.releaseProjectile(projectile);
+                double distance = owner.position().distanceTo(projectile.position());
+                // ★★★ 修复：用 maxRange + 缓冲区判断，避免边界抖动 ★★★
+                if (distance > maxRange + 1.0 || !shouldAffect(owner, projectile)) {
+                    releaseProjectile(projectile, stateManager);
                 }
             } else {
                 stateManager.forceRemoveProjectile(trackedId);
             }
         }
     }
+
+    public static void releaseProjectile(Projectile projectile, PressureStateManager stateManager) {
+        if (projectile instanceof IFrozenProjectile fp) {
+            fp.jujutsuAddon$setControlled(false);
+        }
+
+        // ★★★ 修复：确保火焰弹正确释放 ★★★
+        if (projectile instanceof AbstractHurtingProjectile hurting) {
+            hurting.xPower = 0;
+            hurting.yPower = -0.03;
+            hurting.zPower = 0;
+        }
+
+        projectile.setDeltaMovement(new Vec3(0, -0.1, 0));
+        projectile.setNoGravity(false);
+        projectile.hurtMarked = true;
+
+        stateManager.forceRemoveProjectile(projectile.getUUID());
+    }
+
+    private static void releaseAll(LivingEntity owner, PressureStateManager stateManager) {
+        if (!(owner.level() instanceof ServerLevel level)) return;
+
+        for (UUID id : new HashSet<>(stateManager.getTrackedProjectileIds())) {
+            Entity entity = level.getEntity(id);
+            if (entity instanceof Projectile projectile) {
+                releaseProjectile(projectile, stateManager);
+            }
+        }
+        stateManager.releaseAllProjectiles(owner);
+    }
+
+    // ==================== 目标筛选 ====================
 
     private static boolean shouldAffect(LivingEntity owner, Projectile projectile) {
         Entity projectileOwner = projectile.getOwner();
@@ -321,16 +265,40 @@ public class ProjectilePressureHandler {
         return true;
     }
 
+    // ★★★ 性能优化：缓存领域检测 ★★★
     private static boolean isInOwnersDomainWithSureHit(LivingEntity owner, LivingEntity projectileOwner) {
+        UUID cacheKey = projectileOwner.getUUID();
+        long currentTime = owner.level().getGameTime();
+
+        // 检查缓存
+        Long lastCheck = domainCheckCache.get(cacheKey);
+        if (lastCheck != null && currentTime - lastCheck < DOMAIN_CACHE_DURATION) {
+            Boolean cachedResult = domainResultCache.get(cacheKey);
+            if (cachedResult != null) {
+                return cachedResult;
+            }
+        }
+
+        // 执行检测
+        boolean result = doCheckDomainSureHit(owner, projectileOwner);
+
+        // 缓存结果
+        domainCheckCache.put(cacheKey, currentTime);
+        domainResultCache.put(cacheKey, result);
+
+        return result;
+    }
+
+    private static boolean doCheckDomainSureHit(LivingEntity owner, LivingEntity projectileOwner) {
+        // ★★★ 性能优化：缩小搜索范围 ★★★
         List<DomainExpansionEntity> domains = owner.level().getEntitiesOfClass(
                 DomainExpansionEntity.class,
-                owner.getBoundingBox().inflate(100)
+                owner.getBoundingBox().inflate(50)  // 从 100 减少到 50
         );
 
         for (DomainExpansionEntity domain : domains) {
             if (domain.getOwner() != projectileOwner) continue;
-            if (!domain.hasSureHitEffect()) continue;
-            if (!domain.checkSureHitEffect()) continue;
+            if (!domain.hasSureHitEffect() || !domain.checkSureHitEffect()) continue;
             if (domain.isAffected(owner)) {
                 return true;
             }
@@ -338,44 +306,19 @@ public class ProjectilePressureHandler {
         return false;
     }
 
-    // ========== 粒子效果 ==========
-
-    private static void spawnHaltParticles(Projectile projectile) {
-        if (!(projectile.level() instanceof ServerLevel level)) return;
-        level.sendParticles(ParticleTypes.CRIT,
-                projectile.getX(), projectile.getY(), projectile.getZ(),
-                5, 0.15, 0.15, 0.15, 0.01);
+    // ★★★ 清理过期缓存 ★★★
+    private static void cleanupDomainCache(long currentTime) {
+        domainCheckCache.entrySet().removeIf(entry ->
+                currentTime - entry.getValue() > DOMAIN_CACHE_DURATION * 5);
+        domainResultCache.keySet().retainAll(domainCheckCache.keySet());
     }
 
-    private static void spawnHoverParticles(Projectile projectile) {
-        if (!(projectile.level() instanceof ServerLevel level)) return;
-        level.sendParticles(ParticleTypes.END_ROD,
-                projectile.getX(), projectile.getY(), projectile.getZ(),
-                1, 0.08, 0.08, 0.08, 0.001);
-    }
-
-    private static void spawnSlowdownParticles(Projectile projectile, double intensity) {
-        if (!(projectile.level() instanceof ServerLevel level)) return;
-        int count = 1 + (int) (intensity * 3);
-        level.sendParticles(ParticleTypes.EFFECT,
-                projectile.getX(), projectile.getY(), projectile.getZ(),
-                count, 0.1, 0.1, 0.1, 0.01);
-    }
-
-    private static void spawnPushParticles(Projectile projectile) {
-        if (!(projectile.level() instanceof ServerLevel level)) return;
-        level.sendParticles(ParticleTypes.CLOUD,
-                projectile.getX(), projectile.getY(), projectile.getZ(),
-                1, 0.05, 0.05, 0.05, 0.005);
-    }
-
-    private static void spawnRepelParticles(Projectile projectile) {
-        if (!(projectile.level() instanceof ServerLevel level)) return;
-        level.sendParticles(ParticleTypes.CRIT,
-                projectile.getX(), projectile.getY(), projectile.getZ(),
-                10, 0.25, 0.25, 0.25, 0.2);
-        level.sendParticles(ParticleTypes.CLOUD,
-                projectile.getX(), projectile.getY(), projectile.getZ(),
-                5, 0.2, 0.2, 0.2, 0.1);
+    private static void spawnSlowdownParticles(Projectile p, double intensity) {
+        if (p.level() instanceof ServerLevel level) {
+            int count = 1 + (int) (intensity * 2);  // ★ 减少粒子数量
+            level.sendParticles(ParticleTypes.CRIT,
+                    p.getX(), p.getY(), p.getZ(),
+                    count, 0.1, 0.1, 0.1, 0.01);
+        }
     }
 }

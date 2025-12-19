@@ -16,112 +16,81 @@ public class AbilityConfig {
 
     public static class Common {
 
-        // ========== 总开关 ==========
+        // ==================== 总开关 ====================
         public final ForgeConfigSpec.BooleanValue enableInfinityPressure;
 
-        // ========== 范围 ==========
-        public final ForgeConfigSpec.DoubleValue level0Range;
+        // ==================== 范围与区域 ====================
         public final ForgeConfigSpec.DoubleValue level1Range;
         public final ForgeConfigSpec.DoubleValue level10Range;
+        public final ForgeConfigSpec.DoubleValue rangeCurveExponent;
+        public final ForgeConfigSpec.DoubleValue slowdownZoneParts;
+        public final ForgeConfigSpec.DoubleValue stopZoneParts;
+        public final ForgeConfigSpec.DoubleValue pushZoneParts;
 
-        // ========== 停止距离 ==========
-        public final ForgeConfigSpec.DoubleValue level1HaltDistance;
-        public final ForgeConfigSpec.DoubleValue level5HaltDistance;
-        public final ForgeConfigSpec.DoubleValue level10HaltDistance;
-        public final ForgeConfigSpec.DoubleValue haltTransitionZone;
+        // ==================== 生物压制 - 推力 ====================
+        public final ForgeConfigSpec.DoubleValue basePushForce;
+        public final ForgeConfigSpec.DoubleValue maxPushForce;
+        public final ForgeConfigSpec.DoubleValue breachRepelForce;
+        public final ForgeConfigSpec.DoubleValue pinForce;
 
-        // ========== 压力值 ==========
+        // ==================== 生物压制 - 阻力 ====================
+        public final ForgeConfigSpec.DoubleValue lateralResistance;
+        public final ForgeConfigSpec.DoubleValue escapeResistance;
+
+        // ==================== 生物压制 - 压力值 ====================
         public final ForgeConfigSpec.DoubleValue basePressure;
         public final ForgeConfigSpec.DoubleValue distanceDecay;
         public final ForgeConfigSpec.DoubleValue approachMultiplier;
         public final ForgeConfigSpec.DoubleValue breachPressureMult;
 
-        // ========== 推力/阻力 ==========
-        public final ForgeConfigSpec.DoubleValue basePushForce;
+        // ==================== 生物压制 - 等级因子 ====================
         public final ForgeConfigSpec.DoubleValue minLevelMult;
         public final ForgeConfigSpec.DoubleValue maxLevelMult;
-        public final ForgeConfigSpec.DoubleValue maxPushForce;
-        public final ForgeConfigSpec.DoubleValue pinForce;
-        public final ForgeConfigSpec.DoubleValue haltRepelForce;
-        public final ForgeConfigSpec.DoubleValue breachRepelForce;
 
-        // ========== 阻力系统 ==========
-        public final ForgeConfigSpec.DoubleValue lateralResistance;
-        public final ForgeConfigSpec.DoubleValue escapeResistance;
-        public final ForgeConfigSpec.DoubleValue approachResistanceBase;
-        public final ForgeConfigSpec.DoubleValue approachResistanceMax;
-
-        // ========== 压力阈值 ==========
+        // ==================== 伤害 ====================
         public final ForgeConfigSpec.DoubleValue minPressureForDamage;
-        public final ForgeConfigSpec.DoubleValue minPressureForBlockBreak;
-        public final ForgeConfigSpec.DoubleValue minPressureForPush;
-
-        // ========== 方块破坏 ==========
-        public final ForgeConfigSpec.DoubleValue pressureDecayRate;
-        public final ForgeConfigSpec.DoubleValue breakThresholdMult;
-        public final ForgeConfigSpec.IntValue breakStages;
-        public final ForgeConfigSpec.LongValue pressureTimeoutMs;
-        public final ForgeConfigSpec.BooleanValue actuallyBreakBlocks;  // ★ 新增
-        public final ForgeConfigSpec.BooleanValue dropBlockItems;       // ★ 新增
-
-        // ========== 投射物 ==========
-        public final ForgeConfigSpec.BooleanValue affectProjectiles;
-        public final ForgeConfigSpec.IntValue projectileMinPressure;
-        public final ForgeConfigSpec.DoubleValue projectileSlowdownRate;
-        public final ForgeConfigSpec.DoubleValue projectileMinSpeed;
-        public final ForgeConfigSpec.DoubleValue projectileRepelForce;
-        public final ForgeConfigSpec.DoubleValue projectileReflectSpeedMult;
-        public final ForgeConfigSpec.DoubleValue projectileReflectMinSpeed;
-        public final ForgeConfigSpec.DoubleValue projectileReflectMaxSpeed;
-        public final ForgeConfigSpec.IntValue projectileReflectImmuneTicks;
-
-        // ========== 投射物高级设置 ==========
-        public final ForgeConfigSpec.DoubleValue projectileStopZoneBuffer;
-        public final ForgeConfigSpec.DoubleValue projectileStopZoneBufferPerLevel;
-        public final ForgeConfigSpec.DoubleValue projectileStopZoneMinInner;
-        public final ForgeConfigSpec.IntValue projectileSurgeCheckInterval;
-        public final ForgeConfigSpec.IntValue projectileSurgeLevelThreshold;
-        public final ForgeConfigSpec.DoubleValue projectileSurgeOutputThreshold;
-        public final ForgeConfigSpec.DoubleValue projectileSurgeBaseMult;
-        public final ForgeConfigSpec.DoubleValue projectileSurgeLevelFactor;
-        public final ForgeConfigSpec.DoubleValue projectileSurgeOutputFactor;
-        public final ForgeConfigSpec.DoubleValue projectileSurgeMaxMult;
-        public final ForgeConfigSpec.DoubleValue projectileSurgePushBase;
-        public final ForgeConfigSpec.DoubleValue projectileSurgePushMax;
-        public final ForgeConfigSpec.DoubleValue projectilePushZoneBase;
-        public final ForgeConfigSpec.DoubleValue projectilePushZonePenetrationFactor;
-        public final ForgeConfigSpec.DoubleValue projectilePushZoneMax;
-
-        // ========== 伤害 ==========
         public final ForgeConfigSpec.DoubleValue pressureToDamage;
-        public final ForgeConfigSpec.DoubleValue pressureChangeDamageMult;
-        public final ForgeConfigSpec.IntValue maxDamageInterval;
-        public final ForgeConfigSpec.IntValue minDamageInterval;
-        public final ForgeConfigSpec.DoubleValue intervalPressureScale;
         public final ForgeConfigSpec.DoubleValue maxDamagePerHit;
-
-        // ========== 伤害预兆 ==========
-        public final ForgeConfigSpec.IntValue damageWarningTicks;
-        public final ForgeConfigSpec.DoubleValue pressureSurgeThreshold;
+        public final ForgeConfigSpec.IntValue minDamageInterval;
+        public final ForgeConfigSpec.IntValue maxDamageInterval;
         public final ForgeConfigSpec.DoubleValue surgeDamageMult;
 
-        // ========== 效果 ==========
-        public final ForgeConfigSpec.BooleanValue enablePressureParticles;
-        public final ForgeConfigSpec.BooleanValue enablePressureSounds;
+        // ==================== 投射物 ====================
+        public final ForgeConfigSpec.BooleanValue affectProjectiles;
+        public final ForgeConfigSpec.IntValue projectileMinLevel;
+        public final ForgeConfigSpec.DoubleValue projectileEntrySpeed;
+        public final ForgeConfigSpec.DoubleValue projectileStopSpeed;
 
-        // ========== 掉落物 ========== ★ 新增
+        // ==================== 方块 ====================
+        public final ForgeConfigSpec.BooleanValue actuallyBreakBlocks;
+        public final ForgeConfigSpec.BooleanValue dropBlockItems;
+        public final ForgeConfigSpec.DoubleValue minPressureForBlockBreak;
+        public final ForgeConfigSpec.DoubleValue breakThresholdMult;
+
+        // ==================== 方块硬度影响 ====================
+        public final ForgeConfigSpec.DoubleValue softHardnessThreshold;
+        public final ForgeConfigSpec.DoubleValue hardHardnessThreshold;
+        public final ForgeConfigSpec.DoubleValue softBlockPressureMult;
+        public final ForgeConfigSpec.DoubleValue normalBlockPressureMult;
+        public final ForgeConfigSpec.DoubleValue hardBlockPressureMult;
+        public final ForgeConfigSpec.DoubleValue bedrockPressureMult;
+
+        // ==================== 掉落物 ====================
         public final ForgeConfigSpec.BooleanValue pushDroppedItems;
         public final ForgeConfigSpec.DoubleValue itemPushForceMultiplier;
-        public final ForgeConfigSpec.IntValue itemPushMinPressure;
 
-        // ========== 领域交互 ========== ★ 添加这两行！ ★
+        // ==================== 效果 ====================
+        public final ForgeConfigSpec.BooleanValue enableParticles;
+        public final ForgeConfigSpec.BooleanValue enableSounds;
+
+        // ==================== 交互 ====================
         public final ForgeConfigSpec.BooleanValue respectDomainSureHit;
         public final ForgeConfigSpec.BooleanValue respectDomainAmplification;
 
-        // ========== 咒力消耗 ========== ★ 新增
+        // ==================== 咒力消耗 ====================
         public final ForgeConfigSpec.BooleanValue enablePressureCost;
         public final ForgeConfigSpec.DoubleValue baseCursedEnergyCost;
-        public final ForgeConfigSpec.DoubleValue costPerPressureLevel;
+        public final ForgeConfigSpec.DoubleValue costPerLevel;
         public final ForgeConfigSpec.DoubleValue maxCostMultiplier;
 
         public Common(ForgeConfigSpec.Builder builder) {
@@ -133,553 +102,502 @@ public class AbilityConfig {
                     "================================================================================",
                     " INFINITY PRESSURE SYSTEM / 无下限压力系统",
                     "================================================================================",
+                    " ",
+                    " Zone Layout (from outside to inside / 从外到内):",
+                    " ",
+                    " |<-- Slowdown Zone -->|<-- Stop Zone -->|<-- Push Zone -->| Player",
+                    " |<------ 减速区 ----->|<--- 停止区 ---->|<--- 推力区 ---->| 玩家",
+                    " ",
+                    " - Slowdown: Projectiles slow down, entities pushed gently",
+                    " - Stop: Projectiles hover, entities pushed harder",
+                    " - Push: Breach = strong repel + damage",
+                    " ",
+                    " - 减速区：投射物减速，生物被轻推",
+                    " - 停止区：投射物悬浮，生物被强推",
+                    " - 推力区：突破后强推+伤害",
                     " "
             );
 
-            // --- 总开关 ---
+            // ==================== 总开关 ====================
             enableInfinityPressure = builder
-                    .comment( " Enable or disable the entire Infinity Pressure system.",
-                            " 启用或禁用整个无下限压力系统。")
-                    .translation("config.jujutsu_addon.infinity_pressure.enable")
-                    .define("EnableInfinityPressure", true);
+                    .comment(" Enable the Infinity Pressure system.",
+                            " 启用无下限压力系统。")
+                    .translation("config.jujutsu_addon.pressure.enable")
+                    .define("EnableSystem", true);
 
-            // ==================== 范围 ====================
-            builder.comment( " Range Settings / 范围设置 ").push("Range");
-
-            level0Range = builder
-                    .comment(" Range when pressure level is 0.", " 压力等级为0时的范围。")
-                    .translation("config.jujutsu_addon.infinity_pressure.range.level0")
-                    .defineInRange("Level0Range", 0.5, 0.1, 20.0);
-
+// ==================== 范围与区域 / Range & Zones ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " RANGE & ZONES / 范围与区域",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " ",
+                    " [Range Formula / 范围计算公式]",
+                    " Range = Level1 + (Level10 - Level1) × (Level ÷ 10) ^ CurveExponent",
+                    " 总范围 = 等级1范围 + (等级10范围 - 等级1范围) × (等级÷10)^曲线指数",
+                    " ",
+                    " [Default Config Range Table / 默认配置各等级实际范围]",
+                    " (Level1=2, Level10=10, Curve=2.0)",
+                    " ",
+                    " ┌────────┬───────────────────────┬────────┐",
+                    " │ Level  │ Calc: 2+8×(n/10)^2    │ Range  │",
+                    " │ 等级   │ 计算: 2+8×(n/10)^2    │ 范围   │",
+                    " ├────────┼───────────────────────┼────────┤",
+                    " │ Lv.1   │ 2 + 8 × 0.01          │ 2.1    │",
+                    " │ Lv.2   │ 2 + 8 × 0.04          │ 2.3    │",
+                    " │ Lv.3   │ 2 + 8 × 0.09          │ 2.7    │",
+                    " │ Lv.4   │ 2 + 8 × 0.16          │ 3.3    │",
+                    " │ Lv.5   │ 2 + 8 × 0.25          │ 4.0    │",
+                    " │ Lv.6   │ 2 + 8 × 0.36          │ 4.9    │",
+                    " │ Lv.7   │ 2 + 8 × 0.49          │ 5.9    │",
+                    " │ Lv.8   │ 2 + 8 × 0.64          │ 7.1    │",
+                    " │ Lv.9   │ 2 + 8 × 0.81          │ 8.5    │",
+                    " │ Lv.10  │ 2 + 8 × 1.00          │ 10.0   │",
+                    " └────────┴───────────────────────┴────────┘",
+                    " ",
+                    " [Zone Division / 区域划分] (Default: Slow=4, Stop=3, Push=3)",
+                    " ",
+                    "   Player     Push(30%)    Stop(30%)     Slowdown(40%)   Edge",
+                    "   玩家       推力区        停止区         减速区          边界",
+                    "     ├────30%────┼────30%────┼────40%────┤",
+                    " ",
+                    " [Zone Distance by Level / 各等级各区域实际距离]",
+                    " ┌────────┬────────┬──────────┬──────────┬──────────┐",
+                    " │ Level  │ Total  │ Push     │ Stop     │ Slowdown │",
+                    " │ 等级   │ 总范围 │ 推力区   │ 停止区   │ 减速区   │",
+                    " ├────────┼────────┼──────────┼──────────┼──────────┤",
+                    " │ Lv.1   │ 2.1    │ 0~0.6    │ 0.6~1.3  │ 1.3~2.1  │",
+                    " │ Lv.5   │ 4.0    │ 0~1.2    │ 1.2~2.4  │ 2.4~4.0  │",
+                    " │ Lv.10  │ 10.0   │ 0~3.0    │ 3.0~6.0  │ 6.0~10.0 │",
+                    " └────────┴────────┴──────────┴──────────┴──────────┘"
+            ).push("RangeAndZones");
+// --- Total Range / 总范围 ---
+            builder.comment(" ",
+                    " Total range settings. / 总范围设置。"
+            ).push("TotalRange");
             level1Range = builder
-                    .comment(" Range at pressure level 1.", " 压力等级1时的范围。")
-                    .translation("config.jujutsu_addon.infinity_pressure.range.level1")
-                    .defineInRange("Level1Range", 1.5, 0.5, 30.0);
-
+                    .comment(" Range at level 1 (blocks). / 等级1时的总范围（格）。")
+                    .translation("config.jujutsu_addon.pressure.range.level1")
+                    .defineInRange("Level1", 2.0, 0.5, 50.0);
             level10Range = builder
-                    .comment(" Range at pressure level 10.", " 压力等级10时的范围。")
-                    .translation("config.jujutsu_addon.infinity_pressure.range.level10")
-                    .defineInRange("Level10Range", 9.0, 3.0, 50.0);
+                    .comment(" Range at level 10 (blocks). / 等级10时的总范围（格）。")
+                    .translation("config.jujutsu_addon.pressure.range.level10")
+                    .defineInRange("Level10", 10.0, 2.0, 100.0);
+            rangeCurveExponent = builder
+                    .comment(" ",
+                            " Curve exponent for range scaling. / 范围增长曲线指数。",
+                            " ",
+                            " [Curve Comparison / 不同曲线指数对比]",
+                            " ┌────────┬─────────┬─────────┬─────────┐",
+                            " │ Level  │ 1.0 Lin │ 2.0 Sqr │ 3.0 Cub │",
+                            " │ 等级   │ 线性    │ 平方    │ 立方    │",
+                            " ├────────┼─────────┼─────────┼─────────┤",
+                            " │ Lv.3   │ 4.4     │ 2.7     │ 2.2     │",
+                            " │ Lv.5   │ 6.0     │ 4.0     │ 3.0     │",
+                            " │ Lv.7   │ 7.6     │ 5.9     │ 4.7     │",
+                            " │ Lv.10  │ 10.0    │ 10.0    │ 10.0    │",
+                            " └────────┴─────────┴─────────┴─────────┘",
+                            " ",
+                            " 1.0 = Linear (same increase per level) / 线性（每级相同增加）",
+                            " 2.0 = Quadratic (high levels stronger) [Recommended] / 平方（高级更强）[推荐]",
+                            " 3.0 = Cubic (low weak, high explosive) / 立方（低级极弱，高级爆发）",
+                            " 0.5 = Square root (low stronger) / 开方（低级更强）")
+                    .translation("config.jujutsu_addon.pressure.range.curve")
+                    .defineInRange("CurveExponent", 2.0, 0.5, 4.0);
+            builder.pop(); // TotalRange
+// --- Zone Ratio / 区域占比 ---
+            builder.comment(" ",
+                    " Zone ratio (parts). Defines how total range is divided.",
+                    " 区域占比（份数），定义总范围如何划分。",
+                    " ",
+                    " Calculation: ZoneRadius = TotalRange × (ZoneParts ÷ TotalParts)",
+                    " 计算方式：某区域半径 = 总范围 × (该区域份数 ÷ 总份数)",
+                    " ",
+                    " Default: Slowdown=4, Stop=3, Push=3 (Total=10)",
+                    " 默认: 减速=4, 停止=3, 推力=3 (总计=10份)",
+                    " → Push=30%, Stop=30%, Slowdown=40%"
+            ).push("ZoneRatio");
 
-            builder.pop();
+            slowdownZoneParts = builder
+                    .comment(" Slowdown zone parts (outermost). / 减速区份数（最外层）。",
+                            " Projectiles slow from entry speed to near-stop here.",
+                            " 投射物在此区域从入口速度逐渐减速至接近停止。")
+                    .translation("config.jujutsu_addon.pressure.zone.slowdown")
+                    .defineInRange("Slowdown", 5.0, 0.5, 20.0);
 
-            // ==================== 停止距离 ====================
-            builder.comment( "Halt Distance / 停止距离").push("HaltDistance");
+            stopZoneParts = builder
+                    .comment(" Stop zone parts (middle layer). / 停止区份数（中间层）。",
+                            " Projectiles hover here. Entities pushed strongly.",
+                            " 投射物在此区域悬浮，生物被强推。")
+                    .translation("config.jujutsu_addon.pressure.zone.stop")
+                    .defineInRange("Stop", 2.0, 0.1, 15.0);
 
-            level1HaltDistance = builder
-                    .comment(" Halt distance at level 1 (blocks).", " 等级1的停止距离（格）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.halt.level1")
-                    .defineInRange("Level1HaltDistance", 0.3, 0.1, 5.0);
+            pushZoneParts = builder
+                    .comment(" Push zone parts (innermost). / 推力区份数（最内层）。",
+                            " Entity entering = Breach. Strong repel + damage.",
+                            " 生物进入此区域=突破，会被强推+伤害。")
+                    .translation("config.jujutsu_addon.pressure.zone.push")
+                    .defineInRange("Push", 3.0, 0.1, 10.0);
+            builder.pop(); // ZoneRatio
+            builder.pop(); // RangeAndZones
 
-            level5HaltDistance = builder
-                    .comment(" Halt distance at level 5 (blocks).", " 等级5的停止距离（格）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.halt.level5")
-                    .defineInRange("Level5HaltDistance", 2.5, 0.5, 10.0);
+            // ==================== 生物压制 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " ENTITY PRESSURE / 生物压制",
+                    " ═══════════════════════════════════════════════════════════════"
+            ).push("EntityPressure");
 
-            level10HaltDistance = builder
-                    .comment(" Halt distance at level 10 (blocks).", " 等级10的停止距离（格）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.halt.level10")
-                    .defineInRange("Level10HaltDistance", 6.0, 2.0, 20.0);
+            // --- 推力 ---
+            builder.comment(" Push force settings. / 推力设置。").push("Force");
 
-            haltTransitionZone = builder
-                    .comment(" Width of the transition zone (blocks).", " 过渡区宽度（格）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.halt.transition")
-                    .defineInRange("HaltTransitionZone", 1.5, 0.5, 5.0);
+            basePushForce = builder
+                    .comment(" Base push force per tick. / 每tick基础推力。")
+                    .translation("config.jujutsu_addon.pressure.force.base")
+                    .defineInRange("Base", 0.015, 0.001, 0.1);
 
-            builder.pop();
+            maxPushForce = builder
+                    .comment(" Maximum push force cap. / 推力上限。")
+                    .translation("config.jujutsu_addon.pressure.force.max")
+                    .defineInRange("Max", 0.25, 0.05, 1.0);
 
-            // ==================== 压力值 ====================
-            builder.comment(" Pressure Value / 压力值计算 ").push("PressureValue");
+            breachRepelForce = builder
+                    .comment(" Repel force when entity breaches push zone.",
+                            " 实体突破推力区时的反推力。")
+                    .translation("config.jujutsu_addon.pressure.force.breach")
+                    .defineInRange("BreachRepel", 0.2, 0.05, 0.5);
+
+            pinForce = builder
+                    .comment(" Extra force when pinned against wall.",
+                            " 被压在墙上时的额外力。")
+                    .translation("config.jujutsu_addon.pressure.force.pin")
+                    .defineInRange("Pin", 0.03, 0.01, 0.2);
+
+            builder.pop(); // Force
+
+            // --- 阻力 ---
+            builder.comment(" Resistance settings. / 阻力设置。").push("Resistance");
+
+            lateralResistance = builder
+                    .comment(" Resistance to sideways movement. / 侧向移动阻力。")
+                    .translation("config.jujutsu_addon.pressure.resist.lateral")
+                    .defineInRange("Lateral", 0.7, 0.0, 1.0);
+
+            escapeResistance = builder
+                    .comment(" Resistance when trying to escape. / 逃跑时的阻力。")
+                    .translation("config.jujutsu_addon.pressure.resist.escape")
+                    .defineInRange("Escape", 0.85, 0.0, 1.0);
+
+            builder.pop(); // Resistance
+
+            // --- 压力值 ---
+            builder.comment(" Pressure value calculation. / 压力值计算。").push("PressureValue");
 
             basePressure = builder
-                    .comment(" Base pressure value.", " 基础压力值。")
-                    .translation("config.jujutsu_addon.infinity_pressure.pressure.base")
-                    .defineInRange("BasePressure", 1.0, 0.1, 10.0);
+                    .comment(" Base pressure value. / 基础压力值。")
+                    .translation("config.jujutsu_addon.pressure.value.base")
+                    .defineInRange("Base", 1.0, 0.1, 10.0);
 
             distanceDecay = builder
-                    .comment(" How quickly pressure decays with distance.", " 压力随距离衰减的速度。")
-                    .translation("config.jujutsu_addon.infinity_pressure.pressure.decay")
+                    .comment(" How quickly pressure decays with distance.",
+                            " 压力随距离衰减的速度。")
+                    .translation("config.jujutsu_addon.pressure.value.decay")
                     .defineInRange("DistanceDecay", 2.0, 0.5, 10.0);
 
             approachMultiplier = builder
-                    .comment(" Pressure bonus when moving towards target.", " 向目标移动时的压力加成。")
-                    .translation("config.jujutsu_addon.infinity_pressure.pressure.approach")
-                    .defineInRange("ApproachMultiplier", 2.0, 1.0, 5.0);
+                    .comment(" Pressure bonus when owner moves toward target.",
+                            " 玩家向目标移动时的压力加成。")
+                    .translation("config.jujutsu_addon.pressure.value.approach")
+                    .defineInRange("ApproachBonus", 2.0, 1.0, 5.0);
 
             breachPressureMult = builder
-                    .comment(" Pressure multiplier when breaching halt boundary.", " 突破停止边界时的压力倍率。")
-                    .translation("config.jujutsu_addon.infinity_pressure.pressure.breach")
-                    .defineInRange("BreachPressureMult", 3.0, 1.0, 10.0);
+                    .comment(" Pressure multiplier when breaching push zone.",
+                            " 突破推力区时的压力倍率。")
+                    .translation("config.jujutsu_addon.pressure.value.breach_mult")
+                    .defineInRange("BreachMult", 3.0, 1.0, 10.0);
 
-            builder.pop();
+            builder.pop(); // PressureValue
 
-            // ==================== 推力 ====================
-            builder.comment(" Push Force / 推力设置 ").push("Force");
-
-            basePushForce = builder
-                    .comment(" Base push force per tick.", " 每tick的基础推力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.base")
-                    .defineInRange("BasePushForce", 0.015, 0.001, 0.1);
+            // --- 等级因子 ---
+            builder.comment(" Level factor. Scales with pressure level.",
+                    " 等级因子。随压力等级缩放。").push("LevelFactor");
 
             minLevelMult = builder
-                    .comment(" Level multiplier at level 1.", " 等级1的等级倍率。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.min_level")
-                    .defineInRange("MinLevelMult", 0.1, 0.01, 1.0);
+                    .comment(" Multiplier at level 1. / 等级1的倍率。")
+                    .translation("config.jujutsu_addon.pressure.level.min")
+                    .defineInRange("Level1Mult", 0.1, 0.01, 1.0);
 
             maxLevelMult = builder
-                    .comment(" Level multiplier at level 10.", " 等级10的等级倍率。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.max_level")
-                    .defineInRange("MaxLevelMult", 1.0, 0.5, 5.0);
+                    .comment(" Multiplier at level 10. / 等级10的倍率。")
+                    .translation("config.jujutsu_addon.pressure.level.max")
+                    .defineInRange("Level10Mult", 1.0, 0.5, 5.0);
 
-            maxPushForce = builder
-                    .comment(" Maximum push force.", " 推力上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.max")
-                    .defineInRange("MaxPushForce", 0.25, 0.1, 1.0);
-
-            pinForce = builder
-                    .comment(" Extra force when pinned against wall.", " 被压到墙上时的额外力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.pin")
-                    .defineInRange("PinForce", 0.03, 0.01, 0.2);
-
-            haltRepelForce = builder
-                    .comment(" Repel force at halt boundary.", " 停止边界处的反推力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.halt_repel")
-                    .defineInRange("HaltRepelForce", 0.08, 0.01, 0.3);
-
-            breachRepelForce = builder
-                    .comment(" Strong repel force when breaching.", " 突破时的强反推力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.force.breach_repel")
-                    .defineInRange("BreachRepelForce", 0.2, 0.05, 0.5);
-
-            builder.pop();
-
-            // ==================== 阻力 ====================
-            builder.comment(" Resistance / 阻力设置 ").push("Resistance");
-
-            lateralResistance = builder
-                    .comment(" Resistance to sideways movement.", " 侧向移动阻力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.resist.lateral")
-                    .defineInRange("LateralResistance", 0.7, 0.0, 1.0);
-
-            escapeResistance = builder
-                    .comment(" Resistance when escaping.", " 逃跑时的阻力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.resist.escape")
-                    .defineInRange("EscapeResistance", 0.85, 0.0, 1.0);
-
-            approachResistanceBase = builder
-                    .comment(" Base approach resistance.", " 接近时的基础阻力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.resist.approach_base")
-                    .defineInRange("ApproachResistanceBase", 0.3, 0.0, 1.0);
-
-            approachResistanceMax = builder
-                    .comment(" Max resistance at halt boundary.", " 停止边界处的最大阻力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.resist.approach_max")
-                    .defineInRange("ApproachResistanceMax", 0.95, 0.5, 1.0);
-
-            builder.pop();
-
-            // ==================== 阈值 ====================
-            builder.comment(" Thresholds / 触发阈值 ").push("Thresholds");
-
-            minPressureForPush = builder
-                    .comment(" Min pressure to push.", " 触发推力的最低压力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.threshold.push")
-                    .defineInRange("MinPressureForPush", 0.5, 0.0, 5.0);
-
-            minPressureForDamage = builder
-                    .comment(" Min pressure to damage.", " 造成伤害的最低压力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.threshold.damage")
-                    .defineInRange("MinPressureForDamage", 2.0, 0.5, 10.0);
-
-            minPressureForBlockBreak = builder
-                    .comment(" Min pressure to break blocks.", " 破坏方块的最低压力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.threshold.block")
-                    .defineInRange("MinPressureForBlockBreak", 4.0, 1.0, 15.0);
-
-            builder.pop();
-
-            // ==================== 方块破坏 ====================
-            builder.comment(" Block Breaking / 方块破坏 ").push("BlockBreaking");
-
-            pressureDecayRate = builder
-                    .comment(" Pressure decay rate per tick.", " 每tick压力衰减速度。")
-                    .translation("config.jujutsu_addon.infinity_pressure.block.decay")
-                    .defineInRange("PressureDecayRate", 0.2, 0.01, 1.0);
-
-            breakThresholdMult = builder
-                    .comment(" Break threshold = Hardness * this.", " 破坏阈值 = 硬度 × 此值。")
-                    .translation("config.jujutsu_addon.infinity_pressure.block.threshold")
-                    .defineInRange("BreakThresholdMult", 10.0, 1.0, 50.0);
-
-            breakStages = builder
-                    .comment(" Visual break stages.", " 可视破坏阶段数。")
-                    .translation("config.jujutsu_addon.infinity_pressure.block.stages")
-                    .defineInRange("BreakStages", 10, 1, 10);
-
-            pressureTimeoutMs = builder
-                    .comment(" Timeout before pressure resets (ms).", " 压力重置超时时间（毫秒）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.block.timeout")
-                    .defineInRange("PressureTimeoutMs", 2000L, 500L, 10000L);
-
-            // ★ 新增配置项 ★
-            actuallyBreakBlocks = builder
-                    .comment(" ",
-                            " Whether to actually destroy blocks.",
-                            " true = Blocks are destroyed.",
-                            " false = Only show crack animation, blocks don't break.",
-                            "----------------------------------------------------------------",
-                            " 是否真正破坏方块。",
-                            " true = 方块会被破坏。",
-                            " false = 只显示裂痕动画，方块不会被破坏。")
-                    .translation("config.jujutsu_addon.infinity_pressure.block.actually_break")
-                    .define("ActuallyBreakBlocks", true);
-
-            dropBlockItems = builder
-                    .comment(" ",
-                            " Whether destroyed blocks drop items.",
-                            " Only applies when ActuallyBreakBlocks is true.",
-                            "----------------------------------------------------------------",
-                            " 被破坏的方块是否掉落物品。",
-                            " 仅在 ActuallyBreakBlocks 为 true 时有效。")
-                    .translation("config.jujutsu_addon.infinity_pressure.block.drop_items")
-                    .define("DropBlockItems", true);
-
-            builder.pop();
-
-            // ==================== 投射物 ====================
-            builder.comment(" Projectiles / 投射物 ").push("Projectiles");
-            affectProjectiles = builder
-                    .comment(" ",
-                            " Whether pressure affects projectiles (arrows, fireballs, etc.).",
-                            " This replaces the original Infinity freeze effect with gradual slowdown.",
-                            "----------------------------------------------------------------",
-                            " 压力是否影响投射物（箭矢、火球等）。",
-                            " 这会用渐进减速替代原版的冻结效果。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.enable")
-                    .define("AffectProjectiles", true);
-            projectileMinPressure = builder
-                    .comment(" ",
-                            " Minimum pressure level to affect projectiles.",
-                            " 影响投射物所需的最低压力等级。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.min_level")
-                    .defineInRange("ProjectileMinPressure", 1, 0, 10);
-            projectileSlowdownRate = builder
-                    .comment(" ",
-                            " How quickly projectiles slow down (0.0-1.0).",
-                            " Higher = faster slowdown.",
-                            "----------------------------------------------------------------",
-                            " 投射物减速的速度（0.0-1.0）。",
-                            " 越高 = 减速越快。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.slowdown")
-                    .defineInRange("ProjectileSlowdownRate", 0.15, 0.01, 1.0);
-            projectileMinSpeed = builder
-                    .comment(" ",
-                            " Minimum speed before projectile is considered 'stopped'.",
-                            " Projectiles below this speed will hover in place.",
-                            "----------------------------------------------------------------",
-                            " 被视为'停止'的最低速度。",
-                            " 低于此速度的投射物会悬浮在原地。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.min_speed")
-                    .defineInRange("ProjectileMinSpeed", 0.01, 0.001, 0.1);
-            projectileRepelForce = builder
-                    .comment(" ",
-                            " Force applied to push back projectiles that breach the halt boundary.",
-                            " 突破停止边界时推回投射物的力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.repel")
-                    .defineInRange("ProjectileRepelForce", 0.1, 0.01, 0.5);
-
-            projectileReflectSpeedMult = builder
-                    .comment(" ",
-                            " Multiplier for reflected projectile speed.",
-                            " Based on: original approach speed × pressure level × this value.",
-                            "----------------------------------------------------------------",
-                            " 反弹速度倍率。",
-                            " 基于：原接近速度 × 压力等级 × 此值。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.reflect_mult")
-                    .defineInRange("ProjectileReflectSpeedMult", 0.8, 0.1, 3.0);
-            projectileReflectMinSpeed = builder
-                    .comment(" ",
-                            " Minimum speed for a projectile to be considered 'reflected'.",
-                            " Below this, projectile just hovers.",
-                            "----------------------------------------------------------------",
-                            " 被视为'反弹'的最低速度。",
-                            " 低于此值只会悬浮。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.reflect_min")
-                    .defineInRange("ProjectileReflectMinSpeed", 0.3, 0.1, 1.0);
-            projectileReflectMaxSpeed = builder
-                    .comment(" ",
-                            " Maximum reflected speed cap.",
-                            " 反弹速度上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.reflect_max")
-                    .defineInRange("ProjectileReflectMaxSpeed", 2.5, 1.0, 5.0);
-            projectileReflectImmuneTicks = builder
-                    .comment(" ",
-                            " Ticks of immunity after being reflected.",
-                            " During this time, projectile won't be slowed again.",
-                            "----------------------------------------------------------------",
-                            " 反弹后的豁免时间（tick）。",
-                            " 在此期间投射物不会再被减速。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.reflect_immune")
-                    .defineInRange("ProjectileReflectImmuneTicks", 15, 5, 60);
-
-            builder.comment(" ", " [Advanced] Projectile Stop Zone / [高级] 投射物停止区 ").push("StopZone");
-            projectileStopZoneBuffer = builder
-                    .comment(" ",
-                            " Base width of the stop zone buffer.",
-                            " 停止区缓冲的基础宽度。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.stop_zone_buffer")
-                    .defineInRange("StopZoneBuffer", 0.4, 0.1, 2.0);
-            projectileStopZoneBufferPerLevel = builder
-                    .comment(" ",
-                            " Additional buffer width per pressure level.",
-                            " 每级压力增加的缓冲宽度。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.stop_zone_per_level")
-                    .defineInRange("StopZoneBufferPerLevel", 0.03, 0.0, 0.2);
-            projectileStopZoneMinInner = builder
-                    .comment(" ",
-                            " Minimum inner boundary of stop zone.",
-                            " 停止区内边界的最小值。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.stop_zone_min_inner")
-                    .defineInRange("StopZoneMinInner", 0.3, 0.1, 1.0);
-            builder.pop();
-            builder.comment(" ", " [Advanced] Power Surge Detection / [高级] 出力突变检测 ").push("PowerSurge");
-            projectileSurgeCheckInterval = builder
-                    .comment(" ",
-                            " Ticks between surge checks (when projectile is stopped).",
-                            " 检测突变的间隔（投射物停止时）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_check_interval")
-                    .defineInRange("SurgeCheckInterval", 5, 1, 20);
-            projectileSurgeLevelThreshold = builder
-                    .comment(" ",
-                            " Minimum pressure level increase to trigger surge.",
-                            " 触发突变需要的最小压力等级增加。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_level_threshold")
-                    .defineInRange("SurgeLevelThreshold", 2, 1, 5);
-            projectileSurgeOutputThreshold = builder
-                    .comment(" ",
-                            " Minimum cursed energy output increase to trigger surge.",
-                            " 触发突变需要的最小咒力出力增加。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_output_threshold")
-                    .defineInRange("SurgeOutputThreshold", 0.25, 0.1, 1.0);
-            projectileSurgeBaseMult = builder
-                    .comment(" ",
-                            " Base multiplier when surge is triggered.",
-                            " 突变触发时的基础倍率。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_base_mult")
-                    .defineInRange("SurgeBaseMult", 1.5, 1.0, 3.0);
-            projectileSurgeLevelFactor = builder
-                    .comment(" ",
-                            " How much each level difference adds to surge multiplier.",
-                            " 每级差异对突变倍率的加成。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_level_factor")
-                    .defineInRange("SurgeLevelFactor", 0.5, 0.1, 2.0);
-            projectileSurgeOutputFactor = builder
-                    .comment(" ",
-                            " How much output difference affects surge multiplier.",
-                            " 出力差异对突变倍率的影响系数。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_output_factor")
-                    .defineInRange("SurgeOutputFactor", 2.5, 0.5, 5.0);
-            projectileSurgeMaxMult = builder
-                    .comment(" ",
-                            " Maximum surge multiplier cap.",
-                            " 突变倍率上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_max_mult")
-                    .defineInRange("SurgeMaxMult", 5.0, 2.0, 10.0);
-            projectileSurgePushBase = builder
-                    .comment(" ",
-                            " Base push strength when surge repels projectile.",
-                            " 突变弹开投射物时的基础推力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_push_base")
-                    .defineInRange("SurgePushBase", 0.6, 0.1, 2.0);
-            projectileSurgePushMax = builder
-                    .comment(" ",
-                            " Maximum push strength from surge.",
-                            " 突变推力上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.surge_push_max")
-                    .defineInRange("SurgePushMax", 3.0, 1.0, 5.0);
-            builder.pop();
-            builder.comment(" ", " [Advanced] Push Zone / [高级] 推力区 ").push("PushZone");
-            projectilePushZoneBase = builder
-                    .comment(" ",
-                            " Base push force in the push zone.",
-                            " 推力区的基础推力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.push_zone_base")
-                    .defineInRange("PushZoneBase", 0.012, 0.001, 0.1);
-            projectilePushZonePenetrationFactor = builder
-                    .comment(" ",
-                            " How much penetration depth increases push force.",
-                            " 穿透深度对推力的增益系数。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.push_zone_penetration")
-                    .defineInRange("PushZonePenetrationFactor", 0.8, 0.1, 2.0);
-            projectilePushZoneMax = builder
-                    .comment(" ",
-                            " Maximum push force in push zone.",
-                            " 推力区的推力上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.projectile.push_zone_max")
-                    .defineInRange("PushZoneMax", 0.06, 0.01, 0.2);
-
-            builder.pop();
+            builder.pop(); // LevelFactor
+            builder.pop(); // EntityPressure
 
             // ==================== 伤害 ====================
-            builder.comment(" Damage / 伤害设置 ").push("Damage");
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " DAMAGE / 伤害",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " Damage is dealt when entity is pushed into a wall.",
+                    " 当实体被推到墙上时造成伤害。"
+            ).push("Damage");
+
+            minPressureForDamage = builder
+                    .comment(" Minimum pressure to deal damage (requires wall collision).",
+                            " 造成伤害所需的最低压力（需要撞墙）。")
+                    .translation("config.jujutsu_addon.pressure.damage.min_pressure")
+                    .defineInRange("MinPressure", 2.0, 0.5, 10.0);
 
             pressureToDamage = builder
-                    .comment(" Damage per pressure point.", " 每点压力的伤害。")
-                    .translation("config.jujutsu_addon.infinity_pressure.damage.base")
-                    .defineInRange("PressureToDamage", 0.15, 0.01, 1.0);
-
-            pressureChangeDamageMult = builder
-                    .comment(" Extra damage from pressure changes.", " 压力变化的额外伤害。")
-                    .translation("config.jujutsu_addon.infinity_pressure.damage.change")
-                    .defineInRange("PressureChangeDamageMult", 0.5, 0.0, 2.0);
-
-            maxDamageInterval = builder
-                    .comment(" Max ticks between damage.", " 伤害间隔上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.damage.max_interval")
-                    .defineInRange("MaxDamageInterval", 15, 5, 40);
-
-            minDamageInterval = builder
-                    .comment(" Min ticks between damage.", " 伤害间隔下限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.damage.min_interval")
-                    .defineInRange("MinDamageInterval", 2, 1, 10);
-
-            intervalPressureScale = builder
-                    .comment(" How pressure affects interval.", " 压力对间隔的影响。")
-                    .translation("config.jujutsu_addon.infinity_pressure.damage.interval_scale")
-                    .defineInRange("IntervalPressureScale", 1.5, 0.5, 5.0);
+                    .comment(" Damage per pressure point. / 每点压力的伤害。")
+                    .translation("config.jujutsu_addon.pressure.damage.per_pressure")
+                    .defineInRange("DamagePerPressure", 0.15, 0.01, 1.0);
 
             maxDamagePerHit = builder
-                    .comment(" Maximum damage per tick.", " 每次伤害上限。")
-                    .translation("config.jujutsu_addon.infinity_pressure.damage.max")
-                    .defineInRange("MaxDamagePerHit", 15.0, 1.0, 100.0);
+                    .comment(" Maximum damage per hit. / 单次伤害上限。")
+                    .translation("config.jujutsu_addon.pressure.damage.max")
+                    .defineInRange("MaxPerHit", 15.0, 1.0, 100.0);
 
-            builder.pop();
+            minDamageInterval = builder
+                    .comment(" Minimum ticks between damage. / 伤害间隔下限（tick）。")
+                    .translation("config.jujutsu_addon.pressure.damage.min_interval")
+                    .defineInRange("MinInterval", 2, 1, 20);
 
-            // ==================== 伤害预兆 ====================
-            builder.comment(" Damage Warning / 伤害预兆 ").push("DamageWarning");
-
-            damageWarningTicks = builder
-                    .comment(" Warning ticks before damage.", " 伤害前的预警tick数。")
-                    .translation("config.jujutsu_addon.infinity_pressure.warning.ticks")
-                    .defineInRange("DamageWarningTicks", 5, 0, 20);
-
-            pressureSurgeThreshold = builder
-                    .comment(" Pressure change for surge mode.", " 触发冲击模式的压力变化。")
-                    .translation("config.jujutsu_addon.infinity_pressure.warning.surge_threshold")
-                    .defineInRange("PressureSurgeThreshold", 5.0, 1.0, 20.0);
+            maxDamageInterval = builder
+                    .comment(" Maximum ticks between damage. / 伤害间隔上限（tick）。")
+                    .translation("config.jujutsu_addon.pressure.damage.max_interval")
+                    .defineInRange("MaxInterval", 15, 5, 60);
 
             surgeDamageMult = builder
-                    .comment(" Surge damage multiplier.", " 冲击伤害倍率。")
-                    .translation("config.jujutsu_addon.infinity_pressure.warning.surge_mult")
-                    .defineInRange("SurgeDamageMult", 1.5, 1.0, 5.0);
+                    .comment(" Damage multiplier for sudden pressure surge.",
+                            " 压力突变时的伤害倍率。")
+                    .translation("config.jujutsu_addon.pressure.damage.surge_mult")
+                    .defineInRange("SurgeMult", 1.5, 1.0, 5.0);
 
-            builder.pop();
+            builder.pop(); // Damage
 
-            // ==================== 效果 ====================
-            builder.comment(" Effects / 效果设置 ").push("Effects");
+            // ==================== 投射物 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " PROJECTILES / 投射物",
+                    " ═══════════════════════════════════════════════════════════════"
+            ).push("Projectiles");
 
-            enablePressureParticles = builder
-                    .comment(" Enable particles.", " 启用粒子效果。")
-                    .translation("config.jujutsu_addon.infinity_pressure.effects.particles")
-                    .define("EnablePressureParticles", true);
+            affectProjectiles = builder
+                    .comment(" Whether pressure affects projectiles.",
+                            " 是否影响投射物。")
+                    .translation("config.jujutsu_addon.pressure.projectile.enable")
+                    .define("Enable", true);
 
-            enablePressureSounds = builder
-                    .comment(" Enable sounds.", " 启用音效。")
-                    .translation("config.jujutsu_addon.infinity_pressure.effects.sounds")
-                    .define("EnablePressureSounds", true);
+            projectileMinLevel = builder
+                    .comment(" Minimum pressure level to affect projectiles.",
+                            " 影响投射物所需的最低压力等级。")
+                    .translation("config.jujutsu_addon.pressure.projectile.min_level")
+                    .defineInRange("MinLevel", 1, 0, 10);
 
-            builder.pop();
+            projectileEntrySpeed = builder
+                    .comment(" Speed ratio when projectile enters range (0.0-1.0).",
+                            " 1.0 = full speed, 0.4 = 40% speed on entry.",
+                            " 投射物进入范围时的速度比例。1.0=全速，0.4=进入时40%速度。")
+                    .translation("config.jujutsu_addon.pressure.projectile.entry_speed")
+                    .defineInRange("EntrySpeed", 0.4, 0.1, 1.0);
 
-            // ==================== 掉落物 ==================== ★ 新增
-            builder.comment(" Dropped Items / 掉落物推开 ").push("DroppedItems");
+            projectileStopSpeed = builder
+                    .comment(" Speed ratio at stop zone boundary (nearly stopped).",
+                            " 停止区边界的速度比例（接近停止）。")
+                    .translation("config.jujutsu_addon.pressure.projectile.stop_speed")
+                    .defineInRange("StopSpeed", 0.02, 0.001, 0.1);
+
+            builder.pop(); // Projectiles
+
+            // ==================== 方块 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " BLOCKS / 方块破坏",
+                    " ═══════════════════════════════════════════════════════════════"
+            ).push("Blocks");
+
+            actuallyBreakBlocks = builder
+                    .comment(" Whether to actually destroy blocks.",
+                            " false = only show crack animation.",
+                            " 是否真正破坏方块。false=只显示裂痕动画。")
+                    .translation("config.jujutsu_addon.pressure.block.actually_break")
+                    .define("ActuallyBreak", true);
+
+            dropBlockItems = builder
+                    .comment(" Whether broken blocks drop items.",
+                            " 破坏的方块是否掉落物品。")
+                    .translation("config.jujutsu_addon.pressure.block.drop_items")
+                    .define("DropItems", true);
+
+            minPressureForBlockBreak = builder
+                    .comment(" Minimum pressure to break blocks.",
+                            " 破坏方块所需的最低压力。")
+                    .translation("config.jujutsu_addon.pressure.block.min_pressure")
+                    .defineInRange("MinPressure", 4.0, 1.0, 15.0);
+
+            breakThresholdMult = builder
+                    .comment(" Break threshold = Hardness × this value.",
+                            " 破坏阈值 = 硬度 × 此值。")
+                    .translation("config.jujutsu_addon.pressure.block.threshold_mult")
+                    .defineInRange("ThresholdMult", 10.0, 1.0, 50.0);
+
+            builder.pop(); // Blocks
+
+            // ==================== 方块硬度影响 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " BLOCK HARDNESS EFFECT / 方块硬度影响",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " ",
+                    " When entity is crushed against a block, hardness affects pressure.",
+                    " 当实体被压在方块上时，硬度影响压力值。",
+                    " ",
+                    " [Reference Hardness / 参考硬度值]",
+                    " ┌──────────────┬──────────┬─────────────────────┐",
+                    " │ Block        │ Hardness │ 方块                │",
+                    " ├──────────────┼──────────┼─────────────────────┤",
+                    " │ Grass/Dirt   │ 0.5-0.6  │ 草方块/泥土         │",
+                    " │ Wood         │ 2.0      │ 木头                │",
+                    " │ Stone        │ 1.5      │ 石头                │",
+                    " │ Iron Block   │ 5.0      │ 铁块                │",
+                    " │ Obsidian     │ 50.0     │ 黑曜石              │",
+                    " │ Bedrock      │ -1       │ 基岩（不可破坏）    │",
+                    " └──────────────┴──────────┴─────────────────────┘",
+                    " ",
+                    " Soft block → Low pressure → Low damage, easy to break",
+                    " Hard block → High pressure → High damage, hard to break",
+                    " 软方块 → 低压力 → 低伤害，容易破坏",
+                    " 硬方块 → 高压力 → 高伤害，难以破坏"
+            ).push("HardnessEffect");
+            softHardnessThreshold = builder
+                    .comment(" Hardness below this = soft block. / 低于此值=软方块。")
+                    .translation("config.jujutsu_addon.pressure.hardness.soft_threshold")
+                    .defineInRange("SoftThreshold", 1.0, 0.1, 5.0);
+            hardHardnessThreshold = builder
+                    .comment(" Hardness above this = hard block. / 高于此值=硬方块。")
+                    .translation("config.jujutsu_addon.pressure.hardness.hard_threshold")
+                    .defineInRange("HardThreshold", 10.0, 2.0, 100.0);
+            softBlockPressureMult = builder
+                    .comment(" Pressure multiplier for soft blocks (grass, dirt).",
+                            " 软方块的压力倍率（草、泥土）。")
+                    .translation("config.jujutsu_addon.pressure.hardness.soft_mult")
+                    .defineInRange("SoftMult", 0.3, 0.1, 1.0);
+            normalBlockPressureMult = builder
+                    .comment(" Pressure multiplier for normal blocks (stone, wood).",
+                            " 普通方块的压力倍率（石头、木头）。")
+                    .translation("config.jujutsu_addon.pressure.hardness.normal_mult")
+                    .defineInRange("NormalMult", 1.0, 0.5, 2.0);
+            hardBlockPressureMult = builder
+                    .comment(" Pressure multiplier for hard blocks (obsidian).",
+                            " 硬方块的压力倍率（黑曜石）。")
+                    .translation("config.jujutsu_addon.pressure.hardness.hard_mult")
+                    .defineInRange("HardMult", 2.0, 1.0, 5.0);
+            bedrockPressureMult = builder
+                    .comment(" Pressure multiplier for unbreakable blocks (bedrock).",
+                            " 不可破坏方块的压力倍率（基岩）。")
+                    .translation("config.jujutsu_addon.pressure.hardness.bedrock_mult")
+                    .defineInRange("BedrockMult", 3.0, 1.5, 10.0);
+            builder.pop(); // HardnessEffect
+
+            // ==================== 掉落物 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " DROPPED ITEMS / 掉落物",
+                    " ═══════════════════════════════════════════════════════════════"
+            ).push("DroppedItems");
 
             pushDroppedItems = builder
-                    .comment(" ",
-                            " Whether to push dropped items away.",
+                    .comment(" Whether to push dropped items away.",
                             " 是否推开掉落物。")
-                    .translation("config.jujutsu_addon.infinity_pressure.items.push")
-                    .define("PushDroppedItems", true);
+                    .translation("config.jujutsu_addon.pressure.items.push")
+                    .define("PushItems", true);
 
             itemPushForceMultiplier = builder
-                    .comment(" ",
-                            " Force multiplier for pushing items.",
-                            " Items are lighter, so they fly further.",
-                            "----------------------------------------------------------------",
-                            " 推开掉落物的力量倍率。",
-                            " 掉落物比生物轻，会飞得更远。")
-                    .translation("config.jujutsu_addon.infinity_pressure.items.force_mult")
-                    .defineInRange("ItemPushForceMultiplier", 2.0, 0.1, 10.0);
+                    .comment(" Force multiplier for pushing items (they're lighter).",
+                            " 推开掉落物的力量倍率（它们更轻）。")
+                    .translation("config.jujutsu_addon.pressure.items.force_mult")
+                    .defineInRange("ForceMult", 2.0, 0.1, 10.0);
 
-            itemPushMinPressure = builder
-                    .comment(" ",
-                            " Minimum pressure level to push items.",
-                            " 推开掉落物所需的最低压力等级。")
-                    .translation("config.jujutsu_addon.infinity_pressure.items.min_pressure")
-                    .defineInRange("ItemPushMinPressure", 1, 0, 10);
+            builder.pop(); // DroppedItems
 
-            builder.pop();
+            // ==================== 效果 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " EFFECTS / 效果",
+                    " ═══════════════════════════════════════════════════════════════"
+            ).push("Effects");
 
-            // ==================== 领域交互 ====================
-            builder.comment(" Domain Interaction / 领域交互 ").push("DomainInteraction");
+            enableParticles = builder
+                    .comment(" Enable particle effects. / 启用粒子效果。")
+                    .translation("config.jujutsu_addon.pressure.effects.particles")
+                    .define("Particles", true);
+
+            enableSounds = builder
+                    .comment(" Enable sound effects. / 启用音效。")
+                    .translation("config.jujutsu_addon.pressure.effects.sounds")
+                    .define("Sounds", true);
+
+            builder.pop(); // Effects
+
+            // ==================== 交互 ====================
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " INTERACTIONS / 交互",
+                    " ═══════════════════════════════════════════════════════════════"
+            ).push("Interactions");
+
             respectDomainSureHit = builder
-                    .comment(" ",
-                            " Whether domain sure-hit effect bypasses pressure.",
-                            " true = Domain owners can approach through pressure.",
-                            " false = Pressure always works (not lore-accurate).",
-                            "----------------------------------------------------------------",
-                            " 领域必中是否能穿透压力。",
-                            " true = 领域所有者可以穿透压力接近。",
-                            " false = 压力始终生效（不符合原作设定）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.domain.respect_sure_hit")
+                    .comment(" Domain sure-hit bypasses pressure.",
+                            " 领域必中效果穿透压力。")
+                    .translation("config.jujutsu_addon.pressure.interact.sure_hit")
                     .define("RespectDomainSureHit", true);
+
             respectDomainAmplification = builder
-                    .comment(" ",
-                            " Whether Domain Amplification bypasses pressure.",
-                            " 领域增幅是否能穿透压力。")
-                    .translation("config.jujutsu_addon.infinity_pressure.domain.respect_amplification")
+                    .comment(" Domain Amplification bypasses pressure.",
+                            " 领域增幅穿透压力。")
+                    .translation("config.jujutsu_addon.pressure.interact.amplification")
                     .define("RespectDomainAmplification", true);
-            builder.pop();
+
+            builder.pop(); // Interactions
 
             // ==================== 咒力消耗 ====================
-            builder.comment(" Cursed Energy Cost / 咒力消耗 ").push("CursedEnergyCost");
-            enablePressureCost = builder
-                    .comment(" ",
-                            " Whether pressure level affects cursed energy cost.",
-                            " Higher pressure = more energy consumption.",
-                            "----------------------------------------------------------------",
-                            " 压力等级是否影响咒力消耗。",
-                            " 压力越高 = 消耗越多。")
-                    .translation("config.jujutsu_addon.infinity_pressure.cost.enable")
-                    .define("EnablePressureCost", true);
-            baseCursedEnergyCost = builder
-                    .comment(" ",
-                            " Base cost at pressure level 0 (vanilla value is 0.8).",
-                            " 压力等级0时的基础消耗（原版值为0.8）。")
-                    .translation("config.jujutsu_addon.infinity_pressure.cost.base")
-                    .defineInRange("BaseCursedEnergyCost", 0.8, 0.0, 5.0);
-            costPerPressureLevel = builder
-                    .comment(" ",
-                            " Additional cost multiplier per pressure level.",
-                            " Formula: baseCost × (1 + level × this)",
-                            " Example with 0.2: Level 5 = 0.8 × 2.0 = 1.6 cost",
-                            "----------------------------------------------------------------",
-                            " 每级压力增加的消耗倍率。",
-                            " 公式：基础消耗 × (1 + 等级 × 此值)",
-                            " 以0.2为例：等级5 = 0.8 × 2.0 = 1.6消耗")
-                    .translation("config.jujutsu_addon.infinity_pressure.cost.per_level")
-                    .defineInRange("CostPerPressureLevel", 0.2, 0.0, 1.0);
-            maxCostMultiplier = builder
-                    .comment(" ",
-                            " Maximum cost multiplier cap.",
-                            " Prevents extremely high costs at max level.",
-                            "----------------------------------------------------------------",
-                            " 最大消耗倍率上限。",
-                            " 防止最高等级时消耗过高。")
-                    .translation("config.jujutsu_addon.infinity_pressure.cost.max_mult")
-                    .defineInRange("MaxCostMultiplier", 4.0, 1.0, 10.0);
-            builder.pop();
+            builder.comment(" ",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " CURSED ENERGY COST / 咒力消耗",
+                    " ═══════════════════════════════════════════════════════════════",
+                    " Formula: baseCost × (1 + level × costPerLevel)",
+                    " 公式：基础消耗 × (1 + 等级 × 每级增加)"
+            ).push("CursedEnergyCost");
 
-            builder.pop(); // 结束 01_Infinity_Pressure
+            enablePressureCost = builder
+                    .comment(" Enable pressure level affecting cost.",
+                            " 启用压力等级影响消耗。")
+                    .translation("config.jujutsu_addon.pressure.cost.enable")
+                    .define("Enable", true);
+
+            baseCursedEnergyCost = builder
+                    .comment(" Base cost at level 0 (vanilla=0.8).",
+                            " 等级0时的基础消耗（原版=0.8）。")
+                    .translation("config.jujutsu_addon.pressure.cost.base")
+                    .defineInRange("Base", 0.8, 0.0, 5.0);
+
+            costPerLevel = builder
+                    .comment(" Cost multiplier increase per level.",
+                            " Example: 0.2 → Level 5 = 0.8 × 2.0 = 1.6",
+                            " 每级增加的消耗倍率。示例：0.2→等级5=0.8×2.0=1.6")
+                    .translation("config.jujutsu_addon.pressure.cost.per_level")
+                    .defineInRange("PerLevel", 0.2, 0.0, 1.0);
+
+            maxCostMultiplier = builder
+                    .comment(" Maximum cost multiplier cap. / 最大消耗倍率上限。")
+                    .translation("config.jujutsu_addon.pressure.cost.max_mult")
+                    .defineInRange("MaxMult", 4.0, 1.0, 10.0);
+
+            builder.pop(); // CursedEnergyCost
+
+            builder.pop(); // 01_Infinity_Pressure
         }
     }
 }

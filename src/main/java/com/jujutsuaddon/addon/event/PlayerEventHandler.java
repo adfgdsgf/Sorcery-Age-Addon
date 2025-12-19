@@ -2,6 +2,7 @@ package com.jujutsuaddon.addon.event;
 
 import com.jujutsuaddon.addon.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.ControlledProjectileTick;
 import com.jujutsuaddon.addon.damage.ServerDamagePredictor;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
@@ -114,6 +115,10 @@ public class PlayerEventHandler {
             } catch (Exception ignored) {
                 // 防止计算出错导致崩服
             }
+        }
+        // ★★★ 在 END 阶段记录玩家移动 ★★★
+        if (event.phase == TickEvent.Phase.END && !event.player.level().isClientSide) {
+            ControlledProjectileTick.updatePlayerMovement(event.player);
         }
     }
 

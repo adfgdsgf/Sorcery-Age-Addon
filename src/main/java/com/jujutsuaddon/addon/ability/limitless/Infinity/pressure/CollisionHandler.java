@@ -29,40 +29,40 @@ public class CollisionHandler {
         BlockPos ownerFeetPos = owner.blockPosition();
         BlockPos ownerBelowPos = ownerFeetPos.below();
 
-        int minX = (int) Math.floor(targetBox.minX);
-        int maxX = (int) Math.floor(targetBox.maxX);
-        int minY = (int) Math.floor(targetBox.minY);
-        int maxY = (int) Math.ceil(targetBox.maxY) - 1;
-        int minZ = (int) Math.floor(targetBox.minZ);
-        int maxZ = (int) Math.floor(targetBox.maxZ);
+        // ★★★ 修复边界问题：稍微收缩避免恰好在边界上的问题 ★★★
+        int minX = (int) Math.floor(targetBox.minX + 0.001);
+        int maxX = (int) Math.floor(targetBox.maxX - 0.001);
+        int minY = (int) Math.floor(targetBox.minY + 0.001);
+        int maxY = (int) Math.ceil(targetBox.maxY - 0.001) - 1;
+        int minZ = (int) Math.floor(targetBox.minZ + 0.001);
+        int maxZ = (int) Math.floor(targetBox.maxZ - 0.001);
 
         boolean isVerticalForce = Math.abs(forceDirection.y) > 0.5;
         int expandRange = isVerticalForce ? VERTICAL_EXPAND_RANGE : 0;
 
-        if (Math.abs(forceDirection.x) > 0.1) {
-            int checkX = forceDirection.x > 0 ? maxX + 1 : minX - 1;
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    BlockPos pos = new BlockPos(checkX, y, z);
-                    if (isCollidableBlock(target, pos, ownerFeetPos, ownerBelowPos)) {
-                        blocks.add(pos);
-                    }
-                }
-            }
+        // ★★★ X 方向：同时检查两格确保不漏 ★★★
+        if (forceDirection.x > 0.1) {
+            // +X 方向
+            checkXDirection(target, blocks, maxX + 1, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
+            checkXDirection(target, blocks, maxX, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
+        } else if (forceDirection.x < -0.1) {
+            // -X 方向
+            checkXDirection(target, blocks, minX - 1, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
+            checkXDirection(target, blocks, minX, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
         }
 
-        if (Math.abs(forceDirection.z) > 0.1) {
-            int checkZ = forceDirection.z > 0 ? maxZ + 1 : minZ - 1;
-            for (int y = minY; y <= maxY; y++) {
-                for (int x = minX; x <= maxX; x++) {
-                    BlockPos pos = new BlockPos(x, y, checkZ);
-                    if (isCollidableBlock(target, pos, ownerFeetPos, ownerBelowPos)) {
-                        blocks.add(pos);
-                    }
-                }
-            }
+        // ★★★ Z 方向：同时检查两格确保不漏 ★★★
+        if (forceDirection.z > 0.1) {
+            // +Z 方向
+            checkZDirection(target, blocks, maxZ + 1, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
+            checkZDirection(target, blocks, maxZ, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
+        } else if (forceDirection.z < -0.1) {
+            // -Z 方向
+            checkZDirection(target, blocks, minZ - 1, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
+            checkZDirection(target, blocks, minZ, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
         }
 
+        // Y 方向（垂直）
         if (forceDirection.y > 0.3) {
             int checkY = maxY + 1;
             for (int x = minX - expandRange; x <= maxX + expandRange; x++) {
@@ -85,6 +85,7 @@ public class CollisionHandler {
             }
         }
 
+        // 对角线方向
         if (Math.abs(forceDirection.x) > 0.3 && Math.abs(forceDirection.z) > 0.3) {
             int checkX = forceDirection.x > 0 ? maxX + 1 : minX - 1;
             int checkZ = forceDirection.z > 0 ? maxZ + 1 : minZ - 1;
@@ -97,6 +98,34 @@ public class CollisionHandler {
         }
 
         return blocks;
+    }
+
+    // ★★★ 辅助方法：检查 X 方向的一列方块 ★★★
+    private static void checkXDirection(LivingEntity target, Set<BlockPos> blocks,
+                                        int checkX, int minY, int maxY, int minZ, int maxZ,
+                                        BlockPos ownerFeetPos, BlockPos ownerBelowPos) {
+        for (int y = minY; y <= maxY; y++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockPos pos = new BlockPos(checkX, y, z);
+                if (isCollidableBlock(target, pos, ownerFeetPos, ownerBelowPos)) {
+                    blocks.add(pos);
+                }
+            }
+        }
+    }
+
+    // ★★★ 辅助方法：检查 Z 方向的一列方块 ★★★
+    private static void checkZDirection(LivingEntity target, Set<BlockPos> blocks,
+                                        int checkZ, int minY, int maxY, int minX, int maxX,
+                                        BlockPos ownerFeetPos, BlockPos ownerBelowPos) {
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                BlockPos pos = new BlockPos(x, y, checkZ);
+                if (isCollidableBlock(target, pos, ownerFeetPos, ownerBelowPos)) {
+                    blocks.add(pos);
+                }
+            }
+        }
     }
 
     private static boolean isCollidableBlock(LivingEntity target, BlockPos pos,
@@ -162,38 +191,32 @@ public class CollisionHandler {
 
         AABB targetBox = target.getBoundingBox();
 
-        int minX = (int) Math.floor(targetBox.minX);
-        int maxX = (int) Math.floor(targetBox.maxX);
-        int minY = (int) Math.floor(targetBox.minY);
-        int maxY = (int) Math.ceil(targetBox.maxY) - 1;
-        int minZ = (int) Math.floor(targetBox.minZ);
-        int maxZ = (int) Math.floor(targetBox.maxZ);
+        // ★★★ 同步修复边界问题 ★★★
+        int minX = (int) Math.floor(targetBox.minX + 0.001);
+        int maxX = (int) Math.floor(targetBox.maxX - 0.001);
+        int minY = (int) Math.floor(targetBox.minY + 0.001);
+        int maxY = (int) Math.ceil(targetBox.maxY - 0.001) - 1;
+        int minZ = (int) Math.floor(targetBox.minZ + 0.001);
+        int maxZ = (int) Math.floor(targetBox.maxZ - 0.001);
 
         boolean isVerticalForce = Math.abs(forceDirection.y) > 0.5;
         int expandRange = isVerticalForce ? VERTICAL_EXPAND_RANGE : 0;
 
-        if (Math.abs(forceDirection.x) > 0.1) {
-            int checkX = forceDirection.x > 0 ? maxX + 1 : minX - 1;
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    BlockState state = target.level().getBlockState(new BlockPos(checkX, y, z));
-                    if (!state.isAir()) {
-                        return true;
-                    }
-                }
-            }
+        // ★★★ 同样检查两格 ★★★
+        if (forceDirection.x > 0.1) {
+            if (hasBlockInXColumn(target, maxX + 1, minY, maxY, minZ, maxZ)) return true;
+            if (hasBlockInXColumn(target, maxX, minY, maxY, minZ, maxZ)) return true;
+        } else if (forceDirection.x < -0.1) {
+            if (hasBlockInXColumn(target, minX - 1, minY, maxY, minZ, maxZ)) return true;
+            if (hasBlockInXColumn(target, minX, minY, maxY, minZ, maxZ)) return true;
         }
 
-        if (Math.abs(forceDirection.z) > 0.1) {
-            int checkZ = forceDirection.z > 0 ? maxZ + 1 : minZ - 1;
-            for (int y = minY; y <= maxY; y++) {
-                for (int x = minX; x <= maxX; x++) {
-                    BlockState state = target.level().getBlockState(new BlockPos(x, y, checkZ));
-                    if (!state.isAir()) {
-                        return true;
-                    }
-                }
-            }
+        if (forceDirection.z > 0.1) {
+            if (hasBlockInZColumn(target, maxZ + 1, minY, maxY, minX, maxX)) return true;
+            if (hasBlockInZColumn(target, maxZ, minY, maxY, minX, maxX)) return true;
+        } else if (forceDirection.z < -0.1) {
+            if (hasBlockInZColumn(target, minZ - 1, minY, maxY, minX, maxX)) return true;
+            if (hasBlockInZColumn(target, minZ, minY, maxY, minX, maxX)) return true;
         }
 
         if (forceDirection.y > 0.3) {
@@ -218,6 +241,34 @@ public class CollisionHandler {
             }
         }
 
+        return false;
+    }
+
+    // ★★★ 辅助方法：检查 X 列是否有方块 ★★★
+    private static boolean hasBlockInXColumn(LivingEntity target, int checkX,
+                                             int minY, int maxY, int minZ, int maxZ) {
+        for (int y = minY; y <= maxY; y++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockState state = target.level().getBlockState(new BlockPos(checkX, y, z));
+                if (!state.isAir()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // ★★★ 辅助方法：检查 Z 列是否有方块 ★★★
+    private static boolean hasBlockInZColumn(LivingEntity target, int checkZ,
+                                             int minY, int maxY, int minX, int maxX) {
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                BlockState state = target.level().getBlockState(new BlockPos(x, y, checkZ));
+                if (!state.isAir()) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -287,14 +338,12 @@ public class CollisionHandler {
         if (cooldown > 0) {
             stateManager.decrementDamageCooldown(target.getUUID());
 
-            // ★ 修复：使用 cooldown ★
             if (cooldown <= 4 && owner.level() instanceof ServerLevel level) {
                 PressureEffectRenderer.renderDamageWarning(level, target, currentPressure, cooldown);
             }
             return;
         }
 
-        // ★ 修复：添加缺失的伤害预兆逻辑 ★
         int warningTicks = stateManager.getDamageWarningTicks(target.getUUID());
 
         if (warningTicks < PressureConfig.getDamageWarningTicks()) {
@@ -307,9 +356,40 @@ public class CollisionHandler {
             return;
         }
 
-        // 警告结束，造成伤害
         applyNormalDamage(owner, target, currentPressure, previousPressure,
                 collidingBlocks, stateManager);
+    }
+
+    public static void handleBreakthroughDamage(LivingEntity owner, LivingEntity target,
+                                                double pressure,
+                                                PressureStateManager stateManager) {
+        if (target.isDeadOrDying()) return;
+
+        float damage = (float) Math.max(1.0, pressure * PressureConfig.getPressureToDamage() * 0.5);
+        damage = Math.min(damage, PressureConfig.getMaxDamagePerHit() * 0.5F);
+
+        if (damage > 0.3F) {
+            Vec3 velocityBefore = target.getDeltaMovement();
+
+            DamageSource damageSource = owner.level().damageSources().mobAttack(owner);
+            target.hurt(damageSource, damage);
+
+            target.setDeltaMovement(velocityBefore.x, Math.min(velocityBefore.y, 0.1), velocityBefore.z);
+            target.hurtMarked = true;
+
+            stateManager.setDamageCooldown(target.getUUID(), 5);
+
+            if (PressureConfig.areParticlesEnabled() && owner.level() instanceof ServerLevel level) {
+                level.sendParticles(ParticleTypes.EXPLOSION,
+                        target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
+                        1, 0, 0, 0, 0);
+            }
+
+            if (PressureConfig.areSoundsEnabled()) {
+                owner.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                        SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.4F, 1.2F);
+            }
+        }
     }
 
     private static void handleSurgeDamage(LivingEntity owner, LivingEntity target,
@@ -380,7 +460,6 @@ public class CollisionHandler {
     private static void playDamageEffects(LivingEntity owner, LivingEntity target,
                                           float damage, double pressure, double hardnessBonus) {
 
-        // 检查音效开关
         if (PressureConfig.areSoundsEnabled()) {
             float volume = 0.2F + Math.min((float)(pressure * 0.05), 0.5F);
             float pitch = 0.8F - Math.min((float)(pressure * 0.03), 0.3F);
@@ -400,7 +479,6 @@ public class CollisionHandler {
             }
         }
 
-        // 检查粒子开关
         if (PressureConfig.areParticlesEnabled() && owner.level() instanceof ServerLevel serverLevel) {
             int particleCount = 1 + (int)(pressure / 2);
 

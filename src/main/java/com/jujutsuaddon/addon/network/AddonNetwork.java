@@ -7,6 +7,7 @@ import com.jujutsuaddon.addon.network.s2c.ShadowStorageSyncS2CPacket;
 import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
@@ -157,6 +158,10 @@ public class AddonNetwork {
      */
     public static void sendToPlayer(Object packet, ServerPlayer player) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), packet);
+    }
+    // ★★★ 新增：发送到追踪指定实体的所有玩家 ★★★
+    public static void sendToTrackingEntity(Object packet, Entity entity) {
+        CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> entity), packet);
     }
 
     /**

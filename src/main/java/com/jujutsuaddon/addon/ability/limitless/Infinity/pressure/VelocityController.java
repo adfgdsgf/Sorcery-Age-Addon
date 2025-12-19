@@ -106,22 +106,20 @@ public class VelocityController {
     public static double calculateSpeedRatioWithCustomStop(int pressureLevel, float cursedEnergyOutput,
                                                            double distance, double maxRange,
                                                            double customStopDistance) {
-        if (pressureLevel <= 0) return 1.0;
-        double distanceFromStop = distance - customStopDistance;
-        if (distanceFromStop <= 0) {
-            // 已在停止区内
-            return 0;
-        }
         double effectiveRange = maxRange - customStopDistance;
-        if (effectiveRange <= 0) return 0;
-        // 基础比例：基于距离的线性衰减
+
+        // ★★★ 关键修复：和原版保持一致，返回 1.0 而不是 0 ★★★
+        if (effectiveRange <= 0) {
+            return 1.0;
+        }
+
+        double distanceFromStop = distance - customStopDistance;
         double baseRatio = distanceFromStop / effectiveRange;
         baseRatio = Math.max(0, Math.min(1, baseRatio));
-        // 应用咒力输出的影响（输出越高，减速越强）
+
         double outputFactor = 0.5 + cursedEnergyOutput * 0.5;
         return Math.pow(baseRatio, outputFactor);
     }
-
     /**
      * 限制实体的接近速度
      *
@@ -263,6 +261,100 @@ public class VelocityController {
         result.processedVelocity = limitedVelocity;
 
         return result;
+    }
+
+    /**
+     * ★★★ 新版：入口即减速，效果更明显 ★★★
+     */
+    public static double calculateSmoothProjectileSpeedRatio(
+            int pressureLevel,
+            float cursedEnergyOutput,
+            double distance,
+            double maxRange,
+            double stopDistance) {
+
+        // 超出范围，全速
+        if (distance >= maxRange) {
+            return 1.0;
+        }
+
+        double slowdownRange = maxRange - stopDistance;
+        if (slowdownRange <= 0.5) {
+            return distance > stopDistance ? 1.0 : 0.0;
+        }
+
+        double distanceFromStop = distance - stopDistance;
+        if (distanceFromStop <= 0) {
+            return 0.0;
+        }
+
+        // t: 0 = 停止边界, 1 = maxRange
+        double t = distanceFromStop / slowdownRange;
+        t = Math.max(0, Math.min(1, t));
+
+        // ★★★ 关键改进：入口处立即减速 ★★★
+        // 边缘(t=1): 0.4 → 进入就只剩40%速度
+        // 中间(t=0.5): 0.15
+        // 停止边界(t=0): 0.0
+
+        double entrySpeed = 0.4;   // 刚进入减速区时的速度（40%）
+        double midSpeed = 0.12;    // 中间位置的速度
+        double exitSpeed = 0.0;    // 停止边界处的速度
+
+        double ratio;
+        if (t > 0.5) {
+            // 外半圈：从 entrySpeed 到 midSpeed
+            double localT = (t - 0.5) / 0.5;
+            // 使用 ease-out 让进入时减速更明显
+            double easeOut = 1.0 - Math.pow(1.0 - localT, 2);
+            ratio = midSpeed + (entrySpeed - midSpeed) * easeOut;
+        } else {
+            // 内半圈：从 midSpeed 到 exitSpeed
+            double localT = t / 0.5;
+            // 使用 ease-in 让接近停止时更慢
+            double easeIn = localT * localT;
+            ratio = exitSpeed + (midSpeed - exitSpeed) * easeIn;
+        }
+
+        // 应用咒力输出影响（轻微）
+        double outputInfluence = 0.9 + cursedEnergyOutput * 0.1;
+        ratio = Math.pow(ratio, outputInfluence);
+
+        // 保持最小速度防止完全静止前的跳跃
+        double minSpeed = 0.01 + t * 0.02;
+        return Math.max(minSpeed, ratio);
+    }
+    /**
+     * ★★★ 更激进版本：入口就大幅减速 ★★★
+     */
+    public static double calculateAggressiveProjectileSpeedRatio(
+            int pressureLevel,
+            float cursedEnergyOutput,
+            double distance,
+            double maxRange,
+            double stopDistance) {
+
+        if (distance >= maxRange) return 1.0;
+
+        double slowdownRange = maxRange - stopDistance;
+        if (slowdownRange <= 0.5) {
+            return distance > stopDistance ? 1.0 : 0.0;
+        }
+
+        double distanceFromStop = distance - stopDistance;
+        if (distanceFromStop <= 0) return 0.0;
+
+        double t = distanceFromStop / slowdownRange;
+        t = Math.max(0, Math.min(1, t));
+
+        // ★★★ 更激进：入口处只有 30% 速度 ★★★
+        // 使用指数衰减
+        // t=1 (边缘): 0.3
+        // t=0.5: 0.09
+        // t=0: 0.0
+        double ratio = 0.3 * Math.pow(t, 1.5);
+
+        return Math.max(0.01, ratio);
     }
 
     /**

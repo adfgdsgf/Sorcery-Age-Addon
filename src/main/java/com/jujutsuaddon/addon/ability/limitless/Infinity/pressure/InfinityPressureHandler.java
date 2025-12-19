@@ -180,49 +180,69 @@ public class InfinityPressureHandler {
                                       double maxRange,
                                       PressureStateManager stateManager,
                                       Set<BlockPos> allActiveBlocks) {
-
-        double previousPressure = stateManager.getPreviousPressure(target.getUUID());
-
         PushForceApplier.CollisionInfo collisionInfo = PushForceApplier.apply(
                 owner, target, pressureLevel, cursedEnergyOutput, maxRange, stateManager);
-
         double currentPressure = collisionInfo.pressureValue;
-
         PressureEffectRenderer.renderPressureEffect(owner, target,
                 currentPressure, collisionInfo.distanceFromHalt,
                 collisionInfo.isBreaching, stateManager);
-
-        if (collisionInfo.isColliding) {
-            Set<BlockPos> collidedBlocks = CollisionHandler.getCollidingBlocks(
-                    owner, target, collisionInfo.forceDirection);
-
-            BlockPos ownerFeetPos = owner.blockPosition();
-            BlockPos ownerBelowPos = ownerFeetPos.below();
-            Set<BlockPos> breakableBlocks = CollisionHandler.getBreakableBlocks(
-                    collidedBlocks, target, ownerFeetPos, ownerBelowPos);
-
-            allActiveBlocks.addAll(breakableBlocks);
-            stateManager.setCollidingBlocks(target.getUUID(), collidedBlocks);
-
-            for (BlockPos pos : breakableBlocks) {
-                BlockPressureManager.applyPressure(pos, (float) currentPressure, stateManager);
-            }
-
-            CollisionHandler.handleDamage(owner, target,
-                    currentPressure, previousPressure,
-                    true, collidedBlocks, stateManager);
-
-        } else {
-            stateManager.setCollidingBlocks(target.getUUID(), Collections.emptySet());
-            stateManager.setDamageWarningTicks(target.getUUID(), 0);
-
-            CollisionHandler.handleDamage(owner, target,
-                    currentPressure, previousPressure,
-                    false, Collections.emptySet(), stateManager);
+        // ★★★ 获取碰撞方块 ★★★
+        Set<BlockPos> collidedBlocks = CollisionHandler.getCollidingBlocks(
+                owner, target, collisionInfo.forceDirection);
+        BlockPos ownerFeetPos = owner.blockPosition();
+        BlockPos ownerBelowPos = ownerFeetPos.below();
+        Set<BlockPos> breakableBlocks = CollisionHandler.getBreakableBlocks(
+                collidedBlocks, target, ownerFeetPos, ownerBelowPos);
+        // ★★★ 原始碰撞检测：有方块就是碰撞 ★★★
+        boolean rawColliding = target.horizontalCollision || !collidedBlocks.isEmpty();
+        // ★★★ 使用状态机进行防抖处理 ★★★
+        PressureStateManager.CollisionStateChange stateChange =
+                stateManager.updateCollisionState(target.getUUID(), rawColliding);
+        // ★★★ 碰撞期间持续更新峰值压力 ★★★
+        if (stateChange == PressureStateManager.CollisionStateChange.STILL_COLLIDING ||
+                stateChange == PressureStateManager.CollisionStateChange.JUST_COLLIDED) {
+            stateManager.updatePeakPressure(target.getUUID(), currentPressure);
         }
-
+        double prevPressure = stateManager.getPreviousPressure(target.getUUID());
+        switch (stateChange) {
+            case JUST_COLLIDED:
+                // 刚进入碰撞，初始化峰值
+                stateManager.resetPeakPressure(target.getUUID());
+                stateManager.updatePeakPressure(target.getUUID(), currentPressure);
+                // fall through 继续执行 STILL_COLLIDING 的逻辑
+            case STILL_COLLIDING:
+                // 持续碰撞中
+                allActiveBlocks.addAll(breakableBlocks);
+                stateManager.setCollidingBlocks(target.getUUID(), collidedBlocks);
+                for (BlockPos pos : breakableBlocks) {
+                    BlockPressureManager.applyPressure(pos, (float) currentPressure, stateManager);
+                }
+                CollisionHandler.handleDamage(owner, target,
+                        currentPressure, prevPressure,
+                        true, collidedBlocks, stateManager);
+                break;
+            case JUST_RELEASED:
+                // ★★★ 刚脱离碰撞 = 方块被破坏，触发突破伤害！ ★★★
+                double peakPressure = stateManager.getPeakPressure(target.getUUID());
+                if (peakPressure >= PressureConfig.getMinPressureForDamage()) {
+                    CollisionHandler.handleBreakthroughDamage(owner, target,
+                            peakPressure, stateManager);  // 用峰值压力！
+                }
+                stateManager.resetPeakPressure(target.getUUID());
+                stateManager.setCollidingBlocks(target.getUUID(), Collections.emptySet());
+                stateManager.setDamageWarningTicks(target.getUUID(), 0);
+                stateManager.resetPinnedTicks(target.getUUID());
+                break;
+            case NOT_COLLIDING:
+                // 未碰撞
+                stateManager.setCollidingBlocks(target.getUUID(), Collections.emptySet());
+                stateManager.setDamageWarningTicks(target.getUUID(), 0);
+                CollisionHandler.handleDamage(owner, target,
+                        currentPressure, prevPressure,
+                        false, Collections.emptySet(), stateManager);
+                break;
+        }
         stateManager.setPreviousPressure(target.getUUID(), currentPressure);
-
         if (PressureConfig.areSoundsEnabled() && target.tickCount % 30 == 0 && currentPressure > 3.0D) {
             float volume = Math.min(0.15F + (float) (currentPressure * 0.02), 0.5F);
             owner.level().playSound(null, target.getX(), target.getY(), target.getZ(),
