@@ -11,6 +11,7 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PressureStateManager {
 
@@ -42,6 +43,7 @@ public class PressureStateManager {
 
     // ==================== 玩家状态 ====================
     private final Map<UUID, Vec3> ownerPreviousPos = new HashMap<>();
+    private final Map<UUID, Vec3> previousPositions = new ConcurrentHashMap<>();
 
     // ==================== 方块状态 ====================
     private final Map<BlockPos, Float> blockPressureAccum = new HashMap<>();
@@ -238,6 +240,24 @@ public class PressureStateManager {
         return movement;
     }
 
+    /**
+     * 通过位置变化计算实体的真实移动
+     * 比 getDeltaMovement() 更可靠，尤其对玩家
+     */
+    public Vec3 getMovementFromPosition(LivingEntity entity) {
+        UUID id = entity.getUUID();
+        Vec3 currentPos = entity.position();
+        Vec3 prevPos = previousPositions.getOrDefault(id, currentPos);
+        previousPositions.put(id, currentPos);
+        return currentPos.subtract(prevPos);
+    }
+    /**
+     * 清除位置历史（实体离开范围时调用）
+     */
+    public void clearPositionHistory(UUID id) {
+        previousPositions.remove(id);
+    }
+
     // ==================== 方块状态方法 ====================
 
     public float getBlockPressure(BlockPos pos) {
@@ -392,7 +412,6 @@ public class PressureStateManager {
     }
 
     // ==================== 清理单个实体的所有状态 ====================
-
     public void clearEntityState(UUID entityId) {
         previousVelocities.remove(entityId);
         confirmedColliding.remove(entityId);
@@ -404,10 +423,9 @@ public class PressureStateManager {
         peakPressure.remove(entityId);
         collisionFrames.remove(entityId);
         noCollisionFrames.remove(entityId);
+        previousPositions.remove(entityId);  // ★★★ 添加这行 ★★★
     }
-
     // ==================== 清理方法 ====================
-
     public void clearAll(LivingEntity owner) {
         previousVelocities.clear();
         confirmedColliding.clear();
@@ -419,30 +437,25 @@ public class PressureStateManager {
         peakPressure.clear();
         collisionFrames.clear();
         noCollisionFrames.clear();
-
+        previousPositions.clear();  // ★★★ 添加这行 ★★★
         releaseAllProjectiles(owner);
         repelledProjectiles.clear();
-
         if (owner.level() instanceof ServerLevel level) {
             for (BlockPos pos : new HashSet<>(blockBreakerId.keySet())) {
                 clearBlockBreakProgress(level, pos);
             }
         }
-
         blockPressureAccum.clear();
         blockLastPressureTime.clear();
         blockBreakerId.clear();
     }
-
     public void cleanup(LivingEntity owner, double range) {
         if (!(owner.level() instanceof ServerLevel level)) return;
-
         // 清理实体相关状态的通用方法
         java.util.function.Predicate<Map.Entry<UUID, ?>> shouldRemove = entry -> {
             Entity entity = level.getEntity(entry.getKey());
             return entity == null || owner.distanceTo(entity) > range * 1.5;
         };
-
         previousVelocities.entrySet().removeIf(shouldRemove);
         confirmedColliding.entrySet().removeIf(shouldRemove);
         entityCollidingBlocks.entrySet().removeIf(shouldRemove);
@@ -453,6 +466,7 @@ public class PressureStateManager {
         peakPressure.entrySet().removeIf(shouldRemove);
         collisionFrames.entrySet().removeIf(shouldRemove);
         noCollisionFrames.entrySet().removeIf(shouldRemove);
+        previousPositions.entrySet().removeIf(shouldRemove);
 
         // 清理投射物
         cleanupProjectiles(owner, range);

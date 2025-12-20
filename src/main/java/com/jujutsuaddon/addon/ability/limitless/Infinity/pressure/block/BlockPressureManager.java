@@ -17,12 +17,18 @@ import java.util.Set;
 public class BlockPressureManager {
 
     public static void applyPressure(BlockPos pos, float pressureValue,
-                                     PressureStateManager stateManager) {
-        if (pressureValue < PressureConfig.getMinPressureForBlockBreak()) {
+                                     PressureStateManager stateManager,
+                                     ServerLevel level) {
+        // 使用 BlockValidator 验证
+        if (!BlockValidator.isSolidWall(level, pos)) {
             return;
         }
 
-        float increment = pressureValue * 0.06F;
+        if (pressureValue < PressureConfig.getMinPressureForBlockBreak()) {
+            return;
+        }
+        // ★★★ 使用可配置的速率 ★★★
+        float increment = pressureValue * PressureConfig.getBlockPressureRate();
         stateManager.addBlockPressure(pos, increment);
     }
 
@@ -49,12 +55,14 @@ public class BlockPressureManager {
         for (BlockPos pos : allBlocks) {
             float accumulatedPressure = stateManager.getBlockPressure(pos);
 
+            // 脚下方块不处理
             if (pos.equals(ownerFeetPos) || pos.equals(ownerBelowPos)) {
                 toRemove.add(pos);
                 stateManager.clearBlockBreakProgress(level, pos);
                 continue;
             }
 
+            // 超时
             Long lastTime = stateManager.getBlockLastPressureTime(pos);
             if (lastTime == null || currentTime - lastTime > PressureConfig.getPressureTimeoutMs()) {
                 toRemove.add(pos);
@@ -63,13 +71,25 @@ public class BlockPressureManager {
             }
 
             BlockState state = level.getBlockState(pos);
+
+            // 空气
             if (state.isAir()) {
                 toRemove.add(pos);
                 stateManager.clearBlockBreakProgress(level, pos);
                 continue;
             }
 
-            float hardness = state.getDestroySpeed(level, pos);
+            // ★ 使用 BlockValidator 验证是否是有效固体墙 ★
+            if (!BlockValidator.isSolidWall(level, pos)) {
+                toRemove.add(pos);
+                stateManager.clearBlockBreakProgress(level, pos);
+                continue;
+            }
+
+            // ★ 使用 BlockValidator 获取硬度 ★
+            float hardness = BlockValidator.getBlockHardness(level, pos);
+
+            // 不可破坏（基岩等）
             if (hardness < 0) {
                 toRemove.add(pos);
                 continue;
@@ -99,6 +119,7 @@ public class BlockPressureManager {
                     }
                 }
             } else {
+                // 不在活动区域，压力衰减
                 float newPressure = accumulatedPressure - PressureConfig.getPressureDecayRate();
 
                 if (newPressure <= 0) {
@@ -122,17 +143,16 @@ public class BlockPressureManager {
     }
 
     private static void breakBlock(ServerLevel level, BlockPos pos, LivingEntity owner) {
-        // ★ 检查是否真正破坏方块 ★
         if (PressureConfig.shouldActuallyBreakBlocks()) {
-            // 检查是否掉落物品
             boolean dropItems = PressureConfig.shouldDropBlockItems();
             level.destroyBlock(pos, dropItems, owner);
         }
-        // 如果不破坏，只显示效果（方块保持原样）
+
         if (PressureConfig.areSoundsEnabled()) {
             level.playSound(null, pos, SoundEvents.GENERIC_EXPLODE,
                     SoundSource.BLOCKS, 0.5F, 1.1F);
         }
+
         if (PressureConfig.areParticlesEnabled()) {
             level.sendParticles(ParticleTypes.CRIT,
                     pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,

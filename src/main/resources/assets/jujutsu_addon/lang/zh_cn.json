@@ -436,8 +436,6 @@
   "config.jujutsu_addon.pressure.range.curve": "范围曲线指数",
 
   "config.jujutsu_addon.pressure.zone.slowdown": "减速区份数（最外层）",
-  "config.jujutsu_addon.pressure.zone.stop": "停止区份数（中间层）",
-  "config.jujutsu_addon.pressure.zone.push": "推力区份数（最内层）",
 
   "config.jujutsu_addon.pressure.force.base": "基础推力",
   "config.jujutsu_addon.pressure.force.max": "最大推力",
@@ -456,11 +454,9 @@
   "config.jujutsu_addon.pressure.level.max": "等级10倍率",
 
   "config.jujutsu_addon.pressure.damage.min_pressure": "造成伤害最低压力",
-  "config.jujutsu_addon.pressure.damage.per_pressure": "每点压力伤害",
   "config.jujutsu_addon.pressure.damage.max": "单次伤害上限",
   "config.jujutsu_addon.pressure.damage.min_interval": "伤害间隔下限",
   "config.jujutsu_addon.pressure.damage.max_interval": "伤害间隔上限",
-  "config.jujutsu_addon.pressure.damage.surge_mult": "压力突变伤害倍率",
 
   "config.jujutsu_addon.pressure.projectile.enable": "影响投射物",
   "config.jujutsu_addon.pressure.projectile.min_level": "影响投射物最低等级",
@@ -502,6 +498,22 @@
   "config.jujutsu_addon.infinity_pressure.projectile.push_zone_base": "推力区基础推力",
   "config.jujutsu_addon.infinity_pressure.projectile.push_zone_penetration": "穿透深度推力增益",
   "config.jujutsu_addon.infinity_pressure.projectile.push_zone_max": "推力区推力上限",
+
+  "config.jujutsu_addon.pressure.zone.balance": "平衡点份数",
+  "config.jujutsu_addon.pressure.zone.min_radius": "平衡点最小半径",
+  "config.jujutsu_addon.pressure.zone.max_ratio": "平衡点最大范围比例",
+  "config.jujutsu_addon.pressure.zone.zeno_exponent": "芝诺曲线指数",
+  "config.jujutsu_addon.pressure.damage.max_pressure_interval": "间隔计算最大压力值",
+  "config.jujutsu_addon.pressure.curve.max_mult": "最大压力倍率",
+  "config.jujutsu_addon.pressure.curve.steepness": "曲线陡峭度",
+  "config.jujutsu_addon.pressure.curve.min_distance": "最小计算距离",
+  "config.jujutsu_addon.pressure.curve.block_rate": "方块压力累积速率",
+  "config.jujutsu_addon.pressure.hardness.soft_threshold": "软方块硬度阈值",
+  "config.jujutsu_addon.pressure.hardness.hard_threshold": "硬方块硬度阈值",
+  "config.jujutsu_addon.pressure.hardness.soft_mult": "软方块压力倍率",
+  "config.jujutsu_addon.pressure.hardness.normal_mult": "普通方块压力倍率",
+  "config.jujutsu_addon.pressure.hardness.hard_mult": "硬方块压力倍率",
+  "config.jujutsu_addon.pressure.hardness.bedrock_mult": "基岩压力倍率",
 
   "_comment_aim_assist": "========== 自瞄辅助配置 ==========",
   "config.jujutsu_addon.client.aim_assist_enabled": "启用自瞄辅助",

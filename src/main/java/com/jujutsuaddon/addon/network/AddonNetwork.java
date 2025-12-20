@@ -2,9 +2,7 @@ package com.jujutsuaddon.addon.network;
 
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.network.c2s.*;
-import com.jujutsuaddon.addon.network.s2c.CurseBaselineSyncS2CPacket;
-import com.jujutsuaddon.addon.network.s2c.ShadowStorageSyncS2CPacket;
-import com.jujutsuaddon.addon.network.s2c.SyncDamagePredictionsS2CPacket;
+import com.jujutsuaddon.addon.network.s2c.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -150,6 +148,20 @@ public class AddonNetwork {
                 SyncInfinityPressureC2SPacket::new,
                 SyncInfinityPressureC2SPacket::handle
         );
+
+        // ★★★ 无下限场同步包 (S2C) ★★★
+        CHANNEL.messageBuilder(InfinityFieldSyncS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(InfinityFieldSyncS2CPacket::encode)
+                .decoder(InfinityFieldSyncS2CPacket::decode)
+                .consumerMainThread(InfinityFieldSyncS2CPacket::handle)
+                .add();
+
+        // ★★★ 无下限压力等级同步包 (S2C) ★★★
+        CHANNEL.messageBuilder(SyncInfinityPressureS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SyncInfinityPressureS2CPacket::encode)
+                .decoder(SyncInfinityPressureS2CPacket::decode)
+                .consumerMainThread(SyncInfinityPressureS2CPacket::handle)
+                .add();
     }
 
     // ==================== 发送方法 ====================

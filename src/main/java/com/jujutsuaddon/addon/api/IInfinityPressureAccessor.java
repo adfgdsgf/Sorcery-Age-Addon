@@ -27,4 +27,5 @@ public interface IInfinityPressureAccessor {
      * 减少压制等级
      */
     void jujutsuAddon$decreaseInfinityPressure();
+
 }

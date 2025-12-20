@@ -197,6 +197,7 @@ public class ClientEvents {
     public static void onPlayerLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         SkillBarManager.onPlayerLogout();
         resetState();
+        InfinityFieldClientCache.clear();  // ★★★ 加这行 ★★★
     }
 
     public static void resetState() {

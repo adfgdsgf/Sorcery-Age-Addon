@@ -9,6 +9,7 @@
     "MixinResistanceCalculation",
     "MixinSorcererData",
     "MixinKeyMapping",
+    "MixinEntityMove",
     "InfinityCostMixin",
     "core.MixinAbility",
     "core.MixinLivingEntity",
@@ -38,6 +39,7 @@
     "fix.MixinTenShadowsData"
   ],
   "client": [
+    "client.MixinKeyboardInput",
     "fix.slice.MixinCutModelUtil",
     "fix.slice.MixinSlicedEntityParticle",
     "fix.slice.MixinLegacyMath"

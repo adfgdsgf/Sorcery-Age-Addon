@@ -8,7 +8,6 @@ import radon.jujutsu_kaisen.ability.JJKAbilities;
 import radon.jujutsu_kaisen.capability.data.sorcerer.ISorcererData;
 import radon.jujutsu_kaisen.capability.data.sorcerer.SorcererDataHandler;
 
-import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +24,9 @@ public final class InfinityConflictResolver {
     private static final Map<UUID, Long> strengthCheckCache = new HashMap<>();
     private static final Map<UUID, InfinityStrength> strengthResultCache = new HashMap<>();
     private static final long CACHE_DURATION = 10; // 10 ticks
+
+    // ★★★ 新增：记录缓存时的 pressureLevel，用于检测变化 ★★★
+    private static final Map<UUID, Integer> cachedPressureLevels = new HashMap<>();
 
     // ==================== 数据类 ====================
 
@@ -69,6 +71,19 @@ public final class InfinityConflictResolver {
         public static final ConflictResult NO_EFFECT = new ConflictResult(false, 0.0, InfinityStrength.NONE);
     }
 
+    // ==================== 缓存管理 ====================
+
+    /**
+     * ★★★ 当 pressureLevel 改变时调用，清除该实体的缓存 ★★★
+     * 这确保消耗和冲突计算能立即使用新的等级值
+     */
+    public static void invalidateCache(UUID entityId) {
+        if (entityId == null) return;
+        strengthCheckCache.remove(entityId);
+        strengthResultCache.remove(entityId);
+        cachedPressureLevels.remove(entityId);
+    }
+
     // ==================== 核心方法 ====================
 
     /**
@@ -79,6 +94,15 @@ public final class InfinityConflictResolver {
 
         UUID uuid = entity.getUUID();
         long currentTime = entity.level().getGameTime();
+
+        // ★★★ 先快速检查 pressureLevel 是否变化 ★★★
+        int currentPressure = getCurrentPressureLevelFast(entity);
+        Integer cachedPressure = cachedPressureLevels.get(uuid);
+
+        // 如果 pressureLevel 变了，立即使缓存失效
+        if (cachedPressure != null && cachedPressure != currentPressure) {
+            invalidateCache(uuid);
+        }
 
         // 检查缓存
         Long lastCheck = strengthCheckCache.get(uuid);
@@ -95,8 +119,22 @@ public final class InfinityConflictResolver {
         // 缓存结果
         strengthCheckCache.put(uuid, currentTime);
         strengthResultCache.put(uuid, strength);
+        cachedPressureLevels.put(uuid, strength.pressureLevel);
 
         return strength;
+    }
+
+    /**
+     * ★★★ 快速获取当前 pressureLevel（不经过完整计算）★★★
+     */
+    private static int getCurrentPressureLevelFast(LivingEntity entity) {
+        try {
+            ISorcererData data = entity.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
+            if (data instanceof IInfinityPressureAccessor accessor) {
+                return accessor.jujutsuAddon$getInfinityPressure();
+            }
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     private static InfinityStrength calculateStrength(LivingEntity entity) {
@@ -164,10 +202,7 @@ public final class InfinityConflictResolver {
         }
 
         // 进攻方更强 → 用超出部分计算有效倍率
-        // 有效倍率 = (攻击强度 - 防御强度) / 攻击强度
         double excessRatio = (attackerTotal - defenderTotal) / attackerTotal;
-
-        // 限制在合理范围内
         excessRatio = Math.max(0.0, Math.min(1.0, excessRatio));
 
         return new ConflictResult(true, excessRatio, defenderStrength);
@@ -175,10 +210,6 @@ public final class InfinityConflictResolver {
 
     /**
      * 解决投射物的无下限冲突
-     *
-     * @param defender 无下限持有者（要挡投射物的人）
-     * @param projectile 投射物
-     * @return 冲突解决结果
      */
     public static ConflictResult resolveProjectileConflict(LivingEntity defender, Projectile projectile) {
         if (projectile == null) {
@@ -190,32 +221,25 @@ public final class InfinityConflictResolver {
             return ConflictResult.FULL_EFFECT;
         }
 
-        // 获取投射物发射者的无下限强度
         InfinityStrength ownerStrength = getInfinityStrength(livingOwner);
 
-        // 发射者没有无下限 → 可以正常拦截
         if (!ownerStrength.hasInfinity || ownerStrength.pressureLevel <= 0) {
             return ConflictResult.FULL_EFFECT;
         }
 
-        // 获取防守者的无下限强度
         InfinityStrength defenderStrength = getInfinityStrength(defender);
 
-        // 防守者没有无下限 → 不应该发生，但以防万一
         if (!defenderStrength.hasInfinity) {
             return ConflictResult.NO_EFFECT;
         }
 
-        // ★★★ 比较双方强度 ★★★
         double defenderTotal = defenderStrength.totalStrength;
         double attackerTotal = ownerStrength.totalStrength;
 
         if (defenderTotal <= attackerTotal) {
-            // 防守方弱于或等于进攻方 → 无法拦截
             return new ConflictResult(false, 0.0, ownerStrength);
         }
 
-        // 防守方更强 → 可以拦截，但效果可能减弱
         double excessRatio = (defenderTotal - attackerTotal) / defenderTotal;
         excessRatio = Math.max(0.0, Math.min(1.0, excessRatio));
 
@@ -224,10 +248,6 @@ public final class InfinityConflictResolver {
 
     /**
      * 计算对目标的有效压力值
-     *
-     * @param basePressure 基础压力值
-     * @param conflictResult 冲突解决结果
-     * @return 有效压力值
      */
     public static double getEffectivePressure(double basePressure, ConflictResult conflictResult) {
         if (!conflictResult.canAffect) {
@@ -252,5 +272,6 @@ public final class InfinityConflictResolver {
         strengthCheckCache.entrySet().removeIf(entry ->
                 currentTime - entry.getValue() > CACHE_DURATION * 5);
         strengthResultCache.keySet().retainAll(strengthCheckCache.keySet());
+        cachedPressureLevels.keySet().retainAll(strengthCheckCache.keySet());
     }
 }

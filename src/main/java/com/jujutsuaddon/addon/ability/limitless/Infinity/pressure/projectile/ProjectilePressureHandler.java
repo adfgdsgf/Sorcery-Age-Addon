@@ -1,8 +1,10 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.conflict.InfinityConflictResolver;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePointCalculator;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PressureBypassChecker;
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -90,6 +92,9 @@ public class ProjectilePressureHandler {
     private static void preSlowHighSpeedProjectiles(LivingEntity owner, Vec3 ownerCenter,
                                                     double maxRange, int pressureLevel,
                                                     PressureStateManager stateManager) {
+        // ★★★ 新增：每2tick检测一次 ★★★
+        if (owner.tickCount % 2 != 0) return;
+
         double outerRange = maxRange + HIGH_SPEED_EXTRA_RANGE;
 
         List<Projectile> outerProjectiles = owner.level().getEntitiesOfClass(
@@ -141,9 +146,12 @@ public class ProjectilePressureHandler {
                                                   PressureStateManager stateManager) {
         if (!(projectile instanceof IFrozenProjectile fp)) return;
         boolean wasControlled = fp.jujutsuAddon$isControlled();
-        // ★★★ 计算当前等级对应的边界参数 ★★★
-        float currentStopDistance = (float) PressureConfig.getStopZoneRadius(pressureLevel);
+
+        // ★★★ 使用 BalancePointCalculator 计算平衡点 ★★★
+        double balanceRadius = BalancePointCalculator.getBalanceRadius(pressureLevel, maxRange);
+        float currentStopDistance = (float) balanceRadius;
         float currentMaxRange = (float) maxRange;
+
         if (!wasControlled) {
             // 第一次被控制，初始化
             fp.jujutsuAddon$setOriginalVelocity(projectile.getDeltaMovement());
@@ -152,18 +160,16 @@ public class ProjectilePressureHandler {
             fp.jujutsuAddon$setControlled(true);
             fp.jujutsuAddon$setFreezeOwner(owner.getUUID());
             projectile.setNoGravity(true);
-            if (PressureConfig.areSoundsEnabled()) {
-                projectile.level().playSound(null,
-                        projectile.getX(), projectile.getY(), projectile.getZ(),
-                        SoundEvents.SHIELD_BLOCK, SoundSource.NEUTRAL, 0.3F, 1.5F);
-            }
+
             spawnSlowdownParticles(projectile, 1.0);
         }
-        // ★★★ 关键：每帧都更新边界参数（即使已被控制）★★★
-        // 这样当等级变化时，投射物会知道新的边界位置
+
+        // ★★★ 每帧都更新边界参数 ★★★
         fp.jujutsuAddon$setStopDistance(currentStopDistance);
         fp.jujutsuAddon$setMaxRange(currentMaxRange);
+
         stateManager.trackProjectile(projectile);
+
         float currentSpeedMod = fp.jujutsuAddon$getSpeedMultiplier();
         if (PressureConfig.areParticlesEnabled() && currentSpeedMod < 0.3 && projectile.tickCount % 15 == 0) {
             spawnSlowdownParticles(projectile, 1.0 - currentSpeedMod);
@@ -246,6 +252,10 @@ public class ProjectilePressureHandler {
         }
         // 投射物发射者相关检查
         if (projectileOwner instanceof LivingEntity livingOwner) {
+            // 投射物发射者持有天逆鉾时不拦截
+            if (PressureBypassChecker.shouldBypassPressure(livingOwner)) {
+                return false;
+            }
             // 领域必中检查
             if (isInOwnersDomainWithSureHit(owner, livingOwner)) {
                 return false;

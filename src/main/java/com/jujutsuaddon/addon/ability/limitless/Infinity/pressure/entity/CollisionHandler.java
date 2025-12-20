@@ -1,5 +1,8 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity;
 
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureCurve;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.damage.PressureDamageCalculator;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.damage.PressureDamageConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.effect.PressureEffectRenderer;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
@@ -23,6 +26,100 @@ public class CollisionHandler {
 
     // ==================== 碰撞检测 ====================
 
+    /**
+     * ★★★ 修复：只检测推力方向上的碰撞，忽略地面 ★★★
+     */
+    public static boolean isCollidingInForceDirection(LivingEntity target, Vec3 forceDirection) {
+        // ★★★ 不再使用 horizontalCollision/verticalCollision ★★★
+        // 因为站在地上也会 verticalCollision = true
+
+        // 只有当推力主要是水平方向时，才检查水平碰撞
+        boolean isHorizontalForce = Math.abs(forceDirection.x) > 0.3 || Math.abs(forceDirection.z) > 0.3;
+
+        // 如果是水平推力，检查水平方向是否有障碍物
+        if (isHorizontalForce) {
+            // 使用 Minecraft 的碰撞标志，但只看水平
+            if (target.horizontalCollision) {
+                return true;
+            }
+
+            // 手动检查推力方向的方块
+            return hasBlockInForceDirection(target, forceDirection);
+        }
+
+        // 垂直推力：检查上方/下方
+        if (forceDirection.y > 0.3) {
+            // 向上推，检查头顶
+            return hasBlockAbove(target);
+        } else if (forceDirection.y < -0.3) {
+            // 向下推，检查脚下（通常就是地面，这种情况很少）
+            return target.onGround();
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查推力方向是否有方块
+     */
+    private static boolean hasBlockInForceDirection(LivingEntity target, Vec3 forceDirection) {
+        AABB box = target.getBoundingBox();
+
+        // 向推力方向偏移一小段距离检查
+        double checkDist = 0.1;
+        double checkX = target.getX() + forceDirection.x * checkDist;
+        double checkZ = target.getZ() + forceDirection.z * checkDist;
+
+        // 检查身体高度范围内的方块
+        int minY = (int) Math.floor(box.minY);
+        int maxY = (int) Math.ceil(box.maxY) - 1;
+
+        for (int y = minY; y <= maxY; y++) {
+            BlockPos checkPos;
+
+            // 根据推力方向决定检查哪边
+            if (forceDirection.x > 0.3) {
+                checkPos = new BlockPos((int) Math.floor(box.maxX + 0.1), y, (int) Math.floor(target.getZ()));
+            } else if (forceDirection.x < -0.3) {
+                checkPos = new BlockPos((int) Math.floor(box.minX - 0.1), y, (int) Math.floor(target.getZ()));
+            } else if (forceDirection.z > 0.3) {
+                checkPos = new BlockPos((int) Math.floor(target.getX()), y, (int) Math.floor(box.maxZ + 0.1));
+            } else if (forceDirection.z < -0.3) {
+                checkPos = new BlockPos((int) Math.floor(target.getX()), y, (int) Math.floor(box.minZ - 0.1));
+            } else {
+                continue;
+            }
+
+            BlockState state = target.level().getBlockState(checkPos);
+            if (!state.isAir() && state.isSolid()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean hasBlockAbove(LivingEntity target) {
+        AABB box = target.getBoundingBox();
+        int checkY = (int) Math.ceil(box.maxY);
+        int minX = (int) Math.floor(box.minX);
+        int maxX = (int) Math.floor(box.maxX);
+        int minZ = (int) Math.floor(box.minZ);
+        int maxZ = (int) Math.floor(box.maxZ);
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockState state = target.level().getBlockState(new BlockPos(x, checkY, z));
+                if (!state.isAir()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // ... 其余方法保持不变 ...
+
     public static Set<BlockPos> getCollidingBlocks(LivingEntity owner, LivingEntity target,
                                                    Vec3 forceDirection) {
         Set<BlockPos> blocks = new HashSet<>();
@@ -32,7 +129,6 @@ public class CollisionHandler {
         BlockPos ownerFeetPos = owner.blockPosition();
         BlockPos ownerBelowPos = ownerFeetPos.below();
 
-        // ★★★ 修复边界问题：稍微收缩避免恰好在边界上的问题 ★★★
         int minX = (int) Math.floor(targetBox.minX + 0.001);
         int maxX = (int) Math.floor(targetBox.maxX - 0.001);
         int minY = (int) Math.floor(targetBox.minY + 0.001);
@@ -43,29 +139,18 @@ public class CollisionHandler {
         boolean isVerticalForce = Math.abs(forceDirection.y) > 0.5;
         int expandRange = isVerticalForce ? VERTICAL_EXPAND_RANGE : 0;
 
-        // ★★★ X 方向：同时检查两格确保不漏 ★★★
         if (forceDirection.x > 0.1) {
-            // +X 方向
             checkXDirection(target, blocks, maxX + 1, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
-            checkXDirection(target, blocks, maxX, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
         } else if (forceDirection.x < -0.1) {
-            // -X 方向
             checkXDirection(target, blocks, minX - 1, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
-            checkXDirection(target, blocks, minX, minY, maxY, minZ, maxZ, ownerFeetPos, ownerBelowPos);
         }
 
-        // ★★★ Z 方向：同时检查两格确保不漏 ★★★
         if (forceDirection.z > 0.1) {
-            // +Z 方向
             checkZDirection(target, blocks, maxZ + 1, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
-            checkZDirection(target, blocks, maxZ, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
         } else if (forceDirection.z < -0.1) {
-            // -Z 方向
             checkZDirection(target, blocks, minZ - 1, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
-            checkZDirection(target, blocks, minZ, minY, maxY, minX, maxX, ownerFeetPos, ownerBelowPos);
         }
 
-        // Y 方向（垂直）
         if (forceDirection.y > 0.3) {
             int checkY = maxY + 1;
             for (int x = minX - expandRange; x <= maxX + expandRange; x++) {
@@ -88,7 +173,6 @@ public class CollisionHandler {
             }
         }
 
-        // 对角线方向
         if (Math.abs(forceDirection.x) > 0.3 && Math.abs(forceDirection.z) > 0.3) {
             int checkX = forceDirection.x > 0 ? maxX + 1 : minX - 1;
             int checkZ = forceDirection.z > 0 ? maxZ + 1 : minZ - 1;
@@ -103,7 +187,6 @@ public class CollisionHandler {
         return blocks;
     }
 
-    // ★★★ 辅助方法：检查 X 方向的一列方块 ★★★
     private static void checkXDirection(LivingEntity target, Set<BlockPos> blocks,
                                         int checkX, int minY, int maxY, int minZ, int maxZ,
                                         BlockPos ownerFeetPos, BlockPos ownerBelowPos) {
@@ -117,7 +200,6 @@ public class CollisionHandler {
         }
     }
 
-    // ★★★ 辅助方法：检查 Z 方向的一列方块 ★★★
     private static void checkZDirection(LivingEntity target, Set<BlockPos> blocks,
                                         int checkZ, int minY, int maxY, int minX, int maxX,
                                         BlockPos ownerFeetPos, BlockPos ownerBelowPos) {
@@ -137,7 +219,7 @@ public class CollisionHandler {
             return false;
         }
         BlockState state = target.level().getBlockState(pos);
-        return !state.isAir();
+        return !state.isAir() && state.isSolid();
     }
 
     public static Set<BlockPos> getBreakableBlocks(Set<BlockPos> collidingBlocks,
@@ -187,125 +269,38 @@ public class CollisionHandler {
         return 1.0 + Math.min(maxHardness / 50.0, 1.0);
     }
 
-    public static boolean isCollidingInForceDirection(LivingEntity target, Vec3 forceDirection) {
-        if (target.horizontalCollision || target.verticalCollision) {
-            return true;
-        }
+    // ==================== 伤害系统（保持不变）====================
 
-        AABB targetBox = target.getBoundingBox();
 
-        // ★★★ 同步修复边界问题 ★★★
-        int minX = (int) Math.floor(targetBox.minX + 0.001);
-        int maxX = (int) Math.floor(targetBox.maxX - 0.001);
-        int minY = (int) Math.floor(targetBox.minY + 0.001);
-        int maxY = (int) Math.ceil(targetBox.maxY - 0.001) - 1;
-        int minZ = (int) Math.floor(targetBox.minZ + 0.001);
-        int maxZ = (int) Math.floor(targetBox.maxZ - 0.001);
-
-        boolean isVerticalForce = Math.abs(forceDirection.y) > 0.5;
-        int expandRange = isVerticalForce ? VERTICAL_EXPAND_RANGE : 0;
-
-        // ★★★ 同样检查两格 ★★★
-        if (forceDirection.x > 0.1) {
-            if (hasBlockInXColumn(target, maxX + 1, minY, maxY, minZ, maxZ)) return true;
-            if (hasBlockInXColumn(target, maxX, minY, maxY, minZ, maxZ)) return true;
-        } else if (forceDirection.x < -0.1) {
-            if (hasBlockInXColumn(target, minX - 1, minY, maxY, minZ, maxZ)) return true;
-            if (hasBlockInXColumn(target, minX, minY, maxY, minZ, maxZ)) return true;
-        }
-
-        if (forceDirection.z > 0.1) {
-            if (hasBlockInZColumn(target, maxZ + 1, minY, maxY, minX, maxX)) return true;
-            if (hasBlockInZColumn(target, maxZ, minY, maxY, minX, maxX)) return true;
-        } else if (forceDirection.z < -0.1) {
-            if (hasBlockInZColumn(target, minZ - 1, minY, maxY, minX, maxX)) return true;
-            if (hasBlockInZColumn(target, minZ, minY, maxY, minX, maxX)) return true;
-        }
-
-        if (forceDirection.y > 0.3) {
-            int checkY = maxY + 1;
-            for (int x = minX - expandRange; x <= maxX + expandRange; x++) {
-                for (int z = minZ - expandRange; z <= maxZ + expandRange; z++) {
-                    BlockState state = target.level().getBlockState(new BlockPos(x, checkY, z));
-                    if (!state.isAir()) {
-                        return true;
-                    }
-                }
-            }
-        } else if (forceDirection.y < -0.3) {
-            int checkY = minY - 1;
-            for (int x = minX - expandRange; x <= maxX + expandRange; x++) {
-                for (int z = minZ - expandRange; z <= maxZ + expandRange; z++) {
-                    BlockState state = target.level().getBlockState(new BlockPos(x, checkY, z));
-                    if (!state.isAir()) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    // ★★★ 辅助方法：检查 X 列是否有方块 ★★★
-    private static boolean hasBlockInXColumn(LivingEntity target, int checkX,
-                                             int minY, int maxY, int minZ, int maxZ) {
-        for (int y = minY; y <= maxY; y++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                BlockState state = target.level().getBlockState(new BlockPos(checkX, y, z));
-                if (!state.isAir()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // ★★★ 辅助方法：检查 Z 列是否有方块 ★★★
-    private static boolean hasBlockInZColumn(LivingEntity target, int checkZ,
-                                             int minY, int maxY, int minX, int maxX) {
-        for (int y = minY; y <= maxY; y++) {
-            for (int x = minX; x <= maxX; x++) {
-                BlockState state = target.level().getBlockState(new BlockPos(x, y, checkZ));
-                if (!state.isAir()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // ==================== 伤害系统 ====================
-
-    private static int calculateDamageInterval(double pressure) {
-        int interval = (int) (PressureConfig.getMaxDamageInterval() -
-                pressure * PressureConfig.getIntervalPressureScale());
-
-        return Math.max(PressureConfig.getMinDamageInterval(),
-                Math.min(PressureConfig.getMaxDamageInterval(), interval));
-    }
-
-    private static float calculateDamage(double currentPressure, double previousPressure,
-                                         int pinnedTicks, int blockCount, double hardnessBonus) {
-
-        double baseDamage = currentPressure * PressureConfig.getPressureToDamage();
-
+    /**
+     * ★★★ 使用统一伤害系统计算压力伤害 ★★★
+     */
+    private static float calculateDamage(
+            LivingEntity owner,
+            LivingEntity target,
+            double currentPressure,
+            double previousPressure,
+            int pinnedTicks,
+            int blockCount,
+            double hardnessBonus) {
+        // 压力变化加成（突然增压造成额外伤害）
         double pressureChange = currentPressure - previousPressure;
-        double changeDamage = 0;
+        double surgeBonus = 1.0;
         if (pressureChange > 0.5) {
-            changeDamage = pressureChange * PressureConfig.getPressureChangeDamageMult();
+            // 压力突增时，增加伤害
+            surgeBonus = 1.0 + Math.min(pressureChange * 0.1, 0.5);
         }
-
-        double pinnedBonus = 1.0;
-        if (pinnedTicks > 10) {
-            pinnedBonus = 1.0 + Math.min((pinnedTicks - 10) * 0.015, 0.6);
-        }
-
-        double blockBonus = 1.0 + Math.min(blockCount * 0.06, 0.3);
-
-        double totalDamage = (baseDamage + changeDamage) * pinnedBonus * blockBonus * hardnessBonus;
-
-        return (float) Math.min(totalDamage, PressureConfig.getMaxDamagePerHit());
+        // 应用突增加成到压力值
+        double effectivePressure = currentPressure * surgeBonus;
+        // ★★★ 调用统一伤害系统 ★★★
+        return PressureDamageCalculator.calculate(
+                owner,
+                target,
+                effectivePressure,
+                pinnedTicks,
+                blockCount,
+                hardnessBonus
+        );
     }
 
     public static void handleDamage(LivingEntity owner, LivingEntity target,
@@ -368,8 +363,8 @@ public class CollisionHandler {
                                                 PressureStateManager stateManager) {
         if (target.isDeadOrDying()) return;
 
-        float damage = (float) Math.max(1.0, pressure * PressureConfig.getPressureToDamage() * 0.5);
-        damage = Math.min(damage, PressureConfig.getMaxDamagePerHit() * 0.5F);
+        float damage = PressureDamageCalculator.calculateSimple(owner, pressure * 0.5);
+        damage = Math.min(damage, (float)(PressureDamageConfig.getMaxDamagePerHit() * 0.5));
 
         if (damage > 0.3F) {
             Vec3 velocityBefore = target.getDeltaMovement();
@@ -406,10 +401,10 @@ public class CollisionHandler {
         int blockCount = collidingBlocks.size();
         double hardnessBonus = calculateHardnessBonus(collidingBlocks, target);
 
-        float baseDamage = calculateDamage(currentPressure, 0,
+        float baseDamage = calculateDamage(owner, target, currentPressure, 0,
                 pinnedTicks, blockCount, hardnessBonus);
-        float surgeDamage = baseDamage * (float) PressureConfig.getSurgeDamageMult();
-        surgeDamage = Math.min(surgeDamage, PressureConfig.getMaxDamagePerHit() * 1.5F);
+        float surgeDamage = baseDamage * 1.5f;  // 固定1.5倍突增
+        surgeDamage = Math.min(surgeDamage, (float)(PressureDamageConfig.getMaxDamagePerHit() * 1.5));
 
         if (surgeDamage > 0.5F) {
             Vec3 velocityBefore = target.getDeltaMovement();
@@ -420,7 +415,7 @@ public class CollisionHandler {
             target.setDeltaMovement(velocityBefore.x, Math.min(velocityBefore.y, 0.05), velocityBefore.z);
             target.hurtMarked = true;
 
-            int dynamicInterval = calculateDamageInterval(currentPressure);
+            int dynamicInterval = PressureCurve.calculateDamageInterval(currentPressure);
             stateManager.setDamageCooldown(target.getUUID(), dynamicInterval);
 
             if (owner.level() instanceof ServerLevel level) {
@@ -436,13 +431,13 @@ public class CollisionHandler {
 
         stateManager.setDamageWarningTicks(target.getUUID(), 0);
 
-        int dynamicInterval = calculateDamageInterval(currentPressure);
+        int dynamicInterval = PressureCurve.calculateDamageInterval(currentPressure);
 
         int pinnedTicks = stateManager.getPinnedTicks(target.getUUID());
         int blockCount = collidingBlocks.size();
         double hardnessBonus = calculateHardnessBonus(collidingBlocks, target);
 
-        float totalDamage = calculateDamage(currentPressure, previousPressure,
+        float totalDamage = calculateDamage(owner, target, currentPressure, previousPressure,
                 pinnedTicks, blockCount, hardnessBonus);
 
         if (totalDamage > 0.3F) {

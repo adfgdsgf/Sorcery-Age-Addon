@@ -1,7 +1,9 @@
-// src/main/java/com/jujutsuaddon/addon/network/c2s/SyncInfinityPressureC2SPacket.java
 package com.jujutsuaddon.addon.network.c2s;
 
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.conflict.InfinityConflictResolver;
 import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.network.AddonNetwork;
+import com.jujutsuaddon.addon.network.s2c.SyncInfinityPressureS2CPacket;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,7 +34,6 @@ public class SyncInfinityPressureC2SPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
 
-            // 检查是否开启了 Infinity
             if (!JJKAbilities.hasToggled(player, JJKAbilities.INFINITY.get())) {
                 return;
             }
@@ -45,10 +46,15 @@ public class SyncInfinityPressureC2SPacket {
                         accessor.jujutsuAddon$decreaseInfinityPressure();
                     }
 
-                    int level = accessor.jujutsuAddon$getInfinityPressure();
-                    // 发送 ActionBar 消息
+                    int newLevel = accessor.jujutsuAddon$getInfinityPressure();
+
+                    InfinityConflictResolver.invalidateCache(player.getUUID());
+
+                    // ★★★ 同步回客户端 ★★★
+                    AddonNetwork.sendToPlayer(new SyncInfinityPressureS2CPacket(newLevel), player);
+
                     player.displayClientMessage(
-                            Component.translatable("message.jujutsu_addon.infinity_pressure", level),
+                            Component.translatable("message.jujutsu_addon.infinity_pressure", newLevel),
                             true
                     );
                 }

@@ -50,16 +50,24 @@ public class PressureConfig {
         return AbilityConfig.COMMON.slowdownZoneParts.get();
     }
 
-    public static double getStopZoneParts() {
-        return AbilityConfig.COMMON.stopZoneParts.get();
-    }
 
     public static double getPushZoneParts() {
-        return AbilityConfig.COMMON.pushZoneParts.get();
+        return AbilityConfig.COMMON.balancePointParts.get();
     }
 
     public static double getTotalParts() {
-        return getSlowdownZoneParts() + getStopZoneParts() + getPushZoneParts();
+        return getSlowdownZoneParts() + getPushZoneParts();  // 移除 stopZoneParts
+    }
+
+    // ==================== 平衡点边界 ====================
+    public static double getBalanceRadiusMinimum() {
+        return AbilityConfig.COMMON.balanceRadiusMinimum.get();
+    }
+    public static double getBalanceRadiusMaxRatio() {
+        return AbilityConfig.COMMON.balanceRadiusMaxRatio.get();
+    }
+    public static double getZenoCurveExponent() {
+        return AbilityConfig.COMMON.zenoCurveExponent.get();
     }
 
     // ==================== 区域边界计算 ====================
@@ -78,10 +86,8 @@ public class PressureConfig {
      * 投射物在这里悬浮，生物被强推
      */
     public static double getStopZoneRadius(int level) {
-        double totalRange = getLevelRange(level);
-        double pushRatio = getPushZoneParts() / getTotalParts();
-        double stopRatio = getStopZoneParts() / getTotalParts();
-        return totalRange * (pushRatio + stopRatio);
+        // 现在 stopRadius = pushRadius（平衡点）
+        return getPushZoneRadius(level);
     }
 
     /**
@@ -173,10 +179,6 @@ public class PressureConfig {
         return AbilityConfig.COMMON.minPressureForDamage.get();
     }
 
-    public static double getPressureToDamage() {
-        return AbilityConfig.COMMON.pressureToDamage.get();
-    }
-
     public static float getMaxDamagePerHit() {
         return AbilityConfig.COMMON.maxDamagePerHit.get().floatValue();
     }
@@ -189,9 +191,6 @@ public class PressureConfig {
         return AbilityConfig.COMMON.maxDamageInterval.get();
     }
 
-    public static double getSurgeDamageMult() {
-        return AbilityConfig.COMMON.surgeDamageMult.get();
-    }
 
     // ==================== 投射物 ====================
 
@@ -333,6 +332,28 @@ public class PressureConfig {
             double hardMult = getHardBlockPressureMult();
             return normalMult + t * (hardMult - normalMult);
         }
+    }
+
+    // ==================== 压力曲线配置 ====================
+    public static double getMaxPressureMultiplier() {
+        return AbilityConfig.COMMON.maxPressureMultiplier.get();
+    }
+    public static double getCurveSteepness() {
+        return AbilityConfig.COMMON.curveSteepness.get();
+    }
+    public static double getCollisionMinDistance() {
+        return AbilityConfig.COMMON.collisionMinDistance.get();
+    }
+    public static float getBlockPressureRate() {
+        return AbilityConfig.COMMON.blockPressureRate.get().floatValue();
+    }
+    // ==================== 动态伤害频率 ====================
+    public static boolean isDynamicDamageFrequencyEnabled() {
+        // 如果 minInterval != maxInterval，就启用动态频率
+        return getMinDamageInterval() != getMaxDamageInterval();
+    }
+    public static int getBaseDamageInterval() {
+        return getMaxDamageInterval(); // 基础间隔 = 最大间隔
     }
 
     // ==================== 兼容旧代码的固定值 ====================
