@@ -14,9 +14,25 @@ public interface IFrozenProjectile {
     float jujutsuAddon$getSpeedMultiplier();
     void jujutsuAddon$setSpeedMultiplier(float multiplier);
 
-    // ==================== 原始速度 ====================
+    // ==================== 原始速度（发射时） ====================
     @Nullable Vec3 jujutsuAddon$getOriginalVelocity();
     void jujutsuAddon$setOriginalVelocity(@Nullable Vec3 velocity);
+
+    // ==================== ★★★ 捕获时的速度（释放时用）★★★ ====================
+    @Nullable Vec3 jujutsuAddon$getCaptureVelocity();
+    void jujutsuAddon$setCaptureVelocity(@Nullable Vec3 velocity);
+
+    // ==================== 原始 Power（火焰弹等用）====================
+    @Nullable Vec3 jujutsuAddon$getOriginalPower();
+    void jujutsuAddon$setOriginalPower(@Nullable Vec3 power);
+
+    // ==================== 原始捕获位置 ====================
+    @Nullable Vec3 jujutsuAddon$getOriginalCapturePosition();
+    void jujutsuAddon$setOriginalCapturePosition(@Nullable Vec3 position);
+
+    // ==================== 当前飞行方向 ====================
+    @Nullable Vec3 jujutsuAddon$getCurrentDirection();
+    void jujutsuAddon$setCurrentDirection(@Nullable Vec3 direction);
 
     // ==================== 冻结位置 ====================
     @Nullable Vec3 jujutsuAddon$getFrozenPosition();
@@ -38,23 +54,13 @@ public interface IFrozenProjectile {
     float jujutsuAddon$getMaxRange();
     void jujutsuAddon$setMaxRange(float range);
 
-    // ★★★ 新增：客户端插值用 ★★★
-
-    /**
-     * 服务端设置的目标速度（通过 SynchedEntityData 同步到客户端）
-     */
+    // ==================== 客户端插值用 ====================
     Vec3 jujutsuAddon$getTargetVelocity();
     void jujutsuAddon$setTargetVelocity(Vec3 velocity);
 
-    /**
-     * 客户端当前的插值速度（仅客户端使用）
-     */
     Vec3 jujutsuAddon$getClientVelocity();
     void jujutsuAddon$setClientVelocity(Vec3 velocity);
 
-    /**
-     * 客户端渲染用的平滑位置（仅客户端使用）
-     */
     Vec3 jujutsuAddon$getRenderPosition();
     void jujutsuAddon$setRenderPosition(Vec3 position);
 }

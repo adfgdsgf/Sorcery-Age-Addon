@@ -4,6 +4,8 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.InfinityP
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.network.AddonNetwork;
+import com.jujutsuaddon.addon.network.s2c.ProjectilePowerSyncS2CPacket;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,10 +28,6 @@ public class ProjectileReflector {
 
     /**
      * 反弹所有被控制的静止投射物
-     *
-     * @param player 玩家
-     * @param towardsCursor true=朝准星方向, false=朝原发射者（或反向飞回）
-     * @param clientLookDirection 客户端传来的准星方向
      */
     public static void reflectControlledProjectiles(ServerPlayer player, boolean towardsCursor,
                                                     Vec3 clientLookDirection) {
@@ -55,11 +53,9 @@ public class ProjectileReflector {
             if (!(entity instanceof Projectile projectile)) continue;
             if (!(projectile instanceof IFrozenProjectile fp)) continue;
 
-            // 只反弹速度接近0的（静止的）
-            float speedMod = fp.jujutsuAddon$getSpeedMultiplier();
-            if (speedMod > 0.15f) continue;
+            // ★★★ 修复：用 isControlled() 判断，而不是 speedMultiplier ★★★
+            if (!fp.jujutsuAddon$isControlled()) continue;
 
-            // 确认是被这个玩家控制的
             UUID freezeOwner = fp.jujutsuAddon$getFreezeOwner();
             if (!player.getUUID().equals(freezeOwner)) continue;
 
@@ -73,10 +69,8 @@ public class ProjectileReflector {
             Vec3 reflectDirection;
 
             if (towardsCursor) {
-                // 朝准星方向
                 reflectDirection = lookDirection;
             } else {
-                // ★★★ 修改：优先朝原发射者，没有则反向飞回 ★★★
                 reflectDirection = calculateReturnDirection(projectile, playerPos);
             }
 
@@ -89,73 +83,69 @@ public class ProjectileReflector {
         }
     }
 
-    /**
-     * ★★★ 新增：计算返回方向 ★★★
-     * 优先级：
-     * 1. 原发射者存在 → 朝原发射者
-     * 2. 有原始速度记录 → 反向飞回
-     * 3. 都没有 → 朝投射物来的方向（远离玩家）
-     */
     private static Vec3 calculateReturnDirection(Projectile projectile, Vec3 playerPos) {
-        // 1. 尝试获取原发射者
         Entity originalOwner = projectile.getOwner();
         if (originalOwner != null && originalOwner.isAlive()) {
             Vec3 targetPos = originalOwner.position().add(0, originalOwner.getBbHeight() / 2, 0);
             return targetPos.subtract(projectile.position()).normalize();
         }
 
-        // 2. 尝试获取原始速度（反向）
         if (projectile instanceof IFrozenProjectile fp) {
             Vec3 originalVelocity = fp.jujutsuAddon$getOriginalVelocity();
             if (originalVelocity != null && originalVelocity.lengthSqr() > 0.01) {
-                // 反向：投射物原本朝哪飞来，就朝反方向弹回去
                 return originalVelocity.normalize().scale(-1);
             }
         }
 
-        // 3. 最后手段：从玩家位置向外推（远离玩家）
         Vec3 awayFromPlayer = projectile.position().subtract(playerPos);
         if (awayFromPlayer.lengthSqr() > 0.01) {
             return awayFromPlayer.normalize();
         }
 
-        // 4. 实在不行就向上弹
         return new Vec3(0, 1, 0);
     }
 
-    /**
-     * 反弹单个投射物
-     */
     private static void reflectProjectile(Projectile projectile, ServerPlayer newOwner,
                                           Vec3 direction, PressureStateManager stateManager) {
         if (!(projectile instanceof IFrozenProjectile fp)) return;
 
-        // 计算反弹速度
         Vec3 originalVelocity = fp.jujutsuAddon$getOriginalVelocity();
         double originalSpeed = originalVelocity != null ? originalVelocity.length() : 1.5;
-
         double speedMultiplier = PressureConfig.getReflectSpeedMultiplier();
         double reflectSpeed = originalSpeed * speedMultiplier;
         reflectSpeed = Math.max(MIN_REFLECT_SPEED, Math.min(MAX_REFLECT_SPEED, reflectSpeed));
-
         Vec3 newVelocity = direction.normalize().scale(reflectSpeed);
 
-        // ★★★ 重要：更换所有者 ★★★
+        // 更换所有者
         projectile.setOwner(newOwner);
 
-        // 释放控制状态
+        // ★★★ 设置新的原始速度（反弹速度作为新的基准） ★★★
+        fp.jujutsuAddon$setOriginalVelocity(newVelocity);
+
+        // ★★★ 释放控制（这会同步到客户端） ★★★
         fp.jujutsuAddon$setControlled(false);
-        fp.jujutsuAddon$setSpeedMultiplier(1.0f);
 
-        // 设置新速度
+        // 设置速度
         projectile.setDeltaMovement(newVelocity);
-        projectile.setNoGravity(false);
 
-        // 处理特殊投射物类型
+        // ★★★ 火焰弹特殊处理 ★★★
         if (projectile instanceof AbstractHurtingProjectile hurting) {
-            hurting.xPower = newVelocity.x * 0.1;
-            hurting.yPower = newVelocity.y * 0.1;
-            hurting.zPower = newVelocity.z * 0.1;
+            double powerScale = 0.1;
+            hurting.xPower = direction.x * powerScale;
+            hurting.yPower = direction.y * powerScale;
+            hurting.zPower = direction.z * powerScale;
+
+            // 火焰弹保持无重力
+            projectile.setNoGravity(true);
+
+            // ★★★ 同步 power 到客户端 ★★★
+            AddonNetwork.sendToTrackingEntity(
+                    new ProjectilePowerSyncS2CPacket(hurting),
+                    projectile
+            );
+        } else {
+            // 箭矢类恢复重力，让原版物理接管
+            projectile.setNoGravity(false);
         }
 
         // 箭矢特殊处理
@@ -172,17 +162,11 @@ public class ProjectileReflector {
 
         projectile.hurtMarked = true;
 
-        // 从追踪列表移除
         stateManager.forceRemoveProjectile(projectile.getUUID());
-
-        // 标记为已弹开（短时间内不再拦截）
         stateManager.markAsRepelled(projectile.getUUID(), REFLECT_IMMUNE_TICKS);
 
-        // 生成反弹粒子
         spawnReflectParticles(projectile, newVelocity);
     }
-
-    // ==================== 特效 ====================
 
     private static void playReflectEffects(ServerPlayer player, int count) {
         player.level().playSound(null,

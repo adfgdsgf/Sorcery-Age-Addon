@@ -4,20 +4,30 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePo
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import net.minecraft.world.phys.Vec3;
 
+/**
+ * 压力计算器
+ *
+ * 芝诺模型：平衡点 = 无形的墙
+ */
 public class PressureCalculator {
 
+    /**
+     * 获取最大范围
+     */
     public static double calculateRange(int pressureLevel) {
         return PressureConfig.getLevelRange(pressureLevel);
     }
 
-    public static double calculateHaltDistance(int pressureLevel) {
-        return PressureConfig.getPushZoneRadius(pressureLevel);
+    /**
+     * 获取平衡点半径（墙的位置）
+     */
+    public static double calculateBalanceRadius(int pressureLevel) {
+        return PressureConfig.getBalanceRadius(pressureLevel);
     }
 
-    public static double calculateStopZoneRadius(int pressureLevel) {
-        return PressureConfig.getStopZoneRadius(pressureLevel);
-    }
-
+    /**
+     * 获取等级因子
+     */
     public static double calculateLevelFactor(int pressureLevel) {
         return PressureConfig.calculateLevelFactor(pressureLevel);
     }

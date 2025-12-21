@@ -29,16 +29,17 @@ public class AbilityConfig {
         public final ForgeConfigSpec.DoubleValue balanceRadiusMinimum;
         public final ForgeConfigSpec.DoubleValue balanceRadiusMaxRatio;
         public final ForgeConfigSpec.DoubleValue zenoCurveExponent;
+        public final ForgeConfigSpec.DoubleValue zenoRatio;
 
         // ==================== 生物压制 - 推力 ====================
-        public final ForgeConfigSpec.DoubleValue basePushForce;
+       // public final ForgeConfigSpec.DoubleValue basePushForce;
         public final ForgeConfigSpec.DoubleValue maxPushForce;
-        public final ForgeConfigSpec.DoubleValue breachRepelForce;
+        //public final ForgeConfigSpec.DoubleValue breachRepelForce;
         public final ForgeConfigSpec.DoubleValue pinForce;
 
         // ==================== 生物压制 - 阻力 ====================
-        public final ForgeConfigSpec.DoubleValue lateralResistance;
-        public final ForgeConfigSpec.DoubleValue escapeResistance;
+        //public final ForgeConfigSpec.DoubleValue lateralResistance;
+        //public final ForgeConfigSpec.DoubleValue escapeResistance;
 
         // ==================== 生物压制 - 压力值 ====================
         public final ForgeConfigSpec.DoubleValue basePressure;
@@ -65,7 +66,7 @@ public class AbilityConfig {
         public final ForgeConfigSpec.BooleanValue affectProjectiles;
         public final ForgeConfigSpec.IntValue projectileMinLevel;
         public final ForgeConfigSpec.DoubleValue projectileEntrySpeed;
-        public final ForgeConfigSpec.DoubleValue projectileStopSpeed;
+        //public final ForgeConfigSpec.DoubleValue projectileStopSpeed;
         public final ForgeConfigSpec.DoubleValue reflectSpeedMultiplier;
 
         // ==================== 方块 ====================
@@ -235,7 +236,7 @@ public class AbilityConfig {
                             " 2.0 = Quadratic (high levels stronger) [Default] / 平方 [默认]",
                             " 3.0 = Cubic (low weak, high explosive) / 立方")
                     .translation("config.jujutsu_addon.pressure.range.curve")
-                    .defineInRange("CurveExponent", 2.0, 0.5, 4.0);
+                    .defineInRange("CurveExponent", 1.5, 0.5, 4.0);
             builder.pop(); // TotalRange
 // --- Zone Ratio / 区域占比 ---
             builder.comment(" ",
@@ -285,7 +286,17 @@ public class AbilityConfig {
                             " 2.0 = gradual (current), 4.0 = moderate, 8.0 = very sudden",
                             " 2.0 = 渐进（当前），4.0 = 适中，8.0 = 非常突然")
                     .translation("config.jujutsu_addon.pressure.zone.zeno_exponent")
-                    .defineInRange("ZenoCurveExponent", 2.6, 1.0, 16.0);
+                    .defineInRange("ZenoCurveExponent", 4.0, 1.0, 16.0);
+
+            zenoRatio = builder
+                    .comment(" Zeno ratio: fraction of remaining distance that can be traveled per tick.",
+                            " 芝诺系数：每tick能移动剩余距离的比例。",
+                            " ",
+                            " 0.5 = Each step covers half remaining distance (default) / 每步走剩余一半（默认）",
+                            " 0.3 = More aggressive slowdown / 更激进减速",
+                            " 0.7 = Gentler slowdown / 更温和减速")
+                    .translation("config.jujutsu_addon.pressure.zone.zeno_ratio")
+                    .defineInRange("ZenoRatio", 0.5, 0.1, 0.9);
 
             builder.pop(); // ZoneRatio
             builder.pop(); // RangeAndZones
@@ -302,21 +313,21 @@ public class AbilityConfig {
                     " 推力大小只由芝诺公式决定。"
             ).push("EntityPressure");
 
-            basePushForce = builder
+          /*  basePushForce = builder
                     .comment(" Base push force per tick. / 每tick基础推力。")
                     .translation("config.jujutsu_addon.pressure.force.base")
-                    .defineInRange("Base", 0.015, 0.001, 0.1);
+                    .defineInRange("Base", 0.015, 0.001, 0.1);*/
 
             maxPushForce = builder
                     .comment(" Maximum push force cap. / 推力上限。")
                     .translation("config.jujutsu_addon.pressure.force.max")
                     .defineInRange("Max", 0.25, 0.05, 1.0);
 
-            breachRepelForce = builder
+          /*  breachRepelForce = builder
                     .comment(" Repel force when entity breaches push zone.",
                             " 实体突破推力区时的反推力。")
                     .translation("config.jujutsu_addon.pressure.force.breach")
-                    .defineInRange("BreachRepel", 0.2, 0.05, 0.5);
+                    .defineInRange("BreachRepel", 0.2, 0.05, 0.5);*/
 
             pinForce = builder
                     .comment(" Extra force when pinned against wall.",
@@ -327,15 +338,15 @@ public class AbilityConfig {
             // --- 阻力 ---
             builder.comment(" Resistance settings. / 阻力设置。").push("Resistance");
 
-            lateralResistance = builder
+            /*lateralResistance = builder
                     .comment(" Resistance to sideways movement. / 侧向移动阻力。")
                     .translation("config.jujutsu_addon.pressure.resist.lateral")
-                    .defineInRange("Lateral", 0.7, 0.0, 1.0);
+                    .defineInRange("Lateral", 0.7, 0.0, 1.0);*/
 
-            escapeResistance = builder
+           /* escapeResistance = builder
                     .comment(" Resistance when trying to escape. / 逃跑时的阻力。")
                     .translation("config.jujutsu_addon.pressure.resist.escape")
-                    .defineInRange("Escape", 0.85, 0.0, 1.0);
+                    .defineInRange("Escape", 0.85, 0.0, 1.0);*/
 
             builder.pop(); // Resistance
 
@@ -403,22 +414,22 @@ public class AbilityConfig {
                     .comment(" Minimum pressure to deal damage (requires wall collision).",
                             " 造成伤害所需的最低压力（需要撞墙）。")
                     .translation("config.jujutsu_addon.pressure.damage.min_pressure")
-                    .defineInRange("MinPressure", 2.0, 0.5, 10.0);
+                    .defineInRange("MinPressure", 2.0, 0.5, 1000.0);
             maxDamagePerHit = builder
                     .comment(" Maximum damage per hit (after all multipliers).",
                             " 单次伤害上限（所有倍率之后）。")
                     .translation("config.jujutsu_addon.pressure.damage.max")
-                    .defineInRange("MaxPerHit", 20.0, 1.0, 100.0);
+                    .defineInRange("MaxPerHit", 20.0, 1.0, 100000.0);
             minDamageInterval = builder
                     .comment(" Minimum ticks between damage (at highest pressure).",
                             " 伤害间隔下限（最高压力时）。")
                     .translation("config.jujutsu_addon.pressure.damage.min_interval")
-                    .defineInRange("MinInterval", 2, 1, 20);
+                    .defineInRange("MinInterval", 2, 1, 20000);
             maxDamageInterval = builder
                     .comment(" Maximum ticks between damage (at lowest pressure).",
                             " 伤害间隔上限（最低压力时）。")
                     .translation("config.jujutsu_addon.pressure.damage.max_interval")
-                    .defineInRange("MaxInterval", 15, 5, 60);
+                    .defineInRange("MaxInterval", 15, 5, 6000);
 
             maxPressureForInterval = builder
                     .comment(" Maximum pressure value for interval calculation.",
@@ -428,7 +439,7 @@ public class AbilityConfig {
                             " Should match your game's max possible pressure.",
                             " 应匹配游戏中可能的最大压力值。")
                     .translation("config.jujutsu_addon.pressure.damage.max_pressure_interval")
-                    .defineInRange("MaxPressureForInterval", 200.0, 10.0, 100000.0);
+                    .defineInRange("MaxPressureForInterval", 100.0, 10.0, 100000.0);
             builder.pop(); // Damage
 
             // ==================== 压力曲线 ====================
@@ -515,11 +526,11 @@ public class AbilityConfig {
                     .translation("config.jujutsu_addon.pressure.projectile.entry_speed")
                     .defineInRange("EntrySpeed", 0.4, 0.1, 1.0);
 
-            projectileStopSpeed = builder
+            /*projectileStopSpeed = builder
                     .comment(" Speed ratio at stop zone boundary (nearly stopped).",
                             " 停止区边界的速度比例（接近停止）。")
                     .translation("config.jujutsu_addon.pressure.projectile.stop_speed")
-                    .defineInRange("StopSpeed", 0.02, 0.001, 0.1);
+                    .defineInRange("StopSpeed", 0.02, 0.001, 0.1);*/
 
             // ==================== 投射物反弹 ====================
             reflectSpeedMultiplier = builder

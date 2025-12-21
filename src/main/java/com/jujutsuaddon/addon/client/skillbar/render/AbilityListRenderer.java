@@ -143,23 +143,18 @@ public class AbilityListRenderer {
         entries.clear();
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
-
         ISorcererData data = player.getCapability(SorcererDataHandler.INSTANCE).orElse(null);
         if (data == null) return;
-
         CursedTechnique nativeTechnique = data.getTechnique();
         Set<CursedTechnique> stolen = data.getStolen();
         Set<CursedTechnique> copied = data.getCopied();
         CursedTechnique currentStolen = data.getCurrentStolen();
         CursedTechnique currentCopied = data.getCurrentCopied();
-
         boolean hasNativeCopyAbility = TechniqueHelper.isCopyTechnique(nativeTechnique);
         boolean hasNativeStealAbility = TechniqueHelper.isStealTechnique(nativeTechnique);
-
         // 获取咒灵数量
         List<AbsorbedCurse> curses = data.getCurses();
         int curseCount = curses.size();
-
         // 收集额外术式技能Key（防重复）
         Set<ResourceLocation> extraAbilityKeys = new HashSet<>();
         for (CursedTechnique technique : TechniqueHelper.getAllExtraTechniques(player)) {
@@ -170,31 +165,33 @@ public class AbilityListRenderer {
                 }
             }
         }
-
         Set<ResourceLocation> addedAbilityKeys = new HashSet<>();
-        boolean useTenShadows = TenShadowsHelper.isEnabled();
         boolean hasNativeTenShadows = nativeTechnique == CursedTechnique.TEN_SHADOWS;
-        List<Ability> tenShadowsAbilities = useTenShadows && TenShadowsHelper.hasTenShadows(player)
-                ? TenShadowsHelper.getAllTenShadowsAbilitiesIncludingDead(player) : Collections.emptyList();
-
+        boolean useTenShadowsHelper = hasNativeTenShadows && TenShadowsHelper.isEnabled();
         // =====================================================
         // 1. 原生术式
         // =====================================================
         List<Ability> nativeAbilityList = new ArrayList<>();
+        // ★★★ 先获取所有基础技能（包含体术、RCT等）★★★
         for (Ability ability : JJKAbilities.getAbilities(player)) {
             if (ability == null) continue;
             ResourceLocation key = JJKAbilities.getKey(ability);
             if (key == null || extraAbilityKeys.contains(key) || addedAbilityKeys.contains(key)) continue;
-
-            boolean isValid = useTenShadows && TenShadowsHelper.isTenShadowsAbility(ability)
-                    ? tenShadowsAbilities.contains(ability) : ability.isValid(player);
+            boolean isValid;
+            if (useTenShadowsHelper && TenShadowsHelper.isTenShadowsAbility(ability)) {
+                // 十影技能：跳过 isValid 检查，由我们自己处理
+                isValid = true;
+            } else {
+                isValid = ability.isValid(player);
+            }
             if (isValid) {
                 nativeAbilityList.add(ability);
                 addedAbilityKeys.add(key);
             }
         }
-
-        if (useTenShadows && hasNativeTenShadows) {
+        // ★★★ 原生十影：补充 Helper 返回的额外技能（如死亡式神）★★★
+        if (useTenShadowsHelper) {
+            List<Ability> tenShadowsAbilities = TenShadowsHelper.getAllTenShadowsAbilitiesIncludingDead(player);
             for (Ability ability : tenShadowsAbilities) {
                 if (ability == null) continue;
                 ResourceLocation key = JJKAbilities.getKey(ability);
@@ -203,7 +200,6 @@ public class AbilityListRenderer {
                 addedAbilityKeys.add(key);
             }
         }
-
         if (!nativeAbilityList.isEmpty() || nativeTechnique == CursedTechnique.CURSE_MANIPULATION) {
             boolean collapsed = collapsedMainSections.contains(TechniqueHelper.TechniqueSource.NATIVE);
             entries.add(AbilityEntry.nativeHeader(nativeTechnique, collapsed));
@@ -239,7 +235,7 @@ public class AbilityListRenderer {
                             currentStolen, currentCopied,
                             copied,  // 如果偷取的是复制能力，第三层来自 copied
                             TechniqueHelper.TechniqueSource.COPIED,  // 第三层的来源类型
-                            addedAbilityKeys, useTenShadows, tenShadowsAbilities, curseCount);
+                            addedAbilityKeys, curseCount);
                 }
             }
         }
@@ -261,7 +257,7 @@ public class AbilityListRenderer {
                             currentCopied, currentStolen,
                             stolen,  // 如果复制的是偷取能力，第三层来自 stolen
                             TechniqueHelper.TechniqueSource.STOLEN,  // 第三层的来源类型
-                            addedAbilityKeys, useTenShadows, tenShadowsAbilities, curseCount);
+                            addedAbilityKeys, curseCount);
                 }
             }
         }
@@ -287,8 +283,6 @@ public class AbilityListRenderer {
                                          Set<CursedTechnique> thirdLayerPool,
                                          TechniqueHelper.TechniqueSource thirdLayerSourceType,
                                          Set<ResourceLocation> addedKeys,
-                                         boolean useTenShadows,
-                                         List<Ability> tenShadowsAbilities,
                                          int curseCount) {
         boolean subCollapsed = collapsedTechniques.contains(technique);
         boolean isActive = technique == currentOfThisType;
@@ -297,7 +291,7 @@ public class AbilityListRenderer {
         if (subCollapsed) return;
 
         // 添加第二层术式的技能
-        addTechniqueAbilities(player, technique, sourceType, addedKeys, useTenShadows, tenShadowsAbilities);
+        addTechniqueAbilities(player, technique, sourceType, addedKeys);
 
         // 咒灵操术特殊处理
         if (technique == CursedTechnique.CURSE_MANIPULATION) {
@@ -324,8 +318,7 @@ public class AbilityListRenderer {
 
                 if (!thirdCollapsed) {
                     // ★★★ 使用正确的来源类型 ★★★
-                    addThirdTechniqueAbilities(player, thirdTech, technique, thirdLayerSourceType,
-                            addedKeys, useTenShadows, tenShadowsAbilities);
+                    addThirdTechniqueAbilities(player, thirdTech, technique, thirdLayerSourceType, addedKeys);
 
                     // 第三层咒灵操术
                     if (thirdTech == CursedTechnique.CURSE_MANIPULATION) {
@@ -336,16 +329,17 @@ public class AbilityListRenderer {
         }
     }
 
+    /**
+     * ★★★ 添加术式技能（自动处理十影特殊情况）★★★
+     */
     private void addTechniqueAbilities(LocalPlayer player, CursedTechnique technique,
                                        TechniqueHelper.TechniqueSource sourceType,
-                                       Set<ResourceLocation> addedKeys, boolean useTenShadows,
-                                       List<Ability> tenShadowsAbilities) {
-        List<Ability> abilities = useTenShadows && technique == CursedTechnique.TEN_SHADOWS
-                ? tenShadowsAbilities : Arrays.asList(technique.getAbilities());
+                                       Set<ResourceLocation> addedKeys) {
+        List<Ability> abilities = TenShadowsHelper.getAbilitiesForTechnique(player, technique);
 
         for (Ability ability : abilities) {
             if (ability == null) continue;
-            if (!useTenShadows || !TenShadowsHelper.isTenShadowsAbility(ability)) {
+            if (!TenShadowsHelper.shouldSkipValidCheck(player, ability)) {
                 if (!ability.isValid(player)) continue;
             }
             ResourceLocation key = JJKAbilities.getKey(ability);
@@ -358,25 +352,22 @@ public class AbilityListRenderer {
     }
 
     /**
-     * ★★★ 修复：第三层技能使用正确的来源类型 ★★★
+     * ★★★ 第三层技能使用正确的来源类型 ★★★
      */
     private void addThirdTechniqueAbilities(LocalPlayer player, CursedTechnique technique,
                                             CursedTechnique parentTechnique,
-                                            TechniqueHelper.TechniqueSource sourceType,  // ★★★ 新增参数 ★★★
-                                            Set<ResourceLocation> addedKeys,
-                                            boolean useTenShadows, List<Ability> tenShadowsAbilities) {
-        List<Ability> abilities = useTenShadows && technique == CursedTechnique.TEN_SHADOWS
-                ? tenShadowsAbilities : Arrays.asList(technique.getAbilities());
+                                            TechniqueHelper.TechniqueSource sourceType,
+                                            Set<ResourceLocation> addedKeys) {
+        List<Ability> abilities = TenShadowsHelper.getAbilitiesForTechnique(player, technique);
 
         for (Ability ability : abilities) {
             if (ability == null) continue;
-            if (!useTenShadows || !TenShadowsHelper.isTenShadowsAbility(ability)) {
+            if (!TenShadowsHelper.shouldSkipValidCheck(player, ability)) {
                 if (!ability.isValid(player)) continue;
             }
             ResourceLocation key = JJKAbilities.getKey(ability);
             if (key == null || addedKeys.contains(key)) continue;
 
-            // ★★★ 使用传入的 sourceType，而不是硬编码 ★★★
             AbilityStatus status = AbilityStatus.build(player, ability, technique, sourceType);
             entries.add(AbilityEntry.thirdAbility(ability, technique, parentTechnique, status));
             addedKeys.add(key);

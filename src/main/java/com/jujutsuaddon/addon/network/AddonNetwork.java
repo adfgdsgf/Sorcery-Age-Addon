@@ -162,6 +162,20 @@ public class AddonNetwork {
                 .decoder(SyncInfinityPressureS2CPacket::decode)
                 .consumerMainThread(SyncInfinityPressureS2CPacket::handle)
                 .add();
+
+        // ★★★ 投射物平滑移动包 (S2C) ★★★
+        CHANNEL.messageBuilder(ProjectileSmoothMoveS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ProjectileSmoothMoveS2CPacket::encode)
+                .decoder(ProjectileSmoothMoveS2CPacket::decode)
+                .consumerMainThread(ProjectileSmoothMoveS2CPacket::handle)
+                .add();
+
+        // ★★★ 火焰弹 Power 同步包 (S2C) ★★★
+        CHANNEL.messageBuilder(ProjectilePowerSyncS2CPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ProjectilePowerSyncS2CPacket::encode)
+                .decoder(ProjectilePowerSyncS2CPacket::decode)
+                .consumerMainThread(ProjectilePowerSyncS2CPacket::handle)
+                .add();
     }
 
     // ==================== 发送方法 ====================

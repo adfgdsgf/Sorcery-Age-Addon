@@ -5,11 +5,10 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePo
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PressureBypassChecker;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.RaySphereChecker;
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
@@ -25,17 +24,18 @@ import radon.jujutsu_kaisen.util.HelperMethods;
 
 import java.util.*;
 
+/**
+ * 投射物压力处理器
+ */
 public class ProjectilePressureHandler {
 
     private static final Map<UUID, Long> domainCheckCache = new HashMap<>();
     private static final Map<UUID, Boolean> domainResultCache = new HashMap<>();
     private static final long DOMAIN_CACHE_DURATION = 20;
 
-    // ★★★ 领域增幅缓存 ★★★
     private static final Map<UUID, Long> amplificationCheckCache = new HashMap<>();
     private static final Map<UUID, Boolean> amplificationResultCache = new HashMap<>();
 
-    // ★★★ 高速投射物预检测范围 ★★★
     private static final double HIGH_SPEED_EXTRA_RANGE = 15.0;
 
     public static void handleProjectiles(LivingEntity owner, int pressureLevel,
@@ -52,10 +52,14 @@ public class ProjectilePressureHandler {
 
         stateManager.tickRepelledProjectiles();
 
+        long currentTick = owner.level().getGameTime();
+        if (currentTick % 100 == 0) {
+            ProjectileReleaseTracker.cleanup(currentTick);
+        }
+
         Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
         Set<UUID> currentlyAffected = new HashSet<>();
 
-        // ==================== 1. 正常范围内的投射物 ====================
         List<Projectile> projectilesInRange = owner.level().getEntitiesOfClass(
                 Projectile.class,
                 owner.getBoundingBox().inflate(maxRange),
@@ -64,6 +68,10 @@ public class ProjectilePressureHandler {
 
         for (Projectile projectile : projectilesInRange) {
             if (stateManager.isRepelled(projectile.getUUID())) continue;
+
+            if (ProjectileReleaseTracker.isInCooldown(projectile.getUUID(), currentTick)) {
+                continue;
+            }
 
             double distance = ownerCenter.distanceTo(projectile.position());
             if (distance > maxRange) continue;
@@ -74,25 +82,18 @@ public class ProjectilePressureHandler {
                     pressureLevel, cursedEnergyOutput, stateManager);
         }
 
-        // ==================== 2. 高速接近的投射物（额外检测）====================
-        preSlowHighSpeedProjectiles(owner, ownerCenter, maxRange, pressureLevel, stateManager);
-
-        // ==================== 3. 释放超出范围的 ====================
+        preSlowHighSpeedProjectiles(owner, ownerCenter, maxRange, pressureLevel, stateManager, currentTick);
         releaseOutOfRange(owner, maxRange, currentlyAffected, stateManager);
 
-        // ★★★ 定期清理缓存 ★★★
         if (owner.tickCount % 100 == 0) {
             cleanupCaches(owner.level().getGameTime());
         }
     }
 
-    /**
-     * ★★★ 预处理高速接近的投射物 ★★★
-     */
     private static void preSlowHighSpeedProjectiles(LivingEntity owner, Vec3 ownerCenter,
                                                     double maxRange, int pressureLevel,
-                                                    PressureStateManager stateManager) {
-        // ★★★ 新增：每2tick检测一次 ★★★
+                                                    PressureStateManager stateManager,
+                                                    long currentTick) {
         if (owner.tickCount % 2 != 0) return;
 
         double outerRange = maxRange + HIGH_SPEED_EXTRA_RANGE;
@@ -107,15 +108,16 @@ public class ProjectilePressureHandler {
             if (stateManager.isRepelled(projectile.getUUID())) continue;
             if (!(projectile instanceof IFrozenProjectile fp)) continue;
 
-            // 已经被控制的跳过
             if (fp.jujutsuAddon$isControlled()) continue;
+
+            if (ProjectileReleaseTracker.isInCooldown(projectile.getUUID(), currentTick)) {
+                continue;
+            }
 
             double distance = ownerCenter.distanceTo(projectile.position());
 
-            // 只处理在 maxRange 外但在 outerRange 内的
             if (distance <= maxRange || distance > outerRange) continue;
 
-            // 检查是否高速接近
             Vec3 velocity = projectile.getDeltaMovement();
             double speed = velocity.length();
             if (speed < 1.0) continue;
@@ -124,11 +126,9 @@ public class ProjectilePressureHandler {
             double approachSpeed = velocity.dot(toOwner);
             if (approachSpeed <= 0.5) continue;
 
-            // 计算到达边界的帧数
             double framesToReach = (distance - maxRange) / approachSpeed;
             if (framesToReach > 3) continue;
 
-            // ★★★ 提前减速！★★★
             double slowFactor = 0.5 + (framesToReach / 3.0) * 0.3;
             Vec3 newVel = velocity.scale(slowFactor);
             projectile.setDeltaMovement(newVel);
@@ -145,29 +145,69 @@ public class ProjectilePressureHandler {
                                                   int pressureLevel, float cursedEnergyOutput,
                                                   PressureStateManager stateManager) {
         if (!(projectile instanceof IFrozenProjectile fp)) return;
-        boolean wasControlled = fp.jujutsuAddon$isControlled();
 
-        // ★★★ 使用 BalancePointCalculator 计算平衡点 ★★★
+        boolean wasControlled = fp.jujutsuAddon$isControlled();
         double balanceRadius = BalancePointCalculator.getBalanceRadius(pressureLevel, maxRange);
         float currentStopDistance = (float) balanceRadius;
         float currentMaxRange = (float) maxRange;
 
+        // 如果未被控制，先检查方向是否会穿过平衡点
         if (!wasControlled) {
-            // 第一次被控制，初始化
-            fp.jujutsuAddon$setOriginalVelocity(projectile.getDeltaMovement());
+            Vec3 velocity = projectile.getDeltaMovement();
+            if (velocity.lengthSqr() > 0.01) {
+                boolean willHit = RaySphereChecker.willHitBalancePoint(
+                        projectile.position(), velocity, ownerCenter, balanceRadius);
+                if (!willHit) {
+                    return;
+                }
+            }
+        }
+
+        if (!wasControlled) {
+            ProjectileReleaseTracker.clearCooldown(projectile.getUUID());
+
+            if (fp.jujutsuAddon$getOriginalCapturePosition() == null) {
+                fp.jujutsuAddon$setOriginalCapturePosition(projectile.position());
+            }
+
+            Vec3 currentVel = projectile.getDeltaMovement();
+            if (fp.jujutsuAddon$getOriginalVelocity() == null && currentVel.lengthSqr() > 0.001) {
+                fp.jujutsuAddon$setOriginalVelocity(currentVel);
+                fp.jujutsuAddon$setCurrentDirection(currentVel.normalize());
+            }
+
+            // ★★★ 记录捕获时的速度（进入无限范围时的速度）★★★
+            if (currentVel.lengthSqr() > 0.001) {
+                fp.jujutsuAddon$setCaptureVelocity(currentVel);
+            }
+
+            if (projectile instanceof AbstractHurtingProjectile hurting) {
+                if (fp.jujutsuAddon$getOriginalPower() == null) {
+                    Vec3 power = new Vec3(hurting.xPower, hurting.yPower, hurting.zPower);
+                    if (power.lengthSqr() > 0.0001) {
+                        fp.jujutsuAddon$setOriginalPower(power);
+                    }
+                }
+                hurting.xPower = 0;
+                hurting.yPower = 0;
+                hurting.zPower = 0;
+
+                // ★★★ 火焰弹禁用重力 ★★★
+                projectile.setNoGravity(true);
+            }
+            // ★★★ 箭矢/雪球等：不禁用重力！★★★
+            // 让 ControlledProjectileTick 中的芝诺物理处理重力
+
             fp.jujutsuAddon$lockRotation(projectile.getYRot(), projectile.getXRot());
             fp.jujutsuAddon$setSpeedMultiplier((float) PressureConfig.getProjectileEntrySpeed());
             fp.jujutsuAddon$setControlled(true);
             fp.jujutsuAddon$setFreezeOwner(owner.getUUID());
-            projectile.setNoGravity(true);
 
             spawnSlowdownParticles(projectile, 1.0);
         }
 
-        // ★★★ 每帧都更新边界参数 ★★★
         fp.jujutsuAddon$setStopDistance(currentStopDistance);
         fp.jujutsuAddon$setMaxRange(currentMaxRange);
-
         stateManager.trackProjectile(projectile);
 
         float currentSpeedMod = fp.jujutsuAddon$getSpeedMultiplier();
@@ -199,20 +239,7 @@ public class ProjectilePressureHandler {
     }
 
     public static void releaseProjectile(Projectile projectile, PressureStateManager stateManager) {
-        if (projectile instanceof IFrozenProjectile fp) {
-            fp.jujutsuAddon$setControlled(false);
-        }
-
-        if (projectile instanceof AbstractHurtingProjectile hurting) {
-            hurting.xPower = 0;
-            hurting.yPower = -0.03;
-            hurting.zPower = 0;
-        }
-
-        projectile.setDeltaMovement(new Vec3(0, -0.1, 0));
-        projectile.setNoGravity(false);
-        projectile.hurtMarked = true;
-
+        ProjectileReleaseHelper.release(projectile);
         stateManager.forceRemoveProjectile(projectile.getUUID());
     }
 
@@ -232,48 +259,44 @@ public class ProjectilePressureHandler {
 
     private static boolean shouldAffect(LivingEntity owner, Projectile projectile) {
         Entity projectileOwner = projectile.getOwner();
-        // 自己的投射物不拦截
+
         if (projectileOwner == owner) return false;
-        // 自己召唤物的投射物不拦截
+
         if (projectileOwner instanceof SummonEntity summon && summon.getOwner() == owner) {
             return false;
         }
-        // 自己驯服动物的投射物不拦截
+
         if (projectileOwner instanceof TamableAnimal tamable &&
                 tamable.isTame() && tamable.getOwner() == owner) {
             return false;
         }
-        // ★★★ 新增：无下限冲突检测 ★★★
+
         InfinityConflictResolver.ConflictResult conflict =
                 InfinityConflictResolver.resolveProjectileConflict(owner, projectile);
         if (!conflict.canAffect) {
-            // 投射物发射者的无下限更强或相等，无法拦截
             return false;
         }
-        // 投射物发射者相关检查
+
         if (projectileOwner instanceof LivingEntity livingOwner) {
-            // 投射物发射者持有天逆鉾时不拦截
             if (PressureBypassChecker.shouldBypassPressure(livingOwner)) {
                 return false;
             }
-            // 领域必中检查
             if (isInOwnersDomainWithSureHit(owner, livingOwner)) {
                 return false;
             }
-            // 领域增幅检查
             if (PressureConfig.respectDomainAmplification()) {
                 if (hasDomainAmplification(livingOwner)) {
                     return false;
                 }
             }
         }
-        // JJK 的 isBlockable 检查
+
         try {
             if (!HelperMethods.isBlockable(owner, projectile)) {
                 return false;
             }
         } catch (Exception ignored) {}
-        // JJK 领域技能检查
+
         if (projectile instanceof JujutsuProjectile jujutsu) {
             try {
                 if (jujutsu.isDomain()) {
@@ -281,16 +304,16 @@ public class ProjectilePressureHandler {
                 }
             } catch (Exception ignored) {}
         }
+
         return true;
     }
 
-    // ==================== 领域增幅检查（带缓存）====================
+    // ==================== 领域增幅检查 ====================
 
     private static boolean hasDomainAmplification(LivingEntity entity) {
         UUID cacheKey = entity.getUUID();
         long currentTime = entity.level().getGameTime();
 
-        // 检查缓存
         Long lastCheck = amplificationCheckCache.get(cacheKey);
         if (lastCheck != null && currentTime - lastCheck < DOMAIN_CACHE_DURATION) {
             Boolean cachedResult = amplificationResultCache.get(cacheKey);
@@ -299,10 +322,8 @@ public class ProjectilePressureHandler {
             }
         }
 
-        // 执行检查
         boolean result = doCheckDomainAmplification(entity);
 
-        // 缓存结果
         amplificationCheckCache.put(cacheKey, currentTime);
         amplificationResultCache.put(cacheKey, result);
 
@@ -319,7 +340,7 @@ public class ProjectilePressureHandler {
         return false;
     }
 
-    // ==================== 领域必中检查（带缓存）====================
+    // ==================== 领域必中检查 ====================
 
     private static boolean isInOwnersDomainWithSureHit(LivingEntity owner, LivingEntity projectileOwner) {
         UUID cacheKey = projectileOwner.getUUID();
@@ -360,12 +381,10 @@ public class ProjectilePressureHandler {
     // ==================== 缓存清理 ====================
 
     private static void cleanupCaches(long currentTime) {
-        // 清理领域检查缓存
         domainCheckCache.entrySet().removeIf(entry ->
                 currentTime - entry.getValue() > DOMAIN_CACHE_DURATION * 5);
         domainResultCache.keySet().retainAll(domainCheckCache.keySet());
 
-        // 清理领域增幅缓存
         amplificationCheckCache.entrySet().removeIf(entry ->
                 currentTime - entry.getValue() > DOMAIN_CACHE_DURATION * 5);
         amplificationResultCache.keySet().retainAll(amplificationCheckCache.keySet());

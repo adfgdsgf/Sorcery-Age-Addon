@@ -5,6 +5,8 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePo
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureCurve;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityAnalyzer;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityController;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -19,41 +21,31 @@ public class PushForceApplier {
                                       PressureStateManager stateManager) {
         CollisionInfo info = new CollisionInfo();
 
-        // ==================== 基础计算 ====================
+        // ==================== ★★★ 使用 VelocityController 一次获取所有信息 ★★★ ====================
         Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
-        Vec3 targetCenter = target.position().add(0, target.getBbHeight() / 2, 0);
-        double distance = ownerCenter.distanceTo(targetCenter);
 
-        final double MIN_DISTANCE = 0.3;
-        distance = Math.max(distance, MIN_DISTANCE);
-
-        // 推力方向
-        Vec3 pushDirection;
-        if (ownerCenter.distanceTo(targetCenter) < 0.1) {
-            Vec3 look = owner.getLookAngle();
-            pushDirection = new Vec3(look.x, look.y * 0.3, look.z).normalize();
-        } else {
-            pushDirection = targetCenter.subtract(ownerCenter).normalize();
-        }
+        VelocityController.VelocityResult zoneInfo = VelocityController.getEntityZoneInfo(
+                target, ownerCenter, pressureLevel, cursedEnergyOutput, maxRange);
 
         // 超出范围
-        if (distance > maxRange) {
+        if (zoneInfo.zone == VelocityController.Zone.OUTSIDE) {
             stateManager.clearPositionHistory(target.getUUID());
             info.isColliding = false;
-            info.forceDirection = pushDirection;
-            info.distance = distance;
+            info.forceDirection = zoneInfo.directionFromOwner;
+            info.distance = zoneInfo.distance;
             info.pressureValue = 0;
             return info;
         }
 
-        // ==================== 使用统一计算器 ====================
-        double balanceRadius = BalancePointCalculator.getBalanceRadius(pressureLevel, maxRange);
-        double zenoMultiplier = BalancePointCalculator.calculateZenoMultiplier(distance, balanceRadius, maxRange);
+        // ==================== 从 zoneInfo 获取所有需要的值 ====================
+        double distance = Math.max(zoneInfo.distance, 0.3);
+        Vec3 pushDirection = zoneInfo.directionFromOwner;
+        double balanceRadius = zoneInfo.balanceRadius;
+        double zenoMultiplier = zoneInfo.zenoMultiplier;
 
-        // 填充信息
-        info.haltDistance = balanceRadius;
-        info.distanceFromHalt = distance - balanceRadius;
-        info.isBreaching = distance < balanceRadius;
+        info.balanceRadius = balanceRadius;
+        info.distanceFromBalance = zoneInfo.distanceFromBalance;
+        info.isBreaching = zoneInfo.zone == VelocityController.Zone.PUSH;
         info.forceDirection = pushDirection;
         info.distance = distance;
         info.zenoMultiplier = zenoMultiplier;
@@ -67,43 +59,45 @@ public class PushForceApplier {
             info.collidingBlockHardness = blockHardness;
         }
 
-// ==================== 压力计算 ====================
+        // ==================== 压力计算 ====================
         Vec3 ownerMovement = stateManager.calculateOwnerMovement(owner);
         double basePressureValue = PressureCalculator.calculatePressure(
                 pressureLevel, cursedEnergyOutput, distance, maxRange,
                 ownerMovement, pushDirection, info.isColliding, blockHardness);
-// ★★★ 如果被撞墙（在平衡点内），使用压力曲线 ★★★
-        if (info.isColliding && distance < balanceRadius) {
+
+        if (info.isColliding && zoneInfo.zone == VelocityController.Zone.PUSH) {
             info.pressureValue = PressureCurve.calculateCollisionPressure(
                     distance, balanceRadius, basePressureValue);
-
         } else {
             info.pressureValue = basePressureValue;
         }
 
-        // ==================== 判断区域 ====================
-        boolean inBalanceZone = distance < balanceRadius;
-        boolean inSlowdownZone = distance >= balanceRadius && distance <= maxRange;
-
         // ==================== 水平推力方向 ====================
-        Vec3 horizontalPush = new Vec3(pushDirection.x, 0, pushDirection.z);
-        if (horizontalPush.length() < 0.01) {
-            Vec3 look = owner.getLookAngle();
-            horizontalPush = new Vec3(look.x, 0, look.z);
-        }
-        if (horizontalPush.length() > 0.01) {
-            horizontalPush = horizontalPush.normalize();
-        } else {
-            horizontalPush = new Vec3(1, 0, 0);
-        }
+        Vec3 horizontalPush = VelocityAnalyzer.getHorizontalPushDirection(
+                target.position().add(0, target.getBbHeight() / 2, 0), ownerCenter);
 
-        // ==================== 减速区处理 ====================
-        if (inSlowdownZone) {
+        // ==================== ★★★ 减速区处理 ★★★ ====================
+        if (zoneInfo.zone == VelocityController.Zone.SLOWDOWN) {
+            // 只有在接近时才干预
+            if (zoneInfo.isApproaching) {
+                Vec3 vel = target.getDeltaMovement();
+                double allowedApproach = BalancePointCalculator.calculateTrueZenoMove(
+                        distance, balanceRadius, zoneInfo.approachSpeed);
+                double speedReduction = zoneInfo.approachSpeed - allowedApproach;
+
+                if (speedReduction > 0.001) {
+                    Vec3 reduction = pushDirection.scale(speedReduction);
+                    Vec3 newVel = vel.add(reduction);
+                    target.setDeltaMovement(newVel);
+                    target.hurtMarked = true;
+                }
+            }
+
             stateManager.resetPinnedTicks(target.getUUID());
             return info;
         }
 
-        // ==================== 需要干预的情况 ====================
+        // ==================== ★★★ 推力区处理 ★★★ ====================
         Vec3 vel = target.getDeltaMovement();
         double vx = vel.x;
         double vy = vel.y;
@@ -114,14 +108,19 @@ public class PushForceApplier {
             vy *= 0.3;
         }
 
-        // ==================== 红圈内 - 推出去 ====================
-        if (inBalanceZone) {
-            double depth = balanceRadius - distance;
-            double pushForce = depth * 0.15 * cursedEnergyOutput;
-            pushForce = Math.min(pushForce, 0.25);
+        if (zoneInfo.zone == VelocityController.Zone.PUSH) {
+            double zenoPush = BalancePointCalculator.calculateZenoPushForce(
+                    distance, balanceRadius, zoneInfo.approachSpeed);
 
-            vx += horizontalPush.x * pushForce;
-            vz += horizontalPush.z * pushForce;
+            double depth = balanceRadius - distance;
+            double basePush = depth * 0.15 * cursedEnergyOutput;
+            basePush = Math.min(basePush, 0.25);
+
+            double totalPush = zenoPush + basePush;
+            totalPush = Math.min(totalPush, PressureConfig.getMaxPushForce());
+
+            vx += horizontalPush.x * totalPush;
+            vz += horizontalPush.z * totalPush;
         }
 
         // ==================== 撞墙处理 ====================
@@ -217,9 +216,8 @@ public class PushForceApplier {
         public Vec3 forceDirection = Vec3.ZERO;
         public double distance = 0;
         public double pressureValue = 0;
-        public double haltDistance = 0;
-        public double distanceFromHalt = 0;
-        public double resistanceStrength = 0;
+        public double balanceRadius = 0;
+        public double distanceFromBalance = 0;
         public float collidingBlockHardness = 1.0f;
         public double zenoMultiplier = 0;
     }

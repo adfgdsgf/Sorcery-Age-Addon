@@ -8,6 +8,8 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.Collisi
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.PushForceApplier;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ProjectilePressureHandler;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PressureBypassChecker;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityAnalyzer;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityController;
 import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -149,32 +151,50 @@ public class InfinityPressureHandler {
                                  int pressureLevel, float cursedEnergyOutput,
                                  double maxRange) {
         Vec3 ownerCenter = owner.position().add(0, owner.getBbHeight() / 2, 0);
-        Vec3 itemPos = item.position();
-
-        double distance = ownerCenter.distanceTo(itemPos);
-        if (distance > maxRange) return;
-        if (distance < 0.1) distance = 0.1;
-
-        Vec3 pushDirection = itemPos.subtract(ownerCenter).normalize();
-
-        double levelFactor = PressureCalculator.calculateLevelFactor(pressureLevel);
-        double normalizedDistance = distance / maxRange;
-        double distanceFactor = Math.pow(1.0 - normalizedDistance, 1.5);
-
-        double baseForce = PressureConfig.getBasePushForce() * levelFactor * cursedEnergyOutput;
-        double itemForce = baseForce * distanceFactor * PressureConfig.getItemPushForceMultiplier();
-        itemForce = Math.min(itemForce, PressureConfig.getMaxPushForce() * 1.5);
-
+        // ★★★ 使用 VelocityController ★★★
+        VelocityController.VelocityResult zoneInfo = VelocityController.getEntityZoneInfo(
+                item, ownerCenter, pressureLevel, cursedEnergyOutput, maxRange);
+        // 范围外或不在接近
+        if (zoneInfo.zone == VelocityController.Zone.OUTSIDE || !zoneInfo.isApproaching) {
+            return;
+        }
         Vec3 currentVel = item.getDeltaMovement();
-        double newVelX = currentVel.x + pushDirection.x * itemForce;
-        double newVelY = currentVel.y + pushDirection.y * itemForce * 0.5 + 0.02;
-        double newVelZ = currentVel.z + pushDirection.z * itemForce;
-
-        newVelX = Math.max(-2.0, Math.min(2.0, newVelX));
-        newVelY = Math.max(-1.0, Math.min(1.5, newVelY));
-        newVelZ = Math.max(-2.0, Math.min(2.0, newVelZ));
-
-        item.setDeltaMovement(newVelX, newVelY, newVelZ);
+        Vec3 pushDirection = zoneInfo.directionFromOwner;
+        double distance = zoneInfo.distance;
+        double balanceRadius = zoneInfo.balanceRadius;
+        double approachSpeed = zoneInfo.approachSpeed;
+        double vx = currentVel.x;
+        double vy = currentVel.y;
+        double vz = currentVel.z;
+        if (zoneInfo.zone == VelocityController.Zone.SLOWDOWN) {
+            // ★★★ 减速区：芝诺速度限制 ★★★
+            double allowedApproach = BalancePointCalculator.calculateTrueZenoMove(
+                    distance, balanceRadius, approachSpeed);
+            double speedReduction = approachSpeed - allowedApproach;
+            if (speedReduction > 0.001) {
+                vx += pushDirection.x * speedReduction;
+                vy += pushDirection.y * speedReduction * 0.3;
+                vz += pushDirection.z * speedReduction;
+            }
+        } else if (zoneInfo.zone == VelocityController.Zone.PUSH) {
+            // ★★★ 平衡点内：芝诺推力 ★★★
+            double zenoPush = BalancePointCalculator.calculateZenoPushForce(
+                    distance, balanceRadius, approachSpeed);
+            double depth = balanceRadius - distance;
+            double basePush = depth * 0.1 * cursedEnergyOutput;
+            basePush = Math.min(basePush, 0.15);
+            double totalPush = (zenoPush + basePush) * PressureConfig.getItemPushForceMultiplier();
+            totalPush = Math.min(totalPush, PressureConfig.getMaxPushForce() * 1.5);
+            vx += pushDirection.x * totalPush;
+            vy += pushDirection.y * totalPush * 0.3 + 0.01;
+            vz += pushDirection.z * totalPush;
+        }
+        // ==================== 速度限制 ====================
+        double maxHorizontal = 2.0;
+        vx = Math.max(-maxHorizontal, Math.min(maxHorizontal, vx));
+        vz = Math.max(-maxHorizontal, Math.min(maxHorizontal, vz));
+        vy = Math.max(-1.0, Math.min(1.5, vy));
+        item.setDeltaMovement(vx, vy, vz);
         item.hurtMarked = true;
     }
 

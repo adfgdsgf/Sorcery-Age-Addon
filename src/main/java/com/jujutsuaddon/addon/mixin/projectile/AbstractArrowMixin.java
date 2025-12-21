@@ -33,11 +33,16 @@ public abstract class AbstractArrowMixin extends Entity {
             return;
         }
 
-        // ★★★ 复刻 jojomod：调用 super.tick() + 自定义 tick ★★★
+        // 调用 Entity.tick()，不是 Projectile.tick()
+        // 这样不会触发 ProjectileMixin 的注入
         super.tick();
-        ControlledProjectileTick.tick((AbstractArrow)(Object)this);
-        this.checkInsideBlocks();
 
+        // ★★★ 只在服务端执行控制逻辑 ★★★
+        if (!this.level().isClientSide) {
+            ControlledProjectileTick.tick((AbstractArrow) (Object) this);
+        }
+
+        this.checkInsideBlocks();
         ci.cancel();
     }
 }

@@ -149,6 +149,15 @@ public class ClientEvents {
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
 
+        // ★★★ 新增：处理投射物插值 ★★★
+        ProjectileLerpCache.tick();
+        if (!FeatureToggleManager.isSkillBarEnabled()) {
+            stopAllChanneling(Minecraft.getInstance().player);
+            keysDown.clear();
+            channelingStartTime.clear();
+            return;
+        }
+
         if (!FeatureToggleManager.isSkillBarEnabled()) {
             stopAllChanneling(Minecraft.getInstance().player);
             keysDown.clear();
@@ -198,6 +207,7 @@ public class ClientEvents {
         SkillBarManager.onPlayerLogout();
         resetState();
         InfinityFieldClientCache.clear();  // ★★★ 加这行 ★★★
+        ProjectileLerpCache.clear();
     }
 
     public static void resetState() {

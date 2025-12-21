@@ -1,6 +1,7 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
+import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ProjectileReleaseHelper;
 import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -343,23 +344,8 @@ public class PressureStateManager {
     // ==================== 释放投射物 ====================
 
     public void releaseProjectile(Projectile projectile) {
-        UUID id = projectile.getUUID();
-        trackedProjectiles.remove(id);
-
-        if (projectile instanceof IFrozenProjectile fp) {
-            fp.jujutsuAddon$setControlled(false);
-        }
-
-        projectile.setDeltaMovement(new Vec3(0, -0.05, 0));
-        projectile.setNoGravity(false);
-
-        if (projectile instanceof AbstractHurtingProjectile hurting) {
-            hurting.xPower = 0;
-            hurting.yPower = -0.01;
-            hurting.zPower = 0;
-        }
-
-        projectile.hurtMarked = true;
+        trackedProjectiles.remove(projectile.getUUID());
+        ProjectileReleaseHelper.release(projectile);
     }
 
     public void releaseAllProjectiles(LivingEntity owner) {

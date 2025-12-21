@@ -20,14 +20,15 @@ public abstract class AbstractHurtingProjectileMixin extends Projectile {
 
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void jujutsuAddon$onTick(CallbackInfo ci) {
-        if (this instanceof IFrozenProjectile fp && fp.jujutsuAddon$isControlled()) {
-            // ★★★ 调用 super.tick() ★★★
-            super.tick();
+        if (!(this instanceof IFrozenProjectile fp)) return;
+        if (!fp.jujutsuAddon$isControlled()) return;
 
-            // ★★★ 两端都执行 ★★★
-            ControlledProjectileTick.tickHurtingProjectile((AbstractHurtingProjectile)(Object)this);
+        super.tick();
 
-            ci.cancel();
+        if (!this.level().isClientSide) {
+            ControlledProjectileTick.tickHurtingProjectile((AbstractHurtingProjectile) (Object) this);
         }
+
+        ci.cancel();
     }
 }

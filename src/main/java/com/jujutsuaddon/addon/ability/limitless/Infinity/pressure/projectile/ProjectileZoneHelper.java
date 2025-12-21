@@ -9,36 +9,23 @@ import net.minecraft.world.phys.Vec3;
 /**
  * 投射物区域判断辅助类
  *
- * ★★★ 现在使用芝诺曲线计算减速 ★★★
- *
- * 区域划分（从玩家向外）：
- * 玩家 → 推力区 → 缓冲区 → 静止区(平衡点) → 减速区(芝诺曲线) → 正常
- *
- * - 推力区：投射物被强力推出
- * - 缓冲区：投射物保持静止，不受任何力影响
- * - 静止区：投射物悬浮在平衡点附近
- * - 减速区：投射物按芝诺曲线减速
+ * 芝诺模型区域：
+ * - 平衡点内（Push/Buffer）：速度 = 0
+ * - 平衡点外（Slowdown）：速度按芝诺公式衰减
  */
 public class ProjectileZoneHelper {
 
-    // ==================== 区域参数 ====================
+    // ==================== 区域参数（类内部常量）====================
+    // 这些是实现细节，不需要用户配置
 
-    /** 滞后缓冲：静止投射物需要超过这个额外距离才会重新移动 */
+    /** 迟滞缓冲（防止在边界抖动）*/
     public static final float HYSTERESIS_BUFFER = 0.4f;
 
-    /** 目标位置偏移比例（投射物稳定在静止区边界外侧）*/
-    public static final float TARGET_OFFSET_RATIO = 0.6f;
-
-    /** 缓冲区厚度：推力区和静止区之间的保护层 */
+    /** 缓冲区厚度（平衡点内的安全区）*/
     public static final float BUFFER_ZONE_THICKNESS = 0.3f;
 
-    // ==================== 推动阈值 ====================
-
-    /** 最小推动阈值：低于这个值不移动位置 */
+    /** 最小推力阈值 */
     public static final double MIN_PUSH_THRESHOLD = 0.005;
-
-    /** 边界推动触发死区 */
-    public static final double BOUNDARY_PUSH_DEADZONE = 0.15;
 
     /** 玩家移动检测阈值 */
     public static final double PLAYER_MOVEMENT_THRESHOLD = 0.03;
@@ -46,39 +33,40 @@ public class ProjectileZoneHelper {
     /** 玩家接近检测阈值 */
     public static final double PLAYER_APPROACH_THRESHOLD = 0.02;
 
+    /** 最大推动距离 */
+    public static final double MAX_PUSH_AMOUNT = 0.5;
+
+    /** 最小有效移动速度 */
+    public static final double MIN_OWNER_SPEED = 0.01;
+
+    /** 减速区最低速度 */
+    public static final float SLOWDOWN_MIN_SPEED = 0.05f;
+
+    /** 过渡缓冲区大小 */
+    public static final double TRANSITION_BUFFER = 0.3;
+
     // ==================== 区域枚举 ====================
 
     public enum Zone {
-        PUSH,       // 推力区：被强力推出
-        BUFFER,     // 缓冲区：完全静止，不受力
-        STOP,       // 静止区：悬浮在平衡点
-        SLOWDOWN,   // 减速区：芝诺曲线减速
+        PUSH,       // 推力区（太靠近玩家）
+        BUFFER,     // 缓冲区（平衡点附近）
+        STOP,       // 静止区（在平衡点）
+        SLOWDOWN,   // 减速区（平衡点外）
         OUTSIDE     // 范围外
     }
 
     // ==================== 区域判断 ====================
 
     /**
-     * 获取投射物当前所在区域
-     *
-     * @param distance 投射物到玩家的距离
-     * @param balanceRadius 平衡点半径（从 BalancePointCalculator 获取）
-     * @param maxRange 最大范围
-     * @return 所在区域
+     * 获取投射物所在区域
      */
     public static Zone getZone(double distance, double balanceRadius, double maxRange) {
-        // 推力区边界 = balanceRadius - 缓冲区厚度
         double pushZoneBoundary = Math.max(0.1, balanceRadius - BUFFER_ZONE_THICKNESS);
-
-        // 缓冲区边界 = balanceRadius
-        double bufferZoneBoundary = balanceRadius;
-
-        // 静止区边界 = balanceRadius + 滞后缓冲
         double stopZoneBoundary = balanceRadius + HYSTERESIS_BUFFER;
 
         if (distance <= pushZoneBoundary) {
             return Zone.PUSH;
-        } else if (distance <= bufferZoneBoundary) {
+        } else if (distance <= balanceRadius) {
             return Zone.BUFFER;
         } else if (distance <= stopZoneBoundary) {
             return Zone.STOP;
@@ -90,7 +78,7 @@ public class ProjectileZoneHelper {
     }
 
     /**
-     * 判断投射物是否在停止区（包括缓冲区）
+     * 是否在停止区（包含迟滞）
      */
     public static boolean isInStopZone(Projectile projectile, double distance, double balanceRadius) {
         boolean wasStationary = isStationary(projectile);
@@ -101,7 +89,7 @@ public class ProjectileZoneHelper {
     }
 
     /**
-     * 判断投射物是否在缓冲区
+     * 是否在缓冲区
      */
     public static boolean isInBufferZone(double distance, double balanceRadius) {
         double pushZoneBoundary = Math.max(0.1, balanceRadius - BUFFER_ZONE_THICKNESS);
@@ -109,7 +97,7 @@ public class ProjectileZoneHelper {
     }
 
     /**
-     * 判断投射物是否在推力区
+     * 是否在推力区
      */
     public static boolean isInPushZone(double distance, double balanceRadius) {
         double pushZoneBoundary = Math.max(0.1, balanceRadius - BUFFER_ZONE_THICKNESS);
@@ -117,7 +105,7 @@ public class ProjectileZoneHelper {
     }
 
     /**
-     * 投射物是否处于静止状态
+     * 投射物是否静止
      */
     public static boolean isStationary(Projectile projectile) {
         if (projectile instanceof IFrozenProjectile fp) {
@@ -127,115 +115,67 @@ public class ProjectileZoneHelper {
     }
 
     /**
-     * 计算目标稳定位置（平衡点外侧）
+     * 获取目标距离（停止位置）
      */
     public static double getTargetDistance(double balanceRadius) {
-        return balanceRadius + HYSTERESIS_BUFFER * TARGET_OFFSET_RATIO;
+        return balanceRadius + HYSTERESIS_BUFFER * 0.6;
     }
 
     /**
-     * 判断是否需要边界推动
-     */
-    public static boolean needsBoundaryPush(double distance, double balanceRadius) {
-        double targetDist = getTargetDistance(balanceRadius);
-        return distance < targetDist - BOUNDARY_PUSH_DEADZONE;
-    }
-
-    /**
-     * 计算边界推动距离
-     */
-    public static double calculateBoundaryPushDistance(double distance, double balanceRadius, boolean wasStationary) {
-        if (!needsBoundaryPush(distance, balanceRadius)) {
-            return 0;
-        }
-
-        double targetDist = getTargetDistance(balanceRadius);
-        double needMove = targetDist - distance;
-
-        double pushRate = wasStationary ? 0.25 : 0.4;
-        return Math.min(needMove * pushRate, 0.4);
-    }
-
-    /**
-     * 判断推动是否足够大
+     * 推力是否显著
      */
     public static boolean isSignificantPush(Vec3 pushVelocity) {
         return pushVelocity.lengthSqr() > MIN_PUSH_THRESHOLD * MIN_PUSH_THRESHOLD;
     }
 
-    // ==================== ★★★ 芝诺曲线减速计算 ★★★ ====================
+    // ==================== ★★★ 芝诺减速计算（使用已有工具类）★★★ ====================
 
     /**
-     * 使用芝诺曲线计算减速区的速度倍率
+     * 使用芝诺公式计算投射物速度倍率
      *
-     * @param distance 当前距离
-     * @param balanceRadius 平衡点半径
-     * @param maxRange 最大范围
+     * @param distance       当前距离
+     * @param balanceRadius  平衡点半径
+     * @param maxRange       最大范围
      * @return 速度倍率 (0.0 ~ 1.0)
      */
     public static float calculateSlowdownSpeedZeno(double distance, double balanceRadius, double maxRange) {
-        // 平衡点内：完全静止
         double effectiveStop = balanceRadius + HYSTERESIS_BUFFER;
+
+        // 平衡点内：停止
         if (distance <= effectiveStop) {
             return 0f;
         }
 
-        // 过渡缓冲区（刚离开平衡点时）
-        double bufferZone = 0.3;
-        double bufferEnd = effectiveStop + bufferZone;
+        // 过渡缓冲区
+        double bufferEnd = effectiveStop + TRANSITION_BUFFER;
 
         if (distance <= bufferEnd) {
-            // 缓冲区内：极低速度
-            float bufferRatio = (float) ((distance - effectiveStop) / bufferZone);
-            return 0.02f + bufferRatio * 0.03f;  // 0.02 ~ 0.05
+            float bufferRatio = (float) ((distance - effectiveStop) / TRANSITION_BUFFER);
+            return 0.02f + bufferRatio * 0.03f;
         }
 
-        // ★★★ 使用芝诺曲线计算减速 ★★★
-        double zenoMultiplier = BalancePointCalculator.calculateZenoMultiplier(distance, balanceRadius, maxRange);
+        // ★★★ 使用 BalancePointCalculator 计算芝诺倍率 ★★★
+        double zenoMultiplier = BalancePointCalculator.calculateZenoMultiplier(
+                distance, balanceRadius, maxRange);
 
-        // zenoMultiplier: 1.0（平衡点）→ 0.0（边界）
-        // 我们需要反过来：0.0（平衡点）→ 1.0（边界）
-        float speedRatio = 1.0f - (float) zenoMultiplier;
+        float speedRatio = (float) zenoMultiplier;
 
-        // 限制最小速度（防止在边界处完全静止）
-        float minSpeed = 0.05f;
+        // ★★★ 使用 PressureConfig 获取入口速度 ★★★
         float maxSpeed = (float) PressureConfig.getProjectileEntrySpeed();
 
-        return minSpeed + speedRatio * (maxSpeed - minSpeed);
+        return SLOWDOWN_MIN_SPEED + speedRatio * (maxSpeed - SLOWDOWN_MIN_SPEED);
     }
 
     /**
-     * 旧版线性减速（保留兼容）
+     * 计算芝诺移动距离
+     *
+     * @param distance       当前距离
+     * @param balanceRadius  平衡点
+     * @param originalSpeed  原始速度
+     * @return 这一tick能移动的距离
      */
-    public static float calculateSlowdownSpeedLinear(float distance, float stopDistance, float maxRange,
-                                                     float entrySpeed, float stopSpeed) {
-        float effectiveStop = stopDistance + HYSTERESIS_BUFFER;
-
-        if (distance <= effectiveStop) return 0f;
-
-        float bufferZone = 0.3f;
-        float bufferEnd = effectiveStop + bufferZone;
-
-        if (distance <= bufferEnd) {
-            float bufferRatio = (distance - effectiveStop) / bufferZone;
-            return stopSpeed * 0.5f + bufferRatio * (stopSpeed * 0.5f);
-        }
-
-        float slowdownZoneSize = maxRange - bufferEnd;
-        if (slowdownZoneSize < 0.5f) slowdownZoneSize = 0.5f;
-
-        float distanceFromBuffer = distance - bufferEnd;
-        float t = Math.min(1.0f, distanceFromBuffer / slowdownZoneSize);
-        float easeOut = 1.0f - (1.0f - t) * (1.0f - t);
-        return stopSpeed + (entrySpeed - stopSpeed) * easeOut;
-    }
-
-    /**
-     * 主要的减速计算方法（使用芝诺曲线）
-     */
-    public static float calculateSlowdownSpeed(float distance, float stopDistance, float maxRange,
-                                               float entrySpeed, float stopSpeed) {
-        // ★★★ 使用芝诺曲线 ★★★
-        return calculateSlowdownSpeedZeno(distance, stopDistance, maxRange);
+    public static double calculateZenoMove(double distance, double balanceRadius, double originalSpeed) {
+        // ★★★ 使用 BalancePointCalculator ★★★
+        return BalancePointCalculator.calculateTrueZenoMove(distance, balanceRadius, originalSpeed);
     }
 }

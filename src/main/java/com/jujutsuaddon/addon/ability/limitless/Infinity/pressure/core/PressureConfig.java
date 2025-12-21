@@ -4,7 +4,17 @@ import com.jujutsuaddon.addon.AbilityConfig;
 
 /**
  * 无下限压力系统配置
- * 所有值从 AbilityConfig 读取，支持热重载
+ *
+ * ★★★ 芝诺悖论模型 ★★★
+ *
+ * 区域结构：
+ *   玩家 ──── 平衡点(墙) ──── 边界
+ *              ↑
+ *         balanceRadius
+ *
+ * - 平衡点内：倍率 > 1 → 被推开
+ * - 平衡点处：倍率 = 1 → 静止
+ * - 平衡点外：倍率 < 1 → 减速但能移动
  */
 public class PressureConfig {
 
@@ -29,8 +39,7 @@ public class PressureConfig {
     }
 
     /**
-     * 获取指定等级的总范围（平方曲线）
-     * 公式: level1Range + (level10Range - level1Range) × (level/10)^exponent
+     * 获取指定等级的最大范围
      */
     public static double getLevelRange(int level) {
         if (level <= 0) return getLevel1Range() * 0.5;
@@ -44,99 +53,65 @@ public class PressureConfig {
         return minRange + (maxRange - minRange) * Math.pow(t, exponent);
     }
 
-    // ==================== 区域占比 ====================
+    // ==================== 区域占比（芝诺模型）====================
 
+    /**
+     * 减速区份数（平衡点到边界）
+     */
     public static double getSlowdownZoneParts() {
         return AbilityConfig.COMMON.slowdownZoneParts.get();
     }
 
-
-    public static double getPushZoneParts() {
+    /**
+     * 平衡点份数（墙的位置）
+     */
+    public static double getBalancePointParts() {
         return AbilityConfig.COMMON.balancePointParts.get();
     }
 
+    /**
+     * 总份数
+     */
     public static double getTotalParts() {
-        return getSlowdownZoneParts() + getPushZoneParts();  // 移除 stopZoneParts
+        return getSlowdownZoneParts() + getBalancePointParts();
     }
 
-    // ==================== 平衡点边界 ====================
+    // ==================== 芝诺参数 ====================
+
     public static double getBalanceRadiusMinimum() {
         return AbilityConfig.COMMON.balanceRadiusMinimum.get();
     }
+
     public static double getBalanceRadiusMaxRatio() {
         return AbilityConfig.COMMON.balanceRadiusMaxRatio.get();
     }
+
     public static double getZenoCurveExponent() {
         return AbilityConfig.COMMON.zenoCurveExponent.get();
     }
 
-    // ==================== 区域边界计算 ====================
+    public static double getZenoRatio() {
+        return AbilityConfig.COMMON.zenoRatio.get();
+    }
 
     /**
-     * 推力区半径（最内层，0 ~ pushRadius）
-     * 进入这里 = 突破，会被强推+伤害
+     * ★★★ 核心：获取平衡点半径（墙的位置）★★★
+     *
+     * 这是芝诺模型的核心参数
      */
-    public static double getPushZoneRadius(int level) {
+    public static double getBalanceRadius(int level) {
         double totalRange = getLevelRange(level);
-        return totalRange * (getPushZoneParts() / getTotalParts());
-    }
-
-    /**
-     * 停止区外边界（pushRadius ~ stopRadius）
-     * 投射物在这里悬浮，生物被强推
-     */
-    public static double getStopZoneRadius(int level) {
-        // 现在 stopRadius = pushRadius（平衡点）
-        return getPushZoneRadius(level);
-    }
-
-    /**
-     * 减速区起始 = 停止区外边界
-     */
-    public static double getSlowdownZoneStart(int level) {
-        return getStopZoneRadius(level);
-    }
-
-    /**
-     * 兼容旧代码：haltDistance 现在等于 pushZoneRadius
-     */
-    public static double getHaltDistance(int level) {
-        return getPushZoneRadius(level);
-    }
-
-    /**
-     * 兼容旧代码：过渡区
-     */
-    public static double getHaltTransitionZone() {
-        return 1.5;
+        return totalRange * (getBalancePointParts() / getTotalParts());
     }
 
     // ==================== 推力 ====================
-
-    public static double getBasePushForce() {
-        return AbilityConfig.COMMON.basePushForce.get();
-    }
 
     public static double getMaxPushForce() {
         return AbilityConfig.COMMON.maxPushForce.get();
     }
 
-    public static double getBreachRepelForce() {
-        return AbilityConfig.COMMON.breachRepelForce.get();
-    }
-
     public static double getPinForce() {
         return AbilityConfig.COMMON.pinForce.get();
-    }
-
-    // ==================== 阻力 ====================
-
-    public static double getLateralResistance() {
-        return AbilityConfig.COMMON.lateralResistance.get();
-    }
-
-    public static double getEscapeResistance() {
-        return AbilityConfig.COMMON.escapeResistance.get();
     }
 
     // ==================== 压力值 ====================
@@ -191,7 +166,6 @@ public class PressureConfig {
         return AbilityConfig.COMMON.maxDamageInterval.get();
     }
 
-
     // ==================== 投射物 ====================
 
     public static boolean shouldAffectProjectiles() {
@@ -206,11 +180,6 @@ public class PressureConfig {
         return AbilityConfig.COMMON.projectileEntrySpeed.get();
     }
 
-    public static double getProjectileStopSpeed() {
-        return AbilityConfig.COMMON.projectileStopSpeed.get();
-    }
-
-    // ★★★ 新增：投射物反弹速度倍率 ★★★
     public static double getReflectSpeedMultiplier() {
         return AbilityConfig.COMMON.reflectSpeedMultiplier.get();
     }
@@ -231,6 +200,48 @@ public class PressureConfig {
 
     public static float getBreakThresholdMult() {
         return AbilityConfig.COMMON.breakThresholdMult.get().floatValue();
+    }
+
+    // ==================== 方块硬度 ====================
+
+    public static double getSoftHardnessThreshold() {
+        return AbilityConfig.COMMON.softHardnessThreshold.get();
+    }
+
+    public static double getHardHardnessThreshold() {
+        return AbilityConfig.COMMON.hardHardnessThreshold.get();
+    }
+
+    public static double getSoftBlockPressureMult() {
+        return AbilityConfig.COMMON.softBlockPressureMult.get();
+    }
+
+    public static double getNormalBlockPressureMult() {
+        return AbilityConfig.COMMON.normalBlockPressureMult.get();
+    }
+
+    public static double getHardBlockPressureMult() {
+        return AbilityConfig.COMMON.hardBlockPressureMult.get();
+    }
+
+    public static double getBedrockPressureMult() {
+        return AbilityConfig.COMMON.bedrockPressureMult.get();
+    }
+
+    public static double getHardnessPressureMult(float blockHardness) {
+        if (blockHardness < 0) {
+            return getBedrockPressureMult();
+        }
+        double softThreshold = getSoftHardnessThreshold();
+        double hardThreshold = getHardHardnessThreshold();
+        if (blockHardness <= softThreshold) {
+            return getSoftBlockPressureMult();
+        } else if (blockHardness >= hardThreshold) {
+            return getHardBlockPressureMult();
+        } else {
+            double t = (blockHardness - softThreshold) / (hardThreshold - softThreshold);
+            return getNormalBlockPressureMult() + t * (getHardBlockPressureMult() - getNormalBlockPressureMult());
+        }
     }
 
     // ==================== 掉落物 ====================
@@ -290,85 +301,65 @@ public class PressureConfig {
         return baseCost * multiplier;
     }
 
-    // ==================== 方块硬度影响 ====================
-    public static double getSoftHardnessThreshold() {
-        return AbilityConfig.COMMON.softHardnessThreshold.get();
-    }
-    public static double getHardHardnessThreshold() {
-        return AbilityConfig.COMMON.hardHardnessThreshold.get();
-    }
-    public static double getSoftBlockPressureMult() {
-        return AbilityConfig.COMMON.softBlockPressureMult.get();
-    }
-    public static double getNormalBlockPressureMult() {
-        return AbilityConfig.COMMON.normalBlockPressureMult.get();
-    }
-    public static double getHardBlockPressureMult() {
-        return AbilityConfig.COMMON.hardBlockPressureMult.get();
-    }
-    public static double getBedrockPressureMult() {
-        return AbilityConfig.COMMON.bedrockPressureMult.get();
-    }
-    /**
-     * 根据方块硬度计算压力倍率
-     */
-    public static double getHardnessPressureMult(float blockHardness) {
-        // 基岩或不可破坏
-        if (blockHardness < 0) {
-            return getBedrockPressureMult();
-        }
-        double softThreshold = getSoftHardnessThreshold();
-        double hardThreshold = getHardHardnessThreshold();
-        if (blockHardness <= softThreshold) {
-            // 软方块
-            return getSoftBlockPressureMult();
-        } else if (blockHardness >= hardThreshold) {
-            // 硬方块
-            return getHardBlockPressureMult();
-        } else {
-            // 普通方块：线性插值
-            double t = (blockHardness - softThreshold) / (hardThreshold - softThreshold);
-            double normalMult = getNormalBlockPressureMult();
-            double hardMult = getHardBlockPressureMult();
-            return normalMult + t * (hardMult - normalMult);
-        }
-    }
+    // ==================== 压力曲线 ====================
 
-    // ==================== 压力曲线配置 ====================
     public static double getMaxPressureMultiplier() {
         return AbilityConfig.COMMON.maxPressureMultiplier.get();
     }
+
     public static double getCurveSteepness() {
         return AbilityConfig.COMMON.curveSteepness.get();
     }
+
     public static double getCollisionMinDistance() {
         return AbilityConfig.COMMON.collisionMinDistance.get();
     }
+
     public static float getBlockPressureRate() {
         return AbilityConfig.COMMON.blockPressureRate.get().floatValue();
     }
-    // ==================== 动态伤害频率 ====================
-    public static boolean isDynamicDamageFrequencyEnabled() {
-        // 如果 minInterval != maxInterval，就启用动态频率
-        return getMinDamageInterval() != getMaxDamageInterval();
+
+    // ==================== 内部常量（固定值）====================
+
+    /** 方块压力超时（毫秒）*/
+    public static long getPressureTimeoutMs() {
+        return 2000L;
     }
+
+    /** Minecraft 方块破坏阶段数（固定10）*/
+    public static int getBreakStages() {
+        return 10;
+    }
+
+    /** 方块压力衰减速率（每tick）*/
+    public static float getPressureDecayRate() {
+        return 0.2f;
+    }
+
+    /** 掉落物推力基础值 */
+    public static double getBasePushForce() {
+        return 0.015;
+    }
+
+    /** 掉落物推力最低等级 */
+    public static int getItemPushMinPressure() {
+        return 1;
+    }
+
+    /** 基础伤害间隔 */
     public static int getBaseDamageInterval() {
-        return getMaxDamageInterval(); // 基础间隔 = 最大间隔
+        return getMaxDamageInterval();
     }
 
-    // ==================== 兼容旧代码的固定值 ====================
+    /** 压力激增阈值 */
+    public static double getPressureSurgeThreshold() {
+        return 5.0;
+    }
 
-    public static double getMinPressureForPush() { return 0.5; }
-    public static float getPressureDecayRate() { return 0.2f; }
-    public static int getBreakStages() { return 10; }
-    public static long getPressureTimeoutMs() { return 2000L; }
-    public static double getPressureChangeDamageMult() { return 0.5; }
-    public static double getIntervalPressureScale() { return 1.5; }
-    public static double getPressureSurgeThreshold() { return 5.0; }
-    public static int getDamageWarningTicks() { return 5; }
-    public static int getItemPushMinPressure() { return 1; }
-    public static double getApproachResistanceBase() { return 0.3; }
-    public static double getApproachResistanceMax() { return 0.95; }
+    /** 伤害警告tick数 */
+    public static int getDamageWarningTicks() {
+        return 5;
+    }
 
     private PressureConfig() {}
 }
