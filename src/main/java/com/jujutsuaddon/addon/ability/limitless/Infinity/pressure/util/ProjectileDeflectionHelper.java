@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util;
 
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 

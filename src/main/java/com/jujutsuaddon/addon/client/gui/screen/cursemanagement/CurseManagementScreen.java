@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.client.gui.screen.cursemanagement;
 
-import com.jujutsuaddon.addon.client.util.EntityRenderHelper;
+import com.jujutsuaddon.addon.client.render.EntityRenderHelper;
 import com.jujutsuaddon.addon.client.util.UIScaleHelper;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;

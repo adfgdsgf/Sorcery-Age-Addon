@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;

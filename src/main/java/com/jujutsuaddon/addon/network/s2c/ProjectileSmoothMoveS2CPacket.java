@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.network.s2c;
 
-import com.jujutsuaddon.addon.client.ProjectileLerpCache;
+import com.jujutsuaddon.addon.client.cache.ProjectileLerpCache;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;

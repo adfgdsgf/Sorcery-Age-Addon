@@ -3,7 +3,7 @@ package com.jujutsuaddon.addon.client.gui.screen;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig.AnchorPoint;
 import com.jujutsuaddon.addon.client.gui.overlay.ShadowStorageOverlay;
-import com.jujutsuaddon.addon.client.util.HudPositionHelper;
+import com.jujutsuaddon.addon.client.render.HudPositionHelper;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;

@@ -1,27 +1,30 @@
 package com.jujutsuaddon.addon.mixin.core;
 
-import com.jujutsuaddon.addon.AddonConfig;
-import com.jujutsuaddon.addon.context.AbilityContext;
-import com.jujutsuaddon.addon.context.SoulDamageContext;
-import com.jujutsuaddon.addon.util.helper.EnchantmentTriggerHandler;
-import com.jujutsuaddon.addon.util.helper.ProjectileHitTracker;
-import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.TamableAnimal;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import radon.jujutsu_kaisen.ability.base.Ability;
+        import com.jujutsuaddon.addon.config.AddonConfig;
+        import com.jujutsuaddon.addon.context.AbilityContext;
+        import com.jujutsuaddon.addon.context.SoulDamageContext;
+        import com.jujutsuaddon.addon.util.helper.EnchantmentTriggerHandler;
+        import com.jujutsuaddon.addon.util.helper.ProjectileHitTracker;
+        import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
+        import com.jujutsuaddon.addon.vow.condition.types.ordinary.RecoilCondition;
+        import net.minecraft.world.damagesource.DamageSource;
+        import net.minecraft.world.entity.Entity;
+        import net.minecraft.world.entity.EntityType;
+        import net.minecraft.world.entity.LivingEntity;
+        import net.minecraft.world.entity.TamableAnimal;
+        import net.minecraft.world.entity.player.Player;
+        import net.minecraft.world.level.Level;
+        import org.spongepowered.asm.mixin.Mixin;
+        import org.spongepowered.asm.mixin.Shadow;
+        import org.spongepowered.asm.mixin.Unique;
+        import org.spongepowered.asm.mixin.injection.At;
+        import org.spongepowered.asm.mixin.injection.Inject;
+        import org.spongepowered.asm.mixin.injection.Redirect;
+        import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+        import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+        import radon.jujutsu_kaisen.ability.base.Ability;
 
-import java.util.List;
+        import java.util.List;
 
 @Mixin(LivingEntity.class)
 public abstract class MixinLivingEntity extends Entity {
@@ -30,6 +33,7 @@ public abstract class MixinLivingEntity extends Entity {
     public MixinLivingEntity(EntityType<?> entityType, Level level) {
         super(entityType, level);
     }
+
     // ==================== 单次命中投射物处理 ====================
     @Inject(method = "hurt", at = @At("HEAD"), cancellable = true)
     private void jujutsuAddon$blockDuplicateProjectileHit(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {

@@ -1,8 +1,8 @@
 package com.jujutsuaddon.addon.client.gui.screen.cursemanagement;
 
-import com.jujutsuaddon.addon.capability.AddonCurseBaselineData;
+import com.jujutsuaddon.addon.capability.curse.AddonCurseBaselineData;
 import com.jujutsuaddon.addon.capability.CurseListMonitor;
-import com.jujutsuaddon.addon.client.util.EntityRenderHelper;
+import com.jujutsuaddon.addon.client.render.EntityRenderHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.nbt.CompoundTag;

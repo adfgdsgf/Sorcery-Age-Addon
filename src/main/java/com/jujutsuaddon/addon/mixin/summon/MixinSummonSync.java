@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin.summon;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
 import com.jujutsuaddon.addon.summon.SummonSyncHelper;

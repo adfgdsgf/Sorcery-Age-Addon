@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/balance/ability/CategoryBenchmark.java
 package com.jujutsuaddon.addon.balance.ability;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.context.TamedCostContext;
 import com.jujutsuaddon.addon.damage.analysis.AbilityDamageData;
 import net.minecraft.resources.ResourceLocation;

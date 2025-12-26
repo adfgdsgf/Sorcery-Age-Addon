@@ -1,8 +1,7 @@
 package com.jujutsuaddon.addon.compat.mob;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.helper.MobAttributeHelper;
-import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;

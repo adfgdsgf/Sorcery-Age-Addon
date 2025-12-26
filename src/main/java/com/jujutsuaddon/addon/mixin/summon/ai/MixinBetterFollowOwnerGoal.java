@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin.summon.ai;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;

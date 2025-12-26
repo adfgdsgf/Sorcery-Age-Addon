@@ -1,7 +1,8 @@
 package com.jujutsuaddon.addon.command;
 
-import com.jujutsuaddon.addon.AddonConfig;
-import com.jujutsuaddon.addon.util.helper.CommandUtil; // 导入新工具类
+import com.jujutsuaddon.addon.command.vow.VowCommand;
+import com.jujutsuaddon.addon.config.AddonConfig;
+import com.jujutsuaddon.addon.util.helper.CommandUtil;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
@@ -20,6 +21,9 @@ public class AddonCommands {
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         register(event.getDispatcher());
         JujutsuAdaptCommand.register(event.getDispatcher());
+
+        // ★★★ 新增：注册誓约命令 ★★★
+        VowCommand.register(event.getDispatcher());
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -87,13 +91,10 @@ public class AddonCommands {
                         )
                 )
 
-                // ==========================================
-                // 6. 血量转护甲 (已更新：支持生物/女仆)
-                // ==========================================
+                // 6. 血量转护甲
                 .then(Commands.literal("health_conversion")
                         .requires(source -> source.hasPermission(2))
 
-                        // 6.1 玩家总开关
                         .then(Commands.argument("enabled", BoolArgumentType.bool())
                                 .executes(context -> CommandUtil.setBooleanConfig(context,
                                         AddonConfig.COMMON.enableHealthToArmor,
@@ -101,18 +102,16 @@ public class AddonCommands {
                                         "command.jujutsu_addon.health_conversion"))
                         )
 
-                        // 6.2 [新增] 生物/女仆开关
                         .then(Commands.literal("mob_enabled")
                                 .then(Commands.argument("enabled", BoolArgumentType.bool())
                                         .executes(context -> CommandUtil.setBooleanConfig(context,
                                                 AddonConfig.COMMON.enableMobHealthToArmor,
                                                 BoolArgumentType.getBool(context, "enabled"),
-                                                "command.jujutsu_addon.mob_health_conversion")) // [修改] 使用 Key
+                                                "command.jujutsu_addon.mob_health_conversion"))
                                 )
                         )
-                        // 6.3 设置比率
+
                         .then(Commands.literal("set")
-                                // 天与咒缚
                                 .then(Commands.literal("hr")
                                         .then(Commands.argument("armor", DoubleArgumentType.doubleArg(0.0))
                                                 .then(Commands.argument("toughness", DoubleArgumentType.doubleArg(0.0))
@@ -128,7 +127,6 @@ public class AddonCommands {
                                                 )
                                         )
                                 )
-                                // 咒术师
                                 .then(Commands.literal("sorcerer")
                                         .then(Commands.argument("armor", DoubleArgumentType.doubleArg(0.0))
                                                 .then(Commands.argument("toughness", DoubleArgumentType.doubleArg(0.0))
@@ -144,7 +142,6 @@ public class AddonCommands {
                                                 )
                                         )
                                 )
-                                // [新增] 生物/女仆
                                 .then(Commands.literal("mob")
                                         .then(Commands.argument("armor", DoubleArgumentType.doubleArg(0.0))
                                                 .then(Commands.argument("toughness", DoubleArgumentType.doubleArg(0.0))
@@ -153,7 +150,6 @@ public class AddonCommands {
                                                             double t = DoubleArgumentType.getDouble(context, "toughness");
                                                             AddonConfig.COMMON.mobHealthToArmorRatio.set(a);
                                                             AddonConfig.COMMON.mobHealthToToughnessRatio.set(t);
-                                                            // [修改] 使用 Key
                                                             context.getSource().sendSuccess(() ->
                                                                     Component.translatable("command.jujutsu_addon.set_mob_conversion", a, t).withStyle(ChatFormatting.GREEN), true);
                                                             return 1;
@@ -163,7 +159,6 @@ public class AddonCommands {
                                 )
                         )
 
-                        // 6.4 查看状态
                         .then(Commands.literal("status")
                                 .executes(CommandUtil::showHealthConversionStatus)
                         )

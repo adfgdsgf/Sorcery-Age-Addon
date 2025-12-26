@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.event;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory; // 【新增导入】

@@ -4,7 +4,7 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePo
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PlayerMovementTracker;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.RaySphereChecker;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityAnalyzer;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;

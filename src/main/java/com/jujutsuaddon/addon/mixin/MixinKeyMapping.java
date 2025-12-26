@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin;
 
-import com.jujutsuaddon.addon.client.JJKKeyBlocker;
+import com.jujutsuaddon.addon.client.input.JJKKeyBlocker;
 import net.minecraft.client.KeyMapping;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.client.gui.screen.shadowstorage;
 
-import com.jujutsuaddon.addon.client.util.SlotRenderHelper;
+import com.jujutsuaddon.addon.client.render.SlotRenderHelper;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.c2s.ShadowStorageActionC2SPacket;
 import com.jujutsuaddon.addon.network.c2s.ShadowStorageActionC2SPacket.Action;

@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.util.debug;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.HashSet;

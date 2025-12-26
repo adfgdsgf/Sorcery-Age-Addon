@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/damage/calculator/AbilityDamageCalculator.java
 package com.jujutsuaddon.addon.damage.calculator;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.damage.cache.AttributeCache;
 import com.jujutsuaddon.addon.damage.core.DamageContext;
 import com.jujutsuaddon.addon.damage.core.DamageCore;
@@ -31,10 +31,10 @@ import java.util.*;
 /**
  * 实际伤害计算器
  *
- * ★★★ 调用 DamageCore + 附加逻辑 ★★★
+ * ★★★ 三乘区版本 ★★★
  *
  * 流程：
- * 1. DamageContext.forRealDamage() - 收集参数
+ * 1. DamageContext.forRealDamage() - 收集参数（含三乘区）
  * 2. DamageCore.calculate() - 核心计算
  * 3. applyEnchantmentBonus() - 附魔加成
  * 4. applyRpgAttributes() - RPG属性（斩杀等）
@@ -114,6 +114,7 @@ public final class AbilityDamageCalculator {
         }
 
         return (float) finalDamage;
+
     }
 
     // ==================== 附魔加成 ====================
@@ -148,7 +149,7 @@ public final class AbilityDamageCalculator {
 
         if (enchantBonus > 0) {
             double enchantMult = AddonConfig.COMMON.enchantmentMultiplier.get();
-            return enchantBonus * enchantMult * ctx.baseMultiplier();
+            return enchantBonus * enchantMult * ctx.externalMultiplier();
         }
 
         return 0.0;
@@ -247,7 +248,6 @@ public final class AbilityDamageCalculator {
             if (vanillaModifier != null && vanillaModifier > 1.0f) {
                 isCrit = true;
                 critMult = vanillaModifier;
-                // 获取显示用的暴击率
                 CritResult displayResult = getOrCreateCritResult(attacker);
                 displayChance = displayResult.chance;
                 displayDamage = displayResult.critDamage;
@@ -276,7 +276,6 @@ public final class AbilityDamageCalculator {
         return new CritInfo(isCrit, critMult, displayChance, displayDamage, linkedCrit);
     }
 
-    // ★ 改这里：使用 AttributeCache 替代 AttributeCommonHelper ★
     private static CritResult getOrCreateCritResult(LivingEntity entity) {
         UUID uuid = entity.getUUID();
         long currentTick = entity.level().getGameTime();
@@ -306,17 +305,14 @@ public final class AbilityDamageCalculator {
             double finalDamage,
             CritInfo critInfo,
             String rpgDebugInfo) {
-
         String skillName = (ctx.ability() != null) ? ctx.ability().getClass().getSimpleName() : null;
-
-        // 构建动态倍率信息
         StringBuilder dynamicMultInfo = new StringBuilder();
         dynamicMultInfo.append(ctx.dynamicMultInfo());
         dynamicMultInfo.append(rpgDebugInfo);
         if (critInfo.linkedCrit) {
             dynamicMultInfo.append(" ").append(Component.translatable("debug.jujutsu_addon.linked_crit").getString());
         }
-
+        // ★ 调用更新后的日志方法，传递四乘区数据 ★
         DamageDebugUtil.logCalculation(
                 player,
                 ctx.roleKey(),
@@ -325,7 +321,6 @@ public final class AbilityDamageCalculator {
                 ctx.totalPanel(),
                 (float) ctx.roleMultiplier(),
                 (float) ctx.speedModifier(),
-                (float) ctx.panelMultiplier(),
                 ctx.balancerMultiplier(),
                 (float) finalDamage,
                 critInfo.isCrit,
@@ -333,12 +328,15 @@ public final class AbilityDamageCalculator {
                 critInfo.displayDamage,
                 ctx.isActuallyMelee(),
                 dynamicMultInfo.toString(),
-                ctx.isAdditiveMode(),
-                ctx.weaponRatio(),
-                (float) ctx.baseMultiplier(),
-                skillName
+                skillName,
+                ctx.cursedEnergyOutput(),
+                // 四乘区数据
+                ctx.externalAddition(),
+                ctx.externalMultBase(),
+                ctx.externalMultTotal(),
+                ctx.independentAttrMult(),
+                ctx.externalContributions()
         );
-
         // 类名日志
         if (ctx.ability() != null && skillName != null) {
             if (DamageDebugUtil.shouldLogCalculationForSkill(player, "classinfo_" + skillName)) {

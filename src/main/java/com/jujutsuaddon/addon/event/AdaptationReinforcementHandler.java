@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.event;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.util.helper.tenshadows.mahoraga.AdaptationUtil; // 导入我们的新工具类
 import net.minecraft.commands.arguments.EntityAnchorArgument;

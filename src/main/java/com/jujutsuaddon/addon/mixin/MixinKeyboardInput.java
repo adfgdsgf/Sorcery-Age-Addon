@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.mixin;
 
-import com.jujutsuaddon.addon.client.ClientMovementHandler;
+import com.jujutsuaddon.addon.client.input.ClientMovementHandler;
 import net.minecraft.client.player.Input;
 import net.minecraft.client.player.KeyboardInput;
 import org.spongepowered.asm.mixin.Mixin;

@@ -1,6 +1,7 @@
 package com.jujutsuaddon.addon.capability;
 
 import com.jujutsuaddon.addon.JujutsuAddon;
+import com.jujutsuaddon.addon.capability.curse.AddonCurseBaselineData;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.CurseBaselineSyncS2CPacket;
 import net.minecraft.nbt.CompoundTag;

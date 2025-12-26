@@ -6,7 +6,7 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureC
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PressureBypassChecker;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.RaySphereChecker;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;

@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/ability/limitless/Infinity/pressure/damage/PressureDamageConfig.java
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.damage;
 
-import com.jujutsuaddon.addon.AbilityConfig;
+import com.jujutsuaddon.addon.config.AbilityConfig;
 
 /**
  * 压力伤害配置读取

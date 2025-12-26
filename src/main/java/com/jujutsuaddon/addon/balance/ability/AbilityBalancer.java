@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/balance/ability/AbilityBalancer.java
 package com.jujutsuaddon.addon.balance.ability;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
 import net.minecraft.world.entity.LivingEntity;

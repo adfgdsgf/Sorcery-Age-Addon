@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.client.gui.screen.shadowstorage;
 
 import com.jujutsuaddon.addon.client.util.NumberFormatHelper;
-import com.jujutsuaddon.addon.client.util.SlotRenderHelper;
+import com.jujutsuaddon.addon.client.render.SlotRenderHelper;
 import com.jujutsuaddon.addon.util.helper.ShadowStorageSortHelper;
 import com.jujutsuaddon.addon.util.helper.ShadowStorageSortHelper.SortMode;
 import net.minecraft.client.Minecraft;

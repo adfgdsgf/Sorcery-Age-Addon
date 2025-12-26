@@ -1,6 +1,7 @@
+// 文件路径: src/main/java/com/jujutsuaddon/addon/event/SorcererProtectionHandler.java
 package com.jujutsuaddon.addon.event;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
 import net.minecraft.tags.DamageTypeTags;
@@ -23,6 +24,7 @@ import java.util.UUID;
 @Mod.EventBusSubscriber(modid = JujutsuAddon.MODID)
 public class SorcererProtectionHandler {
 
+    // ★★★ 在这里定义 UUID，供 Mixin 调用 ★★★
     public static final UUID CONVERTED_ARMOR_UUID = UUID.fromString("99887766-5544-3322-1100-aabbccddeeff");
     public static final UUID CONVERTED_TOUGHNESS_UUID = UUID.fromString("11223344-5566-7788-9900-ffeeddccbbaa");
 
@@ -33,26 +35,19 @@ public class SorcererProtectionHandler {
     }
 
     private static void handleSorcererProtection(LivingHurtEvent event) {
-        // 注意：这里不能只检查 AddonConfig.COMMON.enableHealthToArmor.get()
-        // 因为那个开关可能只控制玩家。
-        // 如果您希望即使玩家开关关了，生物依然能生效，就去掉这个检查，或者单独加一个生物开关。
-        // 这里假设只要生物身上有那个 UUID 的修饰符，就应该生效。
-
         LivingEntity target = event.getEntity();
 
-        // [修改] 不再强制寻找 ownerPlayer，而是确定谁是属性的持有者
+        // 1. 确定谁是属性的持有者
         LivingEntity attributeHolder = target;
         boolean isSummon = false;
 
-        // 如果是玩家，持有者是玩家自己
+        // 如果是玩家
         if (target instanceof Player) {
-            // 玩家逻辑受 Config 控制
             if (!AddonConfig.COMMON.enableHealthToArmor.get()) return;
         }
-        // 如果是驯服生物 (如式神)，原逻辑是看主人
+        // 如果是驯服生物 (如式神)
         else if (target instanceof TamableAnimal summon && summon.getOwner() instanceof Player p) {
-            // 检查：是式神继承主人的护甲，还是生物自己有护甲？
-            // 如果生物自己有我们添加的修饰符，优先用生物自己的
+            // 优先检查生物自己是否有护甲修饰符
             if (hasConvertedStats(summon)) {
                 attributeHolder = summon;
             } else {
@@ -62,20 +57,21 @@ public class SorcererProtectionHandler {
                 isSummon = true;
             }
         }
-        // 如果是普通兼容生物 (如无主的女仆)，持有者是自己
+        // 如果是普通兼容生物
         else {
             if (!hasConvertedStats(target)) return;
             attributeHolder = target;
         }
 
-        // 检查持有者是否有咒术能力 (兼容性检查)
+        // 2. 检查是否有咒术能力
         if (!attributeHolder.getCapability(SorcererDataHandler.INSTANCE).isPresent()) return;
 
         DamageSource source = event.getSource();
+        // 排除灵魂伤害和穿透伤害
         if (SoulDamageUtil.isSoulDamage(source)) return;
         if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return;
 
-        // 排除世界斩
+        // 排除世界斩 (World Slash)
         Entity directEntity = source.getDirectEntity();
         String directEntityName = directEntity != null ? directEntity.getClass().getSimpleName() : "";
         if (directEntityName.contains("WorldSlash") || (source.getMsgId() != null && source.getMsgId().contains("world_slash"))) {
@@ -85,18 +81,15 @@ public class SorcererProtectionHandler {
         boolean shouldCalculate = false;
         boolean bypassesArmor = source.is(DamageTypeTags.BYPASSES_ARMOR);
 
-        // 如果是召唤物/兼容生物，或者攻击穿透护甲，则启用计算
-        if (isSummon || attributeHolder != target || bypassesArmor) {
-            shouldCalculate = true;
-        }
-        // 如果生物自己就有转化护甲，那肯定要计算，因为原版护甲机制可能无法处理这种特殊的“转化护甲”带来的高额减伤
-        if (hasConvertedStats(attributeHolder)) {
+        // 3. 决定是否启用自定义计算
+        // 如果是召唤物、或者攻击穿透了原版护甲、或者拥有我们要的转化护甲
+        if (isSummon || attributeHolder != target || bypassesArmor || hasConvertedStats(attributeHolder)) {
             shouldCalculate = true;
         }
 
         if (!shouldCalculate) return;
 
-        // [修改] 从 attributeHolder 获取属性
+        // 4. 获取转化后的护甲值
         double convertedArmor = 0.0;
         double convertedToughness = 0.0;
 
@@ -114,13 +107,15 @@ public class SorcererProtectionHandler {
 
         if (convertedArmor <= 0.01) return;
 
-        // 计算减伤
+        // 5. 执行减伤公式 (模拟高护甲效果)
+        // effectiveDefense = 护甲 + 1.5倍韧性
         double effectiveDefense = convertedArmor + (convertedToughness * 1.5);
         float originalDamage = event.getAmount();
+        // 减伤公式： 1 / (1 + 防御/20)
         float reductionFactor = (float) (1.0 / (1.0 + (effectiveDefense / 20.0)));
         float newDamage = originalDamage * reductionFactor;
 
-        // 保底伤害
+        // 6. 设定保底伤害 (防止无敌)
         if (originalDamage > 50 && newDamage < 2) {
             newDamage = 2.0f;
         }

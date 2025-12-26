@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.network.s2c;
 
-import com.jujutsuaddon.addon.client.InfinityFieldClientCache;
+import com.jujutsuaddon.addon.client.cache.InfinityFieldClientCache;
 import com.jujutsuaddon.addon.network.InfinityFieldData;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;

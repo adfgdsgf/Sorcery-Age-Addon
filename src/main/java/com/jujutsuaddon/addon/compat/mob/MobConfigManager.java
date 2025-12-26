@@ -1,11 +1,10 @@
 package com.jujutsuaddon.addon.compat.mob;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.registries.ForgeRegistries;
-import radon.jujutsu_kaisen.capability.data.sorcerer.JujutsuType;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;

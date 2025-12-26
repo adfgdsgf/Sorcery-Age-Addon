@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.network.s2c;
 
-import com.jujutsuaddon.addon.capability.AddonCurseBaselineData;
+import com.jujutsuaddon.addon.capability.curse.AddonCurseBaselineData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;

@@ -28,6 +28,9 @@ public class AimAssist {
     // 状态
     private static boolean isFirstLock = true;
 
+    // ★★★ 新增：标记目标是否因死亡丢失 ★★★
+    private static boolean targetDied = false;
+
     // 平滑角度缓存
     private static float smoothYaw = 0;
     private static float smoothPitch = 0;
@@ -79,23 +82,28 @@ public class AimAssist {
                 currentTarget = null;
                 isFirstLock = true;
                 hasSmoothedAngles = false;
+                targetDied = true;  // ★★★ 标记：目标死亡 ★★★
             } else {
                 double lockDist = config.aimAssistLockDistance.get();
                 if (lockDist > 0 && currentTarget.distanceTo(player) > lockDist) {
                     currentTarget = null;
                     isFirstLock = true;
                     hasSmoothedAngles = false;
+                    // 注意：超出距离不算死亡，不设置 targetDied
                 }
             }
         }
 
         // 寻找目标
         if (currentTarget == null) {
+            // ★★★ 如果上一个目标死了，使用距离优先 ★★★
+            String effectivePriority = targetDied ? "DISTANCE" : config.aimAssistPriority.get();
+
             currentTarget = finder.findTarget(
                     config.aimAssistMaxDistance.get(),
                     config.aimAssistFovAngle.get(),
                     entity -> finder.isValidTarget(entity, player),
-                    config.aimAssistPriority.get(),
+                    effectivePriority,  // ★★★ 使用有效优先级 ★★★
                     null,
                     false
             );
@@ -103,6 +111,7 @@ public class AimAssist {
             if (currentTarget != null) {
                 isFirstLock = true;
                 hasSmoothedAngles = false;
+                targetDied = false;  // ★★★ 重置标记 ★★★
             }
         }
     }
@@ -201,21 +210,11 @@ public class AimAssist {
         // ========== 8. 帧率无关的平滑追踪 ==========
         float speedConfig = config.aimAssistSpeed.get().floatValue();
 
-        // ★★★ 帧率无关公式 ★★★
-        // speedConfig 是基于 60fps 的配置值
-        // 公式: smoothFactor = 1 - (1 - speedConfig) ^ (deltaTime * 60)
-        //
-        // 例如 speedConfig = 0.7:
-        //   60fps: deltaTime=1/60,  factor = 1 - 0.3^1   = 0.70 (每帧移动70%)
-        //   30fps: deltaTime=1/30,  factor = 1 - 0.3^2   = 0.91 (每帧移动91%)
-        //   144fps: deltaTime=1/144, factor = 1 - 0.3^0.42 = 0.42 (每帧移动42%)
-        // → 最终 1 秒内追踪的总距离相同！
-
         float smoothFactor;
         if (speedConfig >= 1.0f) {
             smoothFactor = 1.0f;
         } else {
-            float frameMultiplier = deltaTime * 60.0f;  // 相对于60fps的帧数
+            float frameMultiplier = deltaTime * 60.0f;
             smoothFactor = 1.0f - (float) Math.pow(1.0f - speedConfig, frameMultiplier);
         }
 
@@ -262,6 +261,7 @@ public class AimAssist {
         isFirstLock = true;
         hasSmoothedAngles = false;
         lastFrameTime = 0;
+        targetDied = false;  // ★★★ 清理时也重置 ★★★
     }
 
     // ==================== 公共 API ====================

@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.client.gui.screen.shadowstorage;
 
-import com.jujutsuaddon.addon.capability.AddonShadowStorageData;
+import com.jujutsuaddon.addon.capability.curse.AddonShadowStorageData;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.util.FuzzySearchHelper;
 import com.jujutsuaddon.addon.util.helper.ShadowStorageSortHelper;

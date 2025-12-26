@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.mixin;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

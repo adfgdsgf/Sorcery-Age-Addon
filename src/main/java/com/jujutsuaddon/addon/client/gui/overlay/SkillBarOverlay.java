@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.client.gui.overlay;
 
-import com.jujutsuaddon.addon.client.AddonKeyBindings;
+import com.jujutsuaddon.addon.client.keybind.AddonKeyBindings;
 import com.jujutsuaddon.addon.client.ClientEvents;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.gui.screen.SkillBarConfigScreen;
@@ -10,7 +10,7 @@ import com.jujutsuaddon.addon.client.skillbar.SkillBarManager;
 import com.jujutsuaddon.addon.client.skillbar.render.AbilityStatus;
 import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
-import com.jujutsuaddon.addon.client.util.RenderHelper;
+import com.jujutsuaddon.addon.client.render.RenderHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;

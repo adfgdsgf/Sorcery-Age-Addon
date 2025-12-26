@@ -1,8 +1,7 @@
 package com.jujutsuaddon.addon.event;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.damage.calculator.AbilityDamageCalculator;
-import com.jujutsuaddon.addon.context.AbilityContext;
 import com.jujutsuaddon.addon.context.SoulDamageContext;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
@@ -10,6 +9,7 @@ import com.jujutsuaddon.addon.util.helper.CombatUtil;
 import com.jujutsuaddon.addon.util.helper.MobCompatUtils;
 import com.jujutsuaddon.addon.util.helper.SoulDamageUtil;
 import com.jujutsuaddon.addon.util.helper.WeaponEffectProxy;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -22,7 +22,9 @@ import net.minecraftforge.event.entity.player.CriticalHitEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.registries.ForgeRegistries;
 import radon.jujutsu_kaisen.ability.base.Ability;
+import radon.jujutsu_kaisen.damage.JJKDamageSources;
 import radon.jujutsu_kaisen.item.cursed_tool.SplitSoulKatanaItem;
 
 import java.util.List;
@@ -31,15 +33,11 @@ import java.util.List;
  * 伤害事件处理器
  * 专门负责处理战斗相关的逻辑：暴击、伤害计算等。
  *
- * 注意：无敌帧穿透逻辑已移至 MixinLivingEntity，以确保在原版检查之前执行。
+ * ★★★ 极简白名单模式：只处理 JJK 相关的伤害 ★★★
  */
 @Mod.EventBusSubscriber(modid = com.jujutsuaddon.addon.JujutsuAddon.MODID)
 public class DamageEventHandler {
 
-    /**
-     * 监听暴击事件 (CriticalHitEvent)
-     * 目的：捕获原版或其他模组产生的暴击倍率，存入缓存供后续计算使用。
-     */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onCriticalHit(CriticalHitEvent event) {
         if (event.getEntity() != null) {
@@ -51,10 +49,6 @@ public class DamageEventHandler {
         }
     }
 
-    /**
-     * 监听最终伤害事件 (LivingDamageEvent)
-     * 目的：仅用于调试，记录玩家造成的实际伤害数值。
-     */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDamage(LivingDamageEvent event) {
         if (event.getSource().getEntity() instanceof Player player && DebugManager.isDebugging(player)) {
@@ -62,14 +56,130 @@ public class DamageEventHandler {
         }
     }
 
-    // ====================================================================
-    // 注意：原 onLivingAttack 中的无敌帧处理已移至 MixinLivingEntity
-    // 这样可以确保在 hurt() 方法的最开始就处理，不会被原版逻辑覆盖
-    // ====================================================================
+    // ==================== 核心检测结果 ====================
+
+    /**
+     * 伤害检测结果
+     */
+    private record DamageCheckResult(
+            boolean shouldProcess,
+            boolean isMelee,
+            Ability ability
+    ) {
+        static DamageCheckResult skip() {
+            return new DamageCheckResult(false, false, null);
+        }
+
+        static DamageCheckResult process(boolean isMelee, Ability ability) {
+            return new DamageCheckResult(true, isMelee, ability);
+        }
+    }
+
+    // ==================== 硬编码白名单检测 ====================
+
+    /**
+     * 需要特例放行的技能类名列表
+     * 这些技能使用原版伤害源，容易被误判为普通攻击，需要通过调用栈强制识别
+     */
+    private static final List<String> WHITELISTED_SKILL_CLASSES = List.of(
+            "radon.jujutsu_kaisen.ability.misc.Blitz",   // 迅雷
+            "radon.jujutsu_kaisen.ability.misc.Barrage", // 缭乱
+            "radon.jujutsu_kaisen.ability.misc.Punch",   // 拳击
+            "radon.jujutsu_kaisen.ability.misc.Slam"     // 砸地
+    );
+
+    /**
+     * ★★★ 核心技术：调用栈检查 ★★★
+     * 检查当前代码执行路径中，是否包含上述四个技能类。
+     * 这比检查手持物品或爆炸类型要精准得多，绝无误判。
+     */
+    private static boolean isCausedByWhitelistedSkill() {
+        return StackWalker.getInstance().walk(stream -> stream.anyMatch(frame -> {
+            String className = frame.getClassName();
+            // 检查类名是否包含白名单中的关键词
+            // 使用 contains 是为了兼容 Lambda 表达式 (例如 Barrage$$Lambda...)
+            for (String skillClass : WHITELISTED_SKILL_CLASSES) {
+                if (className.contains(skillClass)) {
+                    return true;
+                }
+            }
+            return false;
+        }));
+    }
+
+    /**
+     * ★★★ 核心：判断是否应该处理这个伤害 ★★★
+     *
+     * 极简白名单：只处理 JJK mod 的伤害
+     * - JJK 技能伤害
+     * - JJK 投射物
+     * - JJK 武器近战
+     * - ★ 特例：硬编码的四个体术技能
+     *
+     * 其他一律不处理（包括 TACZ、原版弓箭、普通剑等）
+     */
+    private static DamageCheckResult shouldProcessDamage(
+            DamageSource source,
+            LivingEntity attacker,
+            LivingEntity target) {
+
+        // ===== 1. JJK 技能伤害（最高优先级）=====
+        if (source instanceof JJKDamageSources.JujutsuDamageSource jjkSource) {
+            Ability ability = jjkSource.getAbility();
+            boolean isMelee = (ability != null && ability.isMelee());
+            return DamageCheckResult.process(isMelee, ability);
+        }
+
+        Entity direct = source.getDirectEntity();
+
+        // ===== 2. JJK 投射物 =====
+        if (direct != null && direct != attacker) {
+            String className = direct.getClass().getName();
+
+            // 只处理 JJK 投射物，其他一律跳过
+            if (className.contains("jujutsu_kaisen") || className.contains("radon.jujutsu")) {
+                Ability ability = CombatUtil.findAbilityFromProjectile(direct);
+                return DamageCheckResult.process(false, ability);
+            }
+
+            // 非 JJK 投射物 → 跳过（包括 TACZ 子弹、原版箭等）
+            return DamageCheckResult.skip();
+        }
+
+        // ===== 3. JJK 武器近战 =====
+        // 只要拿着 JJK 武器，无论是平A还是技能，都算
+        String msgId = source.getMsgId();
+        if ("player".equals(msgId) || "mob".equals(msgId)) {
+            ItemStack weapon = attacker.getMainHandItem();
+            if (!weapon.isEmpty()) {
+                ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(weapon.getItem());
+                if (itemId != null && "jujutsu_kaisen".equals(itemId.getNamespace())) {
+                    return DamageCheckResult.process(true, null);
+                }
+            }
+        }
+
+        // ===== 4. ★★★ 硬编码特例检测 ★★★ =====
+        // 针对 Blitz, Barrage, Punch, Slam 这四个使用原版伤害源的技能
+        // 只有当攻击者是玩家或术师时才进行昂贵的栈检查
+        if (attacker instanceof Player || attacker.getCapability(radon.jujutsu_kaisen.capability.data.sorcerer.SorcererDataHandler.INSTANCE).isPresent()) {
+            if (isCausedByWhitelistedSkill()) {
+                // 检测到了！这是那四个技能之一造成的伤害
+                // Slam 是爆炸，视为非近战；其他视为近战
+                // 修复：1.20+ 版本没有 isExplosion()，改用 msgId 判断
+                boolean isExplosion = msgId.contains("explosion");
+                return DamageCheckResult.process(!isExplosion, null);
+            }
+        }
+
+        // ===== 其他一律不处理 =====
+        return DamageCheckResult.skip();
+    }
+
+    // ==================== 主事件处理 ====================
 
     /**
      * 监听受伤事件 (LivingHurtEvent) - 核心逻辑！
-     * 目的：接管伤害计算公式，应用各种倍率、平衡性调整和自定义逻辑。
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingHurt(LivingHurtEvent event) {
@@ -81,53 +191,50 @@ public class DamageEventHandler {
 
         Player playerForDebug = (attacker instanceof Player) ? (Player) attacker : null;
         DamageSource source = event.getSource();
+        LivingEntity target = event.getEntity();
         float originalDamage = event.getAmount();
 
-        // 解析当前技能
-        Ability currentAbility = null;
-        if (source.getDirectEntity() != source.getEntity()) {
-            currentAbility = CombatUtil.findAbility(source);
-        }
-        if (currentAbility == null) {
-            currentAbility = AbilityContext.get();
-        }
-        if (currentAbility == null) {
-            currentAbility = CombatUtil.findAbility(source);
+        // ★★★ 核心：判断是否应该处理这个伤害 ★★★
+        DamageCheckResult checkResult = shouldProcessDamage(source, attacker, target);
+
+        if (!checkResult.shouldProcess) {
+            return;  // 不处理，保持原伤害
         }
 
+        Ability currentAbility = checkResult.ability;
         boolean isSkillDamage = (currentAbility != null);
-        if (isSkillDamage) {
-            // ★ 解耦：直接传 source，让 WeaponEffectProxy 自己判断
-            WeaponEffectProxy.markAbilityDamage(source, event.getEntity());
-        }
-        boolean isSSKSoulDamage = SoulDamageUtil.isSoulDamage(source);
+        boolean isMelee = checkResult.isMelee;
 
+        // SSK 检测（释魂刀是 JJK 武器，在 shouldProcessDamage 中已通过）
+        boolean isSSKSoulDamage = SoulDamageUtil.isSoulDamage(source);
         ItemStack stack = attacker.getMainHandItem();
         boolean isSSKPhysical = !isSSKSoulDamage && !isSkillDamage && !stack.isEmpty()
                 && stack.getItem() instanceof SplitSoulKatanaItem;
 
+        if (isSSKPhysical) {
+            isMelee = true;
+        }
+
+        // 标记技能伤害
+        if (isSkillDamage) {
+            WeaponEffectProxy.markAbilityDamage(source, target);
+        }
+
         // 释魂刀灵魂伤害特殊处理
         if (isSSKSoulDamage) {
-            Float storedDamage = ModEventHandler.SSK_PRE_ARMOR_DAMAGE.get();
-            if (storedDamage != null) {
-                double correctionFactor = AddonConfig.COMMON.sskDamageCorrection.get();
-                float fixedDamage = (float) (storedDamage * correctionFactor);
-                if (fixedDamage > originalDamage) {
-                    event.setAmount(fixedDamage);
-                    if (playerForDebug != null) {
-                        DamageDebugUtil.logSSKCorrection(playerForDebug, storedDamage, fixedDamage, correctionFactor);
-                    }
+            // 修复：直接使用当前的 originalDamage 进行计算
+            // 之前尝试读取 SSK_PRE_ARMOR_DAMAGE 是错误的，因为该值在 captureFinalHurtDamage (LOWEST) 才设置
+            double correctionFactor = AddonConfig.COMMON.sskDamageCorrection.get();
+            float fixedDamage = (float) (originalDamage * correctionFactor);
+
+            if (fixedDamage > originalDamage) {
+                event.setAmount(fixedDamage);
+                if (playerForDebug != null) {
+                    DamageDebugUtil.logSSKCorrection(playerForDebug, originalDamage, fixedDamage, correctionFactor);
                 }
             }
             return;
         }
-
-        // 过滤非战斗伤害
-        String msgId = source.getMsgId();
-        boolean isVanillaAttack = msgId != null && ("player".equals(msgId) || "mob".equals(msgId));
-        if (!isVanillaAttack && !isSkillDamage && !isSSKPhysical) return;
-
-        boolean isMelee = isVanillaAttack || isSSKPhysical;
 
         // 判断技能是否视为近战
         if (isSkillDamage && currentAbility != null) {
@@ -149,13 +256,13 @@ public class DamageEventHandler {
         float finalDamage = AbilityDamageCalculator.calculateDamage(
                 currentAbility,
                 attacker,
-                event.getEntity(),
+                target,
                 originalDamage,
                 isMelee
         );
 
         // PVP 平衡
-        if (AddonConfig.COMMON.enablePvpBalance.get() && event.getEntity() instanceof Player) {
+        if (AddonConfig.COMMON.enablePvpBalance.get() && target instanceof Player) {
             finalDamage *= AddonConfig.COMMON.pvpDamageMultiplier.get();
         }
 
@@ -170,9 +277,8 @@ public class DamageEventHandler {
         }
     }
 
-    /**
-     * 捕获伤害用于灵魂伤害补偿
-     */
+    // ==================== 其他事件处理 ====================
+
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void captureFinalHurtDamage(LivingHurtEvent event) {
         if (event.getAmount() <= 0) return;
@@ -195,9 +301,6 @@ public class DamageEventHandler {
         }
     }
 
-    /**
-     * 灵魂伤害补偿逻辑
-     */
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = false)
     public static void onSoulDamageCompensation(LivingDamageEvent event) {
         Float expectedDamage = SoulDamageContext.get();
@@ -216,5 +319,27 @@ public class DamageEventHandler {
             }
         }
         SoulDamageContext.clear();
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onHurtFinalDebug(LivingHurtEvent event) {
+        Entity attacker = event.getSource().getEntity();
+        if (attacker == null) return;
+
+        Player player = null;
+        if (attacker instanceof Player p) {
+            player = p;
+        } else if (attacker instanceof TamableAnimal t && t.getOwner() instanceof Player p) {
+            player = p;
+        }
+
+        if (player == null || !DebugManager.isDebugging(player)) return;
+
+        float finalAmount = event.getAmount();
+
+        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                "debug.jujutsu_addon.event_final",
+                event.getEntity().getName().getString(),
+                String.format("%.1f", finalAmount)));
     }
 }

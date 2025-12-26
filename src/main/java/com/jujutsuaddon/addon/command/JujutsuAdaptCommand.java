@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.command;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.helper.CommandUtil; // 导入新工具类
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;

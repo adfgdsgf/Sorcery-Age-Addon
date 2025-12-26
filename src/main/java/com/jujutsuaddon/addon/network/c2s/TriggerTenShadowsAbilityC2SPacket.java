@@ -1,7 +1,9 @@
 package com.jujutsuaddon.addon.network.c2s;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
+import com.jujutsuaddon.addon.vow.manager.VowManager;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -13,6 +15,7 @@ import radon.jujutsu_kaisen.capability.data.ten_shadows.ITenShadowsData;
 import radon.jujutsu_kaisen.capability.data.ten_shadows.TenShadowsDataHandler;
 import radon.jujutsu_kaisen.capability.data.ten_shadows.TenShadowsMode;
 import radon.jujutsu_kaisen.network.PacketHandler;
+import radon.jujutsu_kaisen.network.packet.s2c.SetOverlayMessageS2CPacket;
 import radon.jujutsu_kaisen.network.packet.s2c.SyncSorcererDataS2CPacket;
 import radon.jujutsu_kaisen.network.packet.s2c.SyncTenShadowsDataS2CPacket;
 
@@ -54,21 +57,28 @@ public class TriggerTenShadowsAbilityC2SPacket {
             Ability ability = JJKAbilities.getValue(this.abilityKey);
             if (ability == null) return;
 
-            // ★★★ 先获取 TenShadowsData ★★★
+            // ★★★ 誓约系统：检查技能封印 ★★★
+            if (VowManager.isAbilityBanned(player, ability)) {
+                // 如果被封印，发送提示消息给玩家
+                PacketHandler.sendToClient(
+                        new SetOverlayMessageS2CPacket(
+                                Component.translatable("message.jujutsu_addon.ability_banned_by_vow"),
+                                false),
+                        player
+                );
+                return;
+            }
+
             ITenShadowsData tenData = player.getCapability(TenShadowsDataHandler.INSTANCE).resolve().orElse(null);
 
-            // 如果配置启用且需要切换模式，先切换
             if (AddonConfig.COMMON.enableTenShadowsModeBypass.get() && this.requiredMode != null && tenData != null) {
                 if (tenData.getMode() != this.requiredMode) {
                     tenData.setMode(this.requiredMode);
                 }
             }
 
-            // 触发技能
             AbilityHandler.trigger(player, ability);
 
-            // ★★★ 关键修复：始终同步两个数据到客户端 ★★★
-            // 这确保调伏状态、召唤状态等都能正确同步
             if (tenData != null) {
                 PacketHandler.sendToClient(new SyncTenShadowsDataS2CPacket(tenData.serializeNBT()), player);
             }

@@ -5,7 +5,7 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureC
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.effect.PressureEffectRenderer;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PlayerMovementTracker;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityAnalyzer;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;

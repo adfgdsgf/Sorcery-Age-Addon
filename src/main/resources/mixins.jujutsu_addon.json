@@ -5,19 +5,21 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "jujutsu_addon.refmap.json",
   "mixins": [
+    "AbilityVowCheckMixin",
+    "InfinityCostMixin",
     "MixinEnchantmentHelper",
     "MixinResistanceCalculation",
     "MixinSorcererData",
-    "MixinKeyMapping",
     "MixinEntityMove",
-    "InfinityCostMixin",
+    "MixinInfinityEvents",
     "core.MixinAbility",
     "core.MixinLivingEntity",
     "core.MixinCursedSpirit",
-    "core.MixinPlayerAttack",
+
     "core.MixinEntity",
     "debug.MixinDebugAttributes",
     "debug.MixinDebugHealth",
+    "ability.MixinWorldSlash",
     "access.SorcererDataAccess",
     "access.TenShadowsDataAccess",
     "access.LivingEntityAccessor",
@@ -39,7 +41,8 @@
     "fix.MixinTenShadowsData"
   ],
   "client": [
-    "client.MixinKeyboardInput",
+    "MixinKeyMapping",
+    "MixinKeyboardInput",
     "fix.slice.MixinCutModelUtil",
     "fix.slice.MixinSlicedEntityParticle",
     "fix.slice.MixinLegacyMath"

@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/damage/ServerDamagePredictor.java
 package com.jujutsuaddon.addon.damage;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.balance.ability.AbilityBalancer;
 import com.jujutsuaddon.addon.context.TamedCostContext;
 import com.jujutsuaddon.addon.damage.analysis.AbilityDamageData;

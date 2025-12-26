@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.util.helper;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.debug.DebugManager;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.ChatFormatting;

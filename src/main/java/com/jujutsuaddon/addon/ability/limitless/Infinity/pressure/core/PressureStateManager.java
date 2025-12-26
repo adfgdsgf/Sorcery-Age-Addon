@@ -1,13 +1,10 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core;
 
-import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ProjectileReleaseHelper;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 

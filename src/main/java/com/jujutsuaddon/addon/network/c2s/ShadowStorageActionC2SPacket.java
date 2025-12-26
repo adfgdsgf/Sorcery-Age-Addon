@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.network.c2s;
 
-import com.jujutsuaddon.addon.capability.AddonShadowStorageData;
+import com.jujutsuaddon.addon.capability.curse.AddonShadowStorageData;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.ShadowStorageSyncS2CPacket;
 import net.minecraft.network.FriendlyByteBuf;

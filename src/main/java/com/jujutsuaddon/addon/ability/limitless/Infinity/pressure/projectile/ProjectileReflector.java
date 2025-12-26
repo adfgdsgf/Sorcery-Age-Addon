@@ -3,7 +3,7 @@ package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.InfinityPressureHandler;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureStateManager;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.ProjectilePowerSyncS2CPacket;
 import net.minecraft.core.particles.ParticleTypes;

@@ -1,7 +1,7 @@
 // src/main/java/com/jujutsuaddon/addon/network/s2c/SyncInfinityPressureS2CPacket.java
 package com.jujutsuaddon.addon.network.s2c;
 
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.FriendlyByteBuf;

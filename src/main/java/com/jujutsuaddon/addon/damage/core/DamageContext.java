@@ -1,13 +1,12 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/damage/core/DamageContext.java
 package com.jujutsuaddon.addon.damage.core;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.balance.ability.AbilityBalancer;
 import com.jujutsuaddon.addon.balance.character.CharacterBalancer;
 import com.jujutsuaddon.addon.damage.cache.AttributeCache;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import radon.jujutsu_kaisen.ability.base.Ability;
@@ -16,10 +15,13 @@ import radon.jujutsu_kaisen.capability.data.sorcerer.SorcererDataHandler;
 import radon.jujutsu_kaisen.capability.data.sorcerer.Trait;
 
 import javax.annotation.Nullable;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 统一伤害上下文
+ *
+ * ★★★ 四乘区版本（三乘区 + 独立属性）★★★
  */
 public record DamageContext(
         LivingEntity attacker,
@@ -31,6 +33,7 @@ public record DamageContext(
         boolean isActuallyMelee,
         String roleKey,
 
+        // 面板数据
         double vanillaFlat,
         double vanillaFinal,
         double weaponRatio,
@@ -38,28 +41,42 @@ public record DamageContext(
         double attackSpeed,
         double effectiveSpeed,
 
+        // 职业/角色倍率
         double roleMultiplier,
         double preservation,
         double speedModifier,
+
+        // ★ 四乘区数据 ★
+        double externalAddition,      // 加法乘区
+        double externalMultBase,      // 乘法乘区
+        double externalMultTotal,     // 独立乘区
+        double independentAttrMult,   // ★ 独立属性乘数（projectile_damage 等）
+
+        // 兼容旧版
         double externalMultiplier,
         double baseMultiplier,
         double panelMultiplier,
 
+        // 技能倍率
         float balancerMultiplier,
         double skillConfigMultiplier,
 
+        // 暴击
         double critChance,
         double critDamage,
 
+        // 全局
         double globalMultiplier,
         boolean enablePanelScaling,
-        boolean isAdditiveMode,
+
+        // 咒力输出
+        float cursedEnergyOutput,
+
+        // 详细贡献列表
+        List<AttributeCache.MultiplierContribution> externalContributions,
 
         String dynamicMultInfo
 ) {
-
-    private static final UUID JJK_ATTACK_DAMAGE_UUID =
-            UUID.fromString("4979087e-da76-4f8a-93ef-6e5847bfa2ee");
 
     // ==================== 工厂方法 ====================
 
@@ -113,12 +130,21 @@ public record DamageContext(
         private double vanillaFlat, vanillaFinal, weaponRatio, totalPanel;
         private double attackSpeed, effectiveSpeed;
         private double roleMultiplier, preservation, speedModifier;
+
+        // ★ 四乘区 ★
+        private double externalAddition;
+        private double externalMultBase;
+        private double externalMultTotal;
+        private double independentAttrMult = 1.0;  // ★ 新增
         private double externalMultiplier, baseMultiplier, panelMultiplier;
+
         private float balancerMultiplier;
         private double skillConfigMultiplier;
         private double critChance, critDamage;
         private double globalMultiplier;
-        private boolean enablePanelScaling, isAdditiveMode;
+        private boolean enablePanelScaling;
+        private float cursedEnergyOutput;
+        private List<AttributeCache.MultiplierContribution> externalContributions = new ArrayList<>();
 
         public Builder(LivingEntity attacker, Ability ability,
                        float originalBaseDamage, boolean isMelee) {
@@ -147,10 +173,13 @@ public record DamageContext(
                     vanillaFlat, vanillaFinal, weaponRatio, totalPanel,
                     attackSpeed, effectiveSpeed,
                     roleMultiplier, preservation, speedModifier,
+                    externalAddition, externalMultBase, externalMultTotal, independentAttrMult,
                     externalMultiplier, baseMultiplier, panelMultiplier,
                     balancerMultiplier, skillConfigMultiplier,
                     critChance, critDamage,
-                    globalMultiplier, enablePanelScaling, isAdditiveMode,
+                    globalMultiplier, enablePanelScaling,
+                    cursedEnergyOutput,
+                    externalContributions,
                     ""
             );
         }
@@ -162,7 +191,6 @@ public record DamageContext(
             isHeavenlyRestriction = (cap != null && cap.hasTrait(Trait.HEAVENLY_RESTRICTION));
             isActuallyMelee = isMelee && !(ability instanceof Ability.IAttack);
 
-            isAdditiveMode = AddonConfig.COMMON.useAdditiveExternalAttributes.get();
             enablePanelScaling = AddonConfig.COMMON.enableAttackDamageScaling.get();
             globalMultiplier = AddonConfig.COMMON.globalDamageMultiplier.get();
 
@@ -170,42 +198,30 @@ public record DamageContext(
             collectAttackSpeedData();
             collectRoleMultipliers();
             collectExternalMultiplier();
-            calculateMultipliers();
             collectSkillMultipliers();
             collectCritData();
+            collectCursedEnergyOutput(cap);
 
             roleKey = buildRoleKey();
         }
 
         private void collectAttackDamageData() {
             AttributeInstance atkAttr = attacker.getAttribute(Attributes.ATTACK_DAMAGE);
-
             if (atkAttr != null) {
-                vanillaFlat = atkAttr.getValue();
-                AttributeModifier jjkMod = atkAttr.getModifier(JJK_ATTACK_DAMAGE_UUID);
-                if (jjkMod != null) {
-                    vanillaFlat -= jjkMod.getAmount();
-                    if (vanillaFlat < 1.0) vanillaFlat = 1.0;
-                }
+                vanillaFlat = atkAttr.getBaseValue();
+                if (vanillaFlat < 1.0) vanillaFlat = 1.0;
             } else {
                 vanillaFlat = 1.0;
             }
-
-            double percentBonus = AttributeCache.getAttackDamagePercent(attacker);
-
-            if (isAdditiveMode) {
-                vanillaFinal = vanillaFlat;
-            } else {
-                vanillaFinal = vanillaFlat * (1.0 + percentBonus);
-            }
-
-            weaponRatio = (vanillaFlat > 0.001) ? (vanillaFinal / vanillaFlat) : 1.0;
+            vanillaFinal = vanillaFlat;
+            weaponRatio = 1.0;
 
             double modExtraFlat = 0.0;
             if (attacker instanceof Player player) {
                 modExtraFlat = AttributeCache.getExtraAttributePanel(player);
             }
-            totalPanel = vanillaFinal + modExtraFlat;
+
+            totalPanel = vanillaFlat + modExtraFlat;
         }
 
         private void collectAttackSpeedData() {
@@ -235,17 +251,31 @@ public record DamageContext(
             }
         }
 
+        /**
+         * ★ 核心：收集四乘区数据 ★
+         */
         private void collectExternalMultiplier() {
-            externalMultiplier = AttributeCache.calculateExternalMultiplier(
-                    attacker, isActuallyMelee, isAdditiveMode);
-        }
+            AttributeCache.ExternalMultiplierResult result =
+                    AttributeCache.calculateExternalMultiplierDetailed(attacker, isActuallyMelee);
 
-        private void calculateMultipliers() {
-            if (isAdditiveMode) {
-                baseMultiplier = weaponRatio + (externalMultiplier - 1.0);
-            } else {
-                baseMultiplier = weaponRatio * externalMultiplier;
-            }
+            // 四乘区原始数据
+            externalAddition = result.additionSum();
+            externalMultBase = result.multiplyBaseSum();
+            externalMultTotal = result.multiplyTotalProd();
+            independentAttrMult = result.independentAttrMult();
+
+            // ★ NaN 保护 ★
+            if (Double.isNaN(externalAddition)) externalAddition = 0.0;
+            if (Double.isNaN(externalMultBase)) externalMultBase = 0.0;
+            if (Double.isNaN(externalMultTotal)) externalMultTotal = 1.0;
+            if (Double.isNaN(independentAttrMult)) independentAttrMult = 1.0;
+
+            // 贡献详情
+            externalContributions = result.contributions();
+
+            // 兼容旧版：计算综合倍率（包含独立属性）
+            externalMultiplier = (1.0 + externalMultBase) * externalMultTotal * independentAttrMult;
+            baseMultiplier = externalMultiplier;
             panelMultiplier = externalMultiplier;
         }
 
@@ -263,7 +293,6 @@ public record DamageContext(
             }
         }
 
-        // ★ 修改这里：使用 AttributeCache 替代 AttributeCommonHelper ★
         private void collectCritData() {
             if (silentMode) {
                 critChance = AttributeCache.getCritChanceSilent(attacker);
@@ -271,6 +300,14 @@ public record DamageContext(
             } else {
                 critChance = AttributeCache.getCritChance(attacker);
                 critDamage = AttributeCache.getCritDamage(attacker);
+            }
+        }
+
+        private void collectCursedEnergyOutput(@Nullable ISorcererData cap) {
+            if (cap != null) {
+                this.cursedEnergyOutput = cap.getOutput();
+            } else {
+                this.cursedEnergyOutput = 1.0f;
             }
         }
 

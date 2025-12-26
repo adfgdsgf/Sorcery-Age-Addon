@@ -1,7 +1,6 @@
 package com.jujutsuaddon.addon.client.skillbar.render;
 
-import com.jujutsuaddon.addon.client.skillbar.SkillBarConstants;
-import com.jujutsuaddon.addon.client.util.RenderHelper;
+import com.jujutsuaddon.addon.client.render.RenderHelper;
 import net.minecraft.client.gui.GuiGraphics;
 import radon.jujutsu_kaisen.ability.base.Ability;
 import radon.jujutsu_kaisen.capability.data.sorcerer.CursedTechnique;

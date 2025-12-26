@@ -1,10 +1,9 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/damage/cache/AttributeCache.java
 package com.jujutsuaddon.addon.damage.cache;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil;
 import com.jujutsuaddon.addon.util.debug.DamageDebugUtil.CritContribution;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -19,45 +18,133 @@ import java.util.*;
 /**
  * 统一属性缓存管理器
  *
- * 负责：
- * 1. 技能倍率配置缓存
- * 2. 额外属性面板缓存
- * 3. 倍率属性缓存（其他mod的伤害加成）
- * 4. 暴击属性缓存（暴击率/暴击伤害）
+ * ★★★ 完全自动化版本 - 零关键词依赖 ★★★
+ *
+ * 核心逻辑：
+ * 1. attack_damage：收集所有 modifier 到三乘区
+ * 2. 其他属性：运行时动态判断
+ *    - 默认值 ≈ 1.0 且 当前值 ≠ 1.0 → 作为独立乘数
+ *    - 值必须 > 0（防止乘0）
+ *    - 不在黑名单中
  */
 public final class AttributeCache {
 
     private AttributeCache() {}
 
-    private static final UUID JJK_ATTACK_DAMAGE_UUID =
-            UUID.fromString("4979087e-da76-4f8a-93ef-6e5847bfa2ee");
-
     // ==================== 缓存字段 ====================
 
     private static Map<String, Double> skillMultiplierCache = null;
     private static Map<Attribute, Double> flatAttributeCache = null;
-    private static Map<Attribute, Double> multiplierAttributeCache = null;
+    private static Set<String> blacklistPatterns = null;
     private static List<Attribute> critChanceAttributes = null;
     private static List<Attribute> critDamageAttributes = null;
     private static boolean initialized = false;
 
-    // ==================== 扫描关键词 ====================
+    // ==================== 乘区类型枚举 ====================
 
-    private static final String[] AUTO_SCAN_KEYWORDS = {
-            "magic_damage", "spell_power", "spell_damage", "mana_damage",
-            "intelligence", "magic_attack",
-            "projectile", "arrow", "ranged",
-            "fire", "explosion", "cold", "lightning", "holy", "elemental",
-            "all_damage", "all_attack", "bonus_damage", "extra_damage",
-            "damage_bonus", "attack_bonus", "damage_dealt", "total_damage"
-    };
+    public enum MultiplierType {
+        ADDITION,           // 加法乘区
+        MULTIPLY_BASE,      // 乘法乘区
+        MULTIPLY_TOTAL,     // 独立乘区
+        INDEPENDENT_ATTR    // 独立属性最终值
+    }
 
-    private static final String[] AUTO_SCAN_BLACKLIST = {
-            "resistance", "reduction", "cost", "regen", "speed", "velocity"
-    };
+    // ==================== 外部倍率结果 ====================
 
-    private static final String[] CRIT_BLACKLIST = {
-            "resis", "def", "avoid", "reduction"
+    public record ExternalMultiplierResult(
+            double additionSum,
+            double multiplyBaseSum,
+            double multiplyTotalProd,
+            double independentAttrMult,
+            List<MultiplierContribution> contributions
+    ) {
+        public double applyToBase(double baseValue) {
+            return (baseValue + additionSum) * (1.0 + multiplyBaseSum) * multiplyTotalProd;
+        }
+
+        public double getMultiplierOnly() {
+            return (1.0 + multiplyBaseSum) * multiplyTotalProd * independentAttrMult;
+        }
+
+        public double applyFull(double baseValue) {
+            return applyToBase(baseValue) * independentAttrMult;
+        }
+
+        public double totalMultiplier() {
+            return getMultiplierOnly();
+        }
+
+        public boolean hasAnyBonus() {
+            return Math.abs(additionSum) > 0.001 ||
+                    Math.abs(multiplyBaseSum) > 0.001 ||
+                    Math.abs(multiplyTotalProd - 1.0) > 0.001 ||
+                    Math.abs(independentAttrMult - 1.0) > 0.001;
+        }
+    }
+
+    public record MultiplierContribution(
+            String source,
+            String modifierName,
+            double value,
+            MultiplierType type
+    ) {
+        public String formatValue() {
+            return switch (type) {
+                case ADDITION -> String.format("+%.1f", value);
+                case MULTIPLY_BASE -> String.format("+%.0f%%", value * 100);
+                case MULTIPLY_TOTAL -> String.format("×%.2f", 1 + value);
+                case INDEPENDENT_ATTR -> String.format("×%.2f", value);
+            };
+        }
+
+        public String shortSource() {
+            if (source == null) return "?";
+            if (source.length() > 20) {
+                return source.substring(0, 20) + "..";
+            }
+            return source;
+        }
+
+        public String modId() {
+            int idx = source != null ? source.indexOf(':') : -1;
+            return idx > 0 ? source.substring(0, idx) : "unknown";
+        }
+
+        public String pattern() {
+            int idx = source != null ? source.indexOf(':') : -1;
+            return idx > 0 ? source.substring(idx + 1) : (source != null ? source : "unknown");
+        }
+
+        public double bonus() { return value; }
+    }
+
+    // ==================== 黑名单 ====================
+
+    private static final Set<String> HARDCODED_BLACKLIST = Set.of(
+            "max_health", "generic.max_health", "health",
+            "armor", "generic.armor",
+            "armor_toughness", "generic.armor_toughness",
+            "movement_speed", "generic.movement_speed",
+            "flying_speed", "generic.flying_speed",
+            "swim_speed", "step_height",
+            "attack_speed", "generic.attack_speed",
+            "follow_range", "generic.follow_range",
+            "reach", "attack_range", "block_reach",
+            "knockback_resistance", "generic.knockback_resistance",
+            "knockback", "attack_knockback",
+            "luck", "generic.luck",
+            "jump_strength", "horse.jump_strength",
+            "spawn_reinforcements", "zombie.spawn_reinforcements"
+    );
+
+    private static final String[] BLACKLIST_KEYWORDS = {
+            "resist", "reduction", "defense", "block",
+            "cost", "regen", "cooldown", "duration",
+            "mana", "stamina", "energy",
+            "heal", "life_steal", "leech", "lifesteal",
+            "experience", "xp", "level",
+            "size", "scale", "radius", "range",
+            "velocity", "speed"
     };
 
     // ==================== 初始化 ====================
@@ -67,14 +154,14 @@ public final class AttributeCache {
 
         skillMultiplierCache = new HashMap<>();
         flatAttributeCache = new HashMap<>();
-        multiplierAttributeCache = new HashMap<>();
+        blacklistPatterns = new HashSet<>();
         critChanceAttributes = new ArrayList<>();
         critDamageAttributes = new ArrayList<>();
 
         loadSkillMultipliers();
         loadFlatAttributes();
-        loadMultiplierAttributes();
-        loadCritAttributes();
+        loadBlacklistFromConfig();
+        scanCritAttributes();
 
         initialized = true;
     }
@@ -96,69 +183,39 @@ public final class AttributeCache {
     private static void loadFlatAttributes() {
         try {
             List<? extends String> flatConfig = AddonConfig.COMMON.extraAttributeScaling.get();
-            parseAttributeConfig(flatConfig, flatAttributeCache);
+            for (String entry : flatConfig) {
+                String[] parts = entry.split("=");
+                if (parts.length >= 1) {
+                    try {
+                        ResourceLocation loc = new ResourceLocation(parts[0].trim());
+                        double value = parts.length >= 2 ? Double.parseDouble(parts[1].trim()) : 1.0;
+                        if (ForgeRegistries.ATTRIBUTES.containsKey(loc)) {
+                            Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(loc);
+                            flatAttributeCache.put(attr, value);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
         } catch (Exception ignored) {}
     }
 
-    private static void loadMultiplierAttributes() {
-        // 自动扫描
-        for (Map.Entry<ResourceKey<Attribute>, Attribute> entry : ForgeRegistries.ATTRIBUTES.getEntries()) {
+    private static void loadBlacklistFromConfig() {
+        blacklistPatterns.addAll(HARDCODED_BLACKLIST);
+    }
+
+    private static void scanCritAttributes() {
+        for (var entry : ForgeRegistries.ATTRIBUTES.getEntries()) {
             ResourceLocation id = entry.getKey().location();
             Attribute attr = entry.getValue();
             String path = id.getPath().toLowerCase();
 
-            boolean isBlacklisted = false;
-            for (String block : AUTO_SCAN_BLACKLIST) {
-                if (path.contains(block)) {
-                    isBlacklisted = true;
-                    break;
-                }
-            }
-            if (isBlacklisted) continue;
-
-            boolean isMatch = false;
-            for (String keyword : AUTO_SCAN_KEYWORDS) {
-                if (path.contains(keyword)) {
-                    isMatch = true;
-                    break;
-                }
-            }
-
-            if (isMatch) {
-                multiplierAttributeCache.put(attr, 1.0);
-            }
-        }
-
-        // 配置覆盖
-        try {
-            List<? extends String> multConfig = AddonConfig.COMMON.bonusMultiplierAttributes.get();
-            parseAttributeConfig(multConfig, multiplierAttributeCache);
-        } catch (Exception ignored) {}
-    }
-
-    /**
-     * 扫描所有暴击相关属性
-     */
-    private static void loadCritAttributes() {
-        for (Map.Entry<ResourceKey<Attribute>, Attribute> entry : ForgeRegistries.ATTRIBUTES.getEntries()) {
-            ResourceLocation id = entry.getKey().location();
-            Attribute attr = entry.getValue();
-            String path = id.getPath().toLowerCase();
-
-            // 必须包含 crit
             if (!path.contains("crit")) continue;
 
-            // 排除防御/抵抗类
-            boolean isBlacklisted = false;
-            for (String block : CRIT_BLACKLIST) {
-                if (path.contains(block)) {
-                    isBlacklisted = true;
-                    break;
-                }
+            if (path.contains("resist") || path.contains("def") ||
+                    path.contains("avoid") || path.contains("reduction")) {
+                continue;
             }
-            if (isBlacklisted) continue;
 
-            // 分类
             if (path.contains("chance") || path.contains("rate")) {
                 critChanceAttributes.add(attr);
             } else if (path.contains("dmg") || path.contains("damage") || path.contains("bonus")) {
@@ -167,28 +224,63 @@ public final class AttributeCache {
         }
     }
 
-    private static void parseAttributeConfig(List<? extends String> configList, Map<Attribute, Double> targetMap) {
-        for (String entry : configList) {
-            String[] parts = entry.split("=");
-            if (parts.length >= 1) {
-                try {
-                    ResourceLocation loc = new ResourceLocation(parts[0].trim());
-                    double value = parts.length >= 2 ? Double.parseDouble(parts[1].trim()) : 1.0;
+    // ==================== 核心：判断是否是伤害乘数属性 ====================
 
-                    if (ForgeRegistries.ATTRIBUTES.containsKey(loc)) {
-                        Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(loc);
-                        targetMap.put(attr, value);
-                    }
-                } catch (Exception ignored) {}
+    /**
+     * ★★★ 完全自动判断 ★★★
+     *
+     * 判断逻辑：
+     * 1. 值必须 > 0（防止乘0）
+     * 2. 不是暴击属性（单独处理）
+     * 3. 不在黑名单中
+     * 4. 默认值 ≈ 1.0（乘数型属性的典型特征）
+     * 5. 当前值 ≠ 1.0（有实际加成）
+     * 6. 值不能太小（< 0.5 的减益跳过）
+     */
+    private static boolean isMultiplierDamageAttribute(Attribute attr, double currentValue) {
+        // ★★★ 关键：跳过 0 或负数，防止乘0 ★★★
+        if (currentValue <= 0.001) {
+            return false;
+        }
+
+        ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attr);
+        if (id == null) return false;
+
+        String fullId = id.toString().toLowerCase();
+        String path = id.getPath().toLowerCase();
+
+        // 跳过 attack_damage 本身
+        if (path.equals("attack_damage") || path.equals("generic.attack_damage")) {
+            return false;
+        }
+
+        // ★★★ 跳过暴击属性（单独处理）★★★
+        if (path.contains("crit")) {
+            return false;
+        }
+
+        // 检查黑名单
+        if (blacklistPatterns.contains(fullId) || blacklistPatterns.contains(path)) {
+            return false;
+        }
+
+        for (String keyword : BLACKLIST_KEYWORDS) {
+            if (path.contains(keyword)) {
+                return false;
             }
         }
+
+        // ★ 核心判断：默认值 ≈ 1.0 且 当前值有变化 ★
+        double defaultVal = attr.getDefaultValue();
+        boolean isMultiplierType = Math.abs(defaultVal - 1.0) < 0.05;
+        boolean hasChange = Math.abs(currentValue - defaultVal) > 0.01;
+
+
+        return isMultiplierType && hasChange;
     }
 
     // ==================== 技能倍率 ====================
 
-    /**
-     * 获取技能配置倍率
-     */
     public static double getSkillMultiplier(Object skillObject) {
         if (skillObject == null) return 1.0;
         if (!initialized) initialize();
@@ -209,9 +301,6 @@ public final class AttributeCache {
 
     // ==================== 额外属性面板 ====================
 
-    /**
-     * 获取额外属性面板（固定加成）
-     */
     public static double getExtraAttributePanel(Player player) {
         if (player == null) return 0.0;
         if (!initialized) initialize();
@@ -226,99 +315,189 @@ public final class AttributeCache {
         return extraDamage;
     }
 
-    // ==================== 外部倍率计算 ====================
+    // ==================== 核心：外部倍率计算（四乘区）====================
 
-    /**
-     * 计算外部倍率（其他mod的百分比加成）
-     */
-    public static double calculateExternalMultiplier(LivingEntity entity, boolean isMelee, boolean isAdditiveMode) {
+    public static ExternalMultiplierResult calculateExternalMultiplierDetailed(
+            LivingEntity entity, boolean isMelee) {
+
         if (!initialized) initialize();
 
-        double externalMultiplier = 1.0;
+        List<MultiplierContribution> contributions = new ArrayList<>();
+        double additionSum = 0.0;
+        double multiplyBaseSum = 0.0;
+        double multiplyTotalProd = 1.0;
+        double independentAttrMult = 1.0;
 
-        // 攻击力百分比加成
-        double atkPercentBonus = getAttackDamagePercent(entity);
-        if (atkPercentBonus > 0 && isAdditiveMode) {
-            externalMultiplier += atkPercentBonus;
-        }
+        // ==================== 1. attack_damage 三乘区 ====================
+        AttributeInstance atkInstance = entity.getAttribute(Attributes.ATTACK_DAMAGE);
+        if (atkInstance != null) {
+            for (AttributeModifier mod : atkInstance.getModifiers()) {
+                double amount = mod.getAmount();
+                if (Math.abs(amount) < 0.0001) continue;
 
-        // 术式才收集其他mod的属性加成
-        if (!isMelee) {
-            Map<String, Double> modMaxBonusMap = new HashMap<>();
+                MultiplierType type = convertOperation(mod.getOperation());
+                contributions.add(new MultiplierContribution(
+                        "mc:attack_damage", mod.getName(), amount, type));
 
-            for (Map.Entry<Attribute, Double> entry : multiplierAttributeCache.entrySet()) {
-                Attribute attr = entry.getKey();
-                Double factor = entry.getValue();
-
-                AttributeInstance instance = entity.getAttribute(attr);
-                double currentVal = (instance != null) ? instance.getValue() : attr.getDefaultValue();
-                double defaultVal = attr.getDefaultValue();
-                double bonus = 0.0;
-
-                if (Math.abs(defaultVal - 1.0) < 0.001) {
-                    if (currentVal > 1.0) bonus = (currentVal - 1.0) * factor;
-                } else if (Math.abs(defaultVal) < 0.001) {
-                    if (currentVal > 0) bonus = currentVal * factor;
-                } else {
-                    if (currentVal > defaultVal) bonus = (currentVal - defaultVal) * factor;
-                }
-
-                if (bonus > 0) {
-                    ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attr);
-                    String modId = (id != null) ? id.getNamespace() : "unknown";
-                    modMaxBonusMap.merge(modId, bonus, Math::max);
-                }
-            }
-
-            for (double modBonus : modMaxBonusMap.values()) {
-                if (isAdditiveMode) {
-                    externalMultiplier += modBonus;
-                } else {
-                    externalMultiplier *= (1.0 + modBonus);
+                switch (type) {
+                    case ADDITION -> additionSum += amount;
+                    case MULTIPLY_BASE -> multiplyBaseSum += amount;
+                    case MULTIPLY_TOTAL -> multiplyTotalProd *= (1 + amount);
                 }
             }
         }
 
-        return Math.max(1.0, externalMultiplier);
+        // ==================== 2. 自动扫描所有独立乘数属性 ====================
+        for (AttributeInstance instance : entity.getAttributes().getSyncableAttributes()) {
+            Attribute attr = instance.getAttribute();
+            double value = instance.getValue();
+
+            // NaN 和 Infinity 保护
+            if (Double.isNaN(value) || Double.isInfinite(value)) continue;
+
+            // ★★★ 跳过 0 或负数 ★★★
+            if (value <= 0.001) continue;
+
+            // ★ 核心：自动判断是否是伤害乘数属性 ★
+            if (isMultiplierDamageAttribute(attr, value)) {
+                independentAttrMult *= value;
+
+                ResourceLocation attrId = ForgeRegistries.ATTRIBUTES.getKey(attr);
+                String source = (attrId != null) ? attrId.toString() : "unknown";
+                contributions.add(new MultiplierContribution(
+                        source, "AutoDetected", value, MultiplierType.INDEPENDENT_ATTR));
+            }
+        }
+
+        // ==================== 3. 配置文件中指定的额外属性 ====================
+        try {
+            List<? extends String> multConfig = AddonConfig.COMMON.bonusMultiplierAttributes.get();
+            for (String entry : multConfig) {
+                String[] parts = entry.split("=");
+                if (parts.length < 1) continue;
+
+                String attrId = parts[0].trim();
+                double factor = parts.length >= 2 ? Double.parseDouble(parts[1].trim()) : 1.0;
+
+                try {
+                    ResourceLocation loc = new ResourceLocation(attrId);
+                    if (!ForgeRegistries.ATTRIBUTES.containsKey(loc)) continue;
+
+                    Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(loc);
+                    AttributeInstance instance = entity.getAttribute(attr);
+                    if (instance == null) continue;
+
+                    double value = instance.getValue();
+                    double defaultVal = attr.getDefaultValue();
+
+                    // 跳过无效值
+                    if (Double.isNaN(value) || Double.isInfinite(value)) continue;
+                    if (value <= 0.001) continue;
+
+                    // 避免重复计算
+                    if (isMultiplierDamageAttribute(attr, value)) continue;
+
+                    // 计算贡献
+                    double contribution;
+                    if (Math.abs(defaultVal - 1.0) < 0.05) {
+                        contribution = (value - 1.0) * factor;
+                    } else if (Math.abs(defaultVal) < 0.01) {
+                        contribution = value * factor;
+                    } else {
+                        contribution = ((value / defaultVal) - 1.0) * factor;
+                    }
+
+                    if (Math.abs(contribution) < 0.001) continue;
+
+                    multiplyBaseSum += contribution;
+                    contributions.add(new MultiplierContribution(
+                            attrId, "ConfigBonus", contribution, MultiplierType.MULTIPLY_BASE));
+
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        // ==================== 4. 最终 NaN 保护 ====================
+        if (Double.isNaN(additionSum)) additionSum = 0.0;
+        if (Double.isNaN(multiplyBaseSum)) multiplyBaseSum = 0.0;
+        if (Double.isNaN(multiplyTotalProd) || Double.isInfinite(multiplyTotalProd)) multiplyTotalProd = 1.0;
+        if (Double.isNaN(independentAttrMult) || Double.isInfinite(independentAttrMult)) independentAttrMult = 1.0;
+
+        return new ExternalMultiplierResult(
+                additionSum,
+                multiplyBaseSum,
+                multiplyTotalProd,
+                independentAttrMult,
+                contributions
+        );
     }
 
-    /**
-     * 获取攻击力百分比加成
-     */
+    private static MultiplierType convertOperation(AttributeModifier.Operation op) {
+        return switch (op) {
+            case ADDITION -> MultiplierType.ADDITION;
+            case MULTIPLY_BASE -> MultiplierType.MULTIPLY_BASE;
+            case MULTIPLY_TOTAL -> MultiplierType.MULTIPLY_TOTAL;
+        };
+    }
+
+    // ==================== 兼容方法 ====================
+
+    public static ExternalMultiplierResult calculateExternalMultiplierDetailed(
+            LivingEntity entity, boolean isMelee, boolean isAdditiveMode) {
+        return calculateExternalMultiplierDetailed(entity, isMelee);
+    }
+
+    public static double calculateExternalMultiplier(LivingEntity entity, boolean isMelee, boolean isAdditiveMode) {
+        ExternalMultiplierResult result = calculateExternalMultiplierDetailed(entity, isMelee);
+        return result.getMultiplierOnly();
+    }
+
     public static double getAttackDamagePercent(LivingEntity entity) {
         AttributeInstance att = entity.getAttribute(Attributes.ATTACK_DAMAGE);
         if (att == null) return 0.0;
 
         double percent = 0.0;
         for (AttributeModifier mod : att.getModifiers(AttributeModifier.Operation.MULTIPLY_BASE)) {
-            if (!mod.getId().equals(JJK_ATTACK_DAMAGE_UUID)) percent += mod.getAmount();
+            percent += mod.getAmount();
         }
         for (AttributeModifier mod : att.getModifiers(AttributeModifier.Operation.MULTIPLY_TOTAL)) {
-            if (!mod.getId().equals(JJK_ATTACK_DAMAGE_UUID)) percent += mod.getAmount();
+            percent += mod.getAmount();
         }
         return percent;
     }
 
     /**
-     * 获取倍率属性缓存（供 AbilityDamageCalculator 使用）
+     * ★ 兼容方法：返回空集合（新版是运行时判断，没有预扫描集合）★
      */
-    public static Map<Attribute, Double> getMultiplierAttributeCache() {
+    public static Set<Attribute> getScannedAttributes() {
+        // 新版是运行时动态判断，这里返回空集合
+        // 如果需要调试，可以用 getDetectedMultiplierAttributes(entity) 代替
+        return Collections.emptySet();
+    }
+
+    /**
+     * 调试用：获取指定实体上被检测到的乘数属性
+     */
+    public static List<String> getDetectedMultiplierAttributes(LivingEntity entity) {
         if (!initialized) initialize();
-        return multiplierAttributeCache;
+        List<String> detected = new ArrayList<>();
+        for (AttributeInstance instance : entity.getAttributes().getSyncableAttributes()) {
+            Attribute attr = instance.getAttribute();
+            double value = instance.getValue();
+            if (isMultiplierDamageAttribute(attr, value)) {
+                ResourceLocation id = ForgeRegistries.ATTRIBUTES.getKey(attr);
+                detected.add((id != null ? id.toString() : "?") + " = " + value);
+            }
+        }
+        return detected;
     }
 
     // ==================== 暴击率 ====================
 
-    /**
-     * 获取暴击率
-     */
     public static double getCritChance(LivingEntity entity) {
         return getCritChanceInternal(entity, false);
     }
 
-    /**
-     * 获取暴击率（静默模式，不输出日志）
-     */
     public static double getCritChanceSilent(LivingEntity entity) {
         return getCritChanceInternal(entity, true);
     }
@@ -337,7 +516,9 @@ public final class AttributeCache {
             double attrValue = instance.getValue();
             double defaultVal = attr.getDefaultValue();
 
-            // 判断是否是乘法型属性（默认值 >= 0.5 说明是百分比形式）
+            // ★ 跳过无效值 ★
+            if (Double.isNaN(attrValue) || Double.isInfinite(attrValue)) continue;
+
             boolean isMultiplicative = defaultVal >= 0.5;
             double contribution = isMultiplicative ? (attrValue - defaultVal) : attrValue;
 
@@ -366,16 +547,10 @@ public final class AttributeCache {
 
     // ==================== 暴击伤害 ====================
 
-    /**
-     * 获取暴击伤害倍率
-     */
     public static double getCritDamage(LivingEntity entity) {
         return getCritDamageInternal(entity, false);
     }
 
-    /**
-     * 获取暴击伤害倍率（静默模式，不输出日志）
-     */
     public static double getCritDamageSilent(LivingEntity entity) {
         return getCritDamageInternal(entity, true);
     }
@@ -394,7 +569,9 @@ public final class AttributeCache {
             double attrValue = instance.getValue();
             double defaultVal = attr.getDefaultValue();
 
-            // 判断是否是乘法型属性（默认值 >= 1.0 说明是倍率形式）
+            // ★ 跳过无效值 ★
+            if (Double.isNaN(attrValue) || Double.isInfinite(attrValue)) continue;
+
             boolean isMultiplicative = defaultVal >= 1.0;
             double contribution = isMultiplicative ? (attrValue - defaultVal) : attrValue;
 
@@ -419,20 +596,14 @@ public final class AttributeCache {
         return dmg;
     }
 
-    // ==================== 通用属性获取 ====================
+    // ==================== 通用方法 ====================
 
-    /**
-     * 安全获取属性值
-     */
     public static double safeGetAttribute(LivingEntity entity, Attribute attribute, double defaultValue) {
         if (entity == null || attribute == null) return defaultValue;
         AttributeInstance instance = entity.getAttribute(attribute);
         return (instance != null) ? instance.getValue() : defaultValue;
     }
 
-    /**
-     * 安全获取属性值（通过属性ID）
-     */
     public static double safeGetAttribute(LivingEntity entity, String attributeId, double defaultValue) {
         if (entity == null || attributeId == null) return defaultValue;
         try {
@@ -445,17 +616,16 @@ public final class AttributeCache {
         return defaultValue;
     }
 
-    // ==================== 缓存管理 ====================
-
-    /**
-     * 重新加载缓存（配置变更时调用）
-     */
     public static void reload() {
         initialized = false;
         skillMultiplierCache = null;
         flatAttributeCache = null;
-        multiplierAttributeCache = null;
+        blacklistPatterns = null;
         critChanceAttributes = null;
         critDamageAttributes = null;
+    }
+
+    public static boolean isInitialized() {
+        return initialized;
     }
 }

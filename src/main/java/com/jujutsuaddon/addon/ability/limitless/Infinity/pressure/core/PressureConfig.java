@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core;
 
-import com.jujutsuaddon.addon.AbilityConfig;
+import com.jujutsuaddon.addon.config.AbilityConfig;
 
 /**
  * 无下限压力系统配置

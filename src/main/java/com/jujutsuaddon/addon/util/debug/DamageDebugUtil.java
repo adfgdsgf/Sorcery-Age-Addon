@@ -1,5 +1,7 @@
 package com.jujutsuaddon.addon.util.debug;
 
+import com.jujutsuaddon.addon.damage.cache.AttributeCache;
+import com.jujutsuaddon.addon.damage.cache.AttributeCache.MultiplierType;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -27,21 +29,15 @@ public class DamageDebugUtil {
     private static final Set<Class<?>> analyzedClasses = Collections.synchronizedSet(new HashSet<>());
     private static final Map<UUID, Map<Integer, Runnable>> pendingLogs = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> isBuffering = new ConcurrentHashMap<>();
-
-    // 统一的日志去重Map（支持技能级别和类型级别去重）
     private static final Map<UUID, Map<String, Long>> logCooldown = new ConcurrentHashMap<>();
 
-    // 去重间隔（tick）
     private static final long LOG_COOLDOWN_TICKS = 10;
     private static final long BUFFER_WINDOW = 500;
 
     // =================================================================================
-    // 2. 日志去重方法（统一实现）
+    // 2. 日志去重方法
     // =================================================================================
 
-    /**
-     * 通用去重检查
-     */
     private static boolean shouldLog(Player player, String key) {
         if (!DebugManager.isDebugging(player)) return false;
 
@@ -69,7 +65,6 @@ public class DamageDebugUtil {
         return shouldLog(player, "crit_" + type);
     }
 
-    // 兼容旧调用
     public static boolean shouldLogBalancer(Player player) {
         return shouldLogBalancerForSkill(player, null);
     }
@@ -244,14 +239,14 @@ public class DamageDebugUtil {
     public static boolean shouldLogAttribute() {
         return Arrays.stream(Thread.currentThread().getStackTrace())
                 .anyMatch(e -> e.getClassName().contains("SummonEntity") || e.getClassName().contains("radon") ||
-                        e.getClassName().contains("jujutsuaddon") || e.getClassName().contains("MixinSummonSync") ||
+                        e.getClassName().contains("jujutsu_addon") || e.getClassName().contains("MixinSummonSync") ||
                         e.getClassName().contains("Player") || e.getClassName().contains("Inventory") ||
                         e.getClassName().contains("ItemStack") || e.getClassName().contains("AttributeMap"));
     }
 
     private static String getRelevantTrace() {
         return Arrays.stream(Thread.currentThread().getStackTrace()).skip(3)
-                .filter(e -> e.getClassName().contains("radon") || e.getClassName().contains("jujutsuaddon") ||
+                .filter(e -> e.getClassName().contains("radon") || e.getClassName().contains("jujutsu_addon") ||
                         e.getClassName().contains("MixinSummonSync") || e.getClassName().contains("Player") ||
                         e.getClassName().contains("AttributeMap"))
                 .limit(4).map(e -> "\n\t -> " + e.getClassName() + "." + e.getMethodName() + ":" + e.getLineNumber())
@@ -291,7 +286,7 @@ public class DamageDebugUtil {
     }
 
     // =================================================================================
-    // 7. 伤害计算调试 (Chat)
+    // 7. 伤害计算调试 (Chat) - ★ 四乘区版本（三乘区 + 独立属性）★
     // =================================================================================
 
     public static void accumulateDamage(Player player, float amount) {
@@ -326,82 +321,223 @@ public class DamageDebugUtil {
                 String.format("%.2f", factor), String.format("%.1f", rawDamage), String.format("%.1f", fixedDamage)));
     }
 
+    /**
+     * ★ 新版：四乘区伤害计算日志 ★
+     * 公式：{[(基础×保留) × (面板×乘法×独立×属性×攻速) + (加法×职业)] × 平衡} × 输出
+     */
     public static void logCalculation(Player player, String sourceKey, float originalBase, float preservationRatio,
-                                      double totalPanel, float classMult, float speedMult, float panelMult, float balancerMult,
+                                      double totalPanel, float classMult, float speedMult, float balancerMult,
                                       float finalDamage, boolean isCrit, float critChance, float critMult, boolean isMelee,
-                                      String extraInfo, boolean isAdditive, double weaponRatio, float baseMultiplier, String skillName) {
+                                      String extraInfo, String skillName, float cursedEnergyOutput,
+                                      double externalAddition, double externalMultBase, double externalMultTotal,
+                                      double independentAttrMult,
+                                      List<AttributeCache.MultiplierContribution> contributions) {
         if (!shouldLogCalculationForSkill(player, skillName)) return;
-
-        String modeKey = isAdditive ? "debug.jujutsu_addon.mode.additive_full" : "debug.jujutsu_addon.mode.multiplicative_full";
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.header",
-                Component.translatable(modeKey), Component.translatable(getTranslationKeyForSource(sourceKey)).withStyle(ChatFormatting.AQUA)));
-        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.base_line", String.format("%.2f", originalBase), String.format("%.2f", preservationRatio)));
-        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.panel_line", String.format("%.2f", totalPanel), String.format("%.2f", weaponRatio)));
-        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.factors_line",
-                String.format("%.2f", classMult), String.format("%.2f", speedMult), String.format("%.2f", balancerMult), String.format("%.2f", panelMult)));
-        if (extraInfo != null && !extraInfo.isEmpty()) {
-            player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.external_details", extraInfo));
+                Component.translatable("debug.jujutsu_addon.calc.new_formula"),
+                Component.translatable(getTranslationKeyForSource(sourceKey)).withStyle(ChatFormatting.AQUA)));
+        // 基础行
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.base_line",
+                String.format("%.2f", originalBase), String.format("%.2f", preservationRatio)));
+        // 面板行
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.panel_line_new",
+                String.format("%.2f", totalPanel)));
+        // 四乘区行（面板相关）
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.panel_zones_line",
+                String.format("%.2f", 1.0 + externalMultBase),
+                String.format("%.2f", externalMultTotal),
+                String.format("%.2f", independentAttrMult),
+                String.format("%.2f", speedMult)));
+        // 加法行（单独显示，只乘职业）
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.addition_line",
+                String.format("+%.2f", externalAddition),
+                String.format("%.2f", classMult)));
+        // 平衡和输出
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.final_factors_line",
+                String.format("%.2f", balancerMult),
+                String.format("%.2f", cursedEnergyOutput)));
+        // 外部贡献详情
+        if (contributions != null && !contributions.isEmpty()) {
+            String details = buildFourZoneContributions(contributions);
+            if (!details.isEmpty()) {
+                player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.external_details", details));
+            }
         }
-        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.formula_label"));
-        player.sendSystemMessage(Component.literal(String.format(
-                "   §8(§f%.2f §7* §f%.2f§8) §7+ §8(§f%.2f §7* §a%.2f §7* §b%.2f §7* §6%.2f§8) §7* §d%.2f",
-                originalBase, preservationRatio, totalPanel, classMult, speedMult, panelMult, balancerMult)));
+        if (extraInfo != null && !extraInfo.isEmpty()) {
+            player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.extra_info", extraInfo));
+        }
+        // 公式行
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.formula_new"));
+        player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.formula.new_template",
+                String.format("%.2f", originalBase),
+                String.format("%.2f", preservationRatio),
+                String.format("%.2f", totalPanel),
+                String.format("%.2f", 1.0 + externalMultBase),
+                String.format("%.2f", externalMultTotal),
+                String.format("%.2f", independentAttrMult),
+                String.format("%.2f", speedMult),
+                String.format("+%.2f", externalAddition),
+                String.format("%.2f", classMult),
+                String.format("%.2f", balancerMult),
+                String.format("%.2f", cursedEnergyOutput)));
+        // 暴击
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.calc.crit_stats",
                 String.format("%.1f", critChance * 100), String.format("%.2f", critMult), isCrit ? "§a✓" : "§7✗"));
+        // 最终
         MutableComponent finalLine = Component.translatable("debug.jujutsu_addon.calc.final_output", String.format("%.2f", finalDamage));
         if (isCrit) finalLine.append(Component.translatable("debug.jujutsu_addon.calc.crit_triggered"));
         player.sendSystemMessage(finalLine);
     }
 
-    // 兼容旧版调用
+    /**
+     * 构建四乘区贡献详情（本地化版本）
+     */
+    private static String buildFourZoneContributions(List<AttributeCache.MultiplierContribution> contributions) {
+        if (contributions == null || contributions.isEmpty()) {
+            return "";
+        }
+
+        List<AttributeCache.MultiplierContribution> additions = new ArrayList<>();
+        List<AttributeCache.MultiplierContribution> multBases = new ArrayList<>();
+        List<AttributeCache.MultiplierContribution> multTotals = new ArrayList<>();
+        List<AttributeCache.MultiplierContribution> independents = new ArrayList<>();
+
+        for (AttributeCache.MultiplierContribution c : contributions) {
+            switch (c.type()) {
+                case ADDITION -> additions.add(c);
+                case MULTIPLY_BASE -> multBases.add(c);
+                case MULTIPLY_TOTAL -> multTotals.add(c);
+                case INDEPENDENT_ATTR -> independents.add(c);
+            }
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        // 加法乘区
+        if (!additions.isEmpty()) {
+            sb.append(Component.translatable("debug.jujutsu_addon.zone.addition").getString()).append(" ");
+            for (AttributeCache.MultiplierContribution c : additions) {
+                sb.append(String.format("+%.1f§7[%s]§r ", c.value(), shortenSource(c.source())));
+            }
+        }
+
+        // 乘法乘区
+        if (!multBases.isEmpty()) {
+            sb.append(Component.translatable("debug.jujutsu_addon.zone.multiply_base").getString()).append(" ");
+            for (AttributeCache.MultiplierContribution c : multBases) {
+                sb.append(String.format("+%.0f%%§7[%s]§r ", c.value() * 100, shortenSource(c.source())));
+            }
+        }
+
+        // 独立乘区
+        if (!multTotals.isEmpty()) {
+            sb.append(Component.translatable("debug.jujutsu_addon.zone.multiply_total").getString()).append(" ");
+            for (AttributeCache.MultiplierContribution c : multTotals) {
+                sb.append(String.format("×%.2f§7[%s]§r ", 1 + c.value(), shortenSource(c.source())));
+            }
+        }
+
+        // 独立属性
+        if (!independents.isEmpty()) {
+            sb.append(Component.translatable("debug.jujutsu_addon.zone.independent").getString()).append(" ");
+            for (AttributeCache.MultiplierContribution c : independents) {
+                sb.append(String.format("×%.2f§7[%s]§r ", c.value(), shortenSource(c.source())));
+            }
+        }
+
+        return sb.toString().trim();
+    }
+
+    /**
+     * 缩短来源名称
+     */
+    private static String shortenSource(String source) {
+        if (source == null) return "?";
+        int colonIdx = source.indexOf(':');
+        if (colonIdx > 0) {
+            String modId = source.substring(0, colonIdx);
+            String attrName = source.substring(colonIdx + 1);
+            String shortMod = shortenModId(modId);
+            return shortMod + ":" + attrName;
+        }
+        return source;
+    }
+
+    private static String shortenModId(String modId) {
+        if (modId == null) return "?";
+        return switch (modId) {
+            case "minecraft" -> "mc";
+            case "apotheosis" -> "apo";
+            case "attributeslib" -> "alib";
+            case "jujutsu_kaisen" -> "jjk";
+            case "jujutsu_addon" -> "addon";
+            default -> modId.length() > 4 ? modId.substring(0, 4) : modId;
+        };
+    }
+
+    // ========== 兼容旧版调用（不含 independentAttrMult）==========
+
+    public static void logCalculation(Player player, String sourceKey, float originalBase, float preservationRatio,
+                                      double totalPanel, float classMult, float speedMult, float balancerMult,
+                                      float finalDamage, boolean isCrit, float critChance, float critMult, boolean isMelee,
+                                      String extraInfo, String skillName, float cursedEnergyOutput,
+                                      double externalAddition, double externalMultBase, double externalMultTotal,
+                                      List<AttributeCache.MultiplierContribution> contributions) {
+        // 旧版兼容：independentAttrMult = 1.0
+        logCalculation(player, sourceKey, originalBase, preservationRatio, totalPanel, classMult, speedMult,
+                balancerMult, finalDamage, isCrit, critChance, critMult, isMelee, extraInfo, skillName,
+                cursedEnergyOutput, externalAddition, externalMultBase, externalMultTotal, 1.0, contributions);
+    }
+
     public static void logCalculation(Player player, String sourceKey, float originalBase, float preservationRatio,
                                       double totalPanel, float classMult, float speedMult, float panelMult, float balancerMult,
                                       float finalDamage, boolean isCrit, float critChance, float critMult, boolean isMelee,
-                                      String extraInfo, boolean isAdditive, double weaponRatio, float baseMultiplier) {
-        logCalculation(player, sourceKey, originalBase, preservationRatio, totalPanel, classMult, speedMult, panelMult,
-                balancerMult, finalDamage, isCrit, critChance, critMult, isMelee, extraInfo, isAdditive, weaponRatio, baseMultiplier, sourceKey);
+                                      String extraInfo, boolean isAdditive, double weaponRatio, float baseMultiplier,
+                                      String skillName, float cursedEnergyOutput,
+                                      List<AttributeCache.MultiplierContribution> contributions) {
+        // 旧版兼容：将 panelMult 拆分为三乘区
+        logCalculation(player, sourceKey, originalBase, preservationRatio, totalPanel, classMult, speedMult,
+                balancerMult, finalDamage, isCrit, critChance, critMult, isMelee, extraInfo, skillName,
+                cursedEnergyOutput, 0, panelMult - 1.0, 1.0, contributions);
+    }
+
+    public static void logCalculation(Player player, String sourceKey, float originalBase, float preservationRatio,
+                                      double totalPanel, float classMult, float speedMult, float panelMult, float balancerMult,
+                                      float finalDamage, boolean isCrit, float critChance, float critMult, boolean isMelee,
+                                      String extraInfo, boolean isAdditive, double weaponRatio, float baseMultiplier,
+                                      String skillName, float cursedEnergyOutput) {
+        logCalculation(player, sourceKey, originalBase, preservationRatio, totalPanel, classMult, speedMult,
+                panelMult, balancerMult, finalDamage, isCrit, critChance, critMult, isMelee, extraInfo,
+                isAdditive, weaponRatio, baseMultiplier, skillName, cursedEnergyOutput, null);
     }
 
     public static void logSimple(Player player, String sourceKey, String id, float original, float finalDmg) {
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.damage_log",
                 Component.translatable(getTranslationKeyForSource(sourceKey)), id, String.format("%.1f", original), String.format("%.1f", finalDmg)));
     }
-
     public static void logMainModBonus(Player player, String reasonKey, float multiplier, float damageBefore, float damageAfter) {
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.main_mod_bonus",
                 Component.translatable(reasonKey), String.format("%.2f", multiplier), String.format("%.1f", damageAfter)));
     }
-// =================================================================================
-// 8. 平衡器调试 (Balancer Debug)
-// =================================================================================
-    /**
-     * 记录平衡器排除信息
-     */
+    // =================================================================================
+    // 8. 平衡器调试
+    // =================================================================================
     public static void logBalancerExcluded(Player player, String skillName, String category, String reason) {
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.balancer.excluded",
                 skillName, category, reason));
     }
-    /**
-     * 记录平衡器详情（统一版本，支持术式+类型的自动基准）
-     *
-     * @param technique 可为 null，如果 null 则不显示术式信息
-     * @param benchmarkInfo 可为 null，如果 null 则不显示基准来源
-     */
     public static void logBalancerDetails(Player player, String skillName, String category,
                                           String technique, String costFormula,
                                           float currentCost, float benchmarkCost,
                                           String benchmarkInfo, float rawRatio, float finalMult) {
         MutableComponent header = Component.translatable("debug.jujutsu_addon.balancer.header", skillName);
         player.sendSystemMessage(header);
-        // Category + Technique 行
         MutableComponent catLine = Component.translatable("debug.jujutsu_addon.balancer.category", category);
         if (technique != null && !technique.isEmpty() && !"NONE".equals(technique)) {
             catLine.append(Component.translatable("debug.jujutsu_addon.balancer.technique_suffix", technique));
         }
         player.sendSystemMessage(catLine);
-        // Formula 行
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.balancer.formula", costFormula));
-        // Cost / Benchmark 行
         MutableComponent costLine = Component.translatable("debug.jujutsu_addon.balancer.cost_compare",
                 String.format("%.2f", currentCost),
                 String.format("%.2f", benchmarkCost));
@@ -409,21 +545,16 @@ public class DamageDebugUtil {
             costLine.append(Component.translatable("debug.jujutsu_addon.balancer.benchmark_source", benchmarkInfo));
         }
         player.sendSystemMessage(costLine);
-        // Ratio -> Multiplier 行
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.balancer.result",
                 String.format("%.2f", rawRatio),
                 String.format("%.2fx", finalMult)));
     }
-    /**
-     * 简化版（向后兼容，不显示术式信息）
-     */
     public static void logBalancerDetails(Player player, String skillName, String category,
                                           String costFormula, float currentCost, float benchmarkCost,
                                           float rawRatio, float finalMult) {
         logBalancerDetails(player, skillName, category, null, costFormula,
                 currentCost, benchmarkCost, null, rawRatio, finalMult);
     }
-
     private static String getTranslationKeyForSource(String key) {
         if (key == null) return "debug.jujutsu_addon.source.unknown";
         return switch (key) {
@@ -440,11 +571,9 @@ public class DamageDebugUtil {
             default -> "debug.jujutsu_addon.source.unknown";
         };
     }
-
     // =================================================================================
     // 9. 暴击系统调试
     // =================================================================================
-
     public static void logCritChanceDetails(Player player, double baseChance, List<CritContribution> contributions, double finalChance) {
         if (!shouldLogCritForType(player, "chance")) return;
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.crit.base", String.format("%.2f", baseChance * 100)));
@@ -456,7 +585,6 @@ public class DamageDebugUtil {
             }
         }
     }
-
     public static void logCritDamageDetails(Player player, double baseDamage, List<CritContribution> contributions, double finalDamage) {
         if (!shouldLogCritForType(player, "damage")) return;
         player.sendSystemMessage(Component.translatable("debug.jujutsu_addon.crit.base_dmg", String.format("%.2f", baseDamage)));
@@ -468,6 +596,5 @@ public class DamageDebugUtil {
             }
         }
     }
-
     public record CritContribution(String attrId, double value, boolean isMultiplicative) {}
 }

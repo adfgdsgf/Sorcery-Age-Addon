@@ -7,9 +7,13 @@ import com.jujutsuaddon.addon.client.gui.screen.cursemanagement.CurseManagementS
 import com.jujutsuaddon.addon.client.gui.screen.HUDEditScreen;
 import com.jujutsuaddon.addon.client.gui.screen.SkillBarConfigScreen;
 import com.jujutsuaddon.addon.client.gui.screen.shadowstorage.ShadowStorageScreen;
+import com.jujutsuaddon.addon.client.gui.screen.vow.VowListScreen;
+import com.jujutsuaddon.addon.client.keybind.AddonKeyBindings;
 import com.jujutsuaddon.addon.client.skillbar.*;
-import com.jujutsuaddon.addon.client.util.AbilityTriggerHelper;
+import com.jujutsuaddon.addon.client.input.AbilityTriggerHelper;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
+import com.jujutsuaddon.addon.client.cache.InfinityFieldClientCache;
+import com.jujutsuaddon.addon.client.cache.ProjectileLerpCache;
 import com.jujutsuaddon.addon.network.*;
 import com.jujutsuaddon.addon.network.c2s.*;
 import com.jujutsuaddon.addon.util.helper.TechniqueAccessHelper;
@@ -17,7 +21,6 @@ import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -55,7 +58,6 @@ public class ClientEvents {
     private static final ResourceLocation SHADOW_STORAGE_KEY =
             new ResourceLocation("jujutsu_kaisen", "shadow_storage");
 
-    // ★★★ 新增：无下限技能的 ResourceLocation ★★★
     private static final ResourceLocation INFINITY_KEY =
             new ResourceLocation("jujutsu_kaisen", "infinity");
 
@@ -66,113 +68,44 @@ public class ClientEvents {
     private static final Map<Integer, Long> channelingStartTime = new HashMap<>();
     private static final long CHANNELING_VERIFY_DELAY = 150;
 
-    // ★★★ 反弹模式枚举 ★★★
     private enum ReflectMode {
-        NONE,       // 不反弹
-        TO_OWNER,   // 反弹到原发射者
-        TO_CURSOR   // 反弹到准星方向
+        NONE,
+        TO_OWNER,
+        TO_CURSOR
     }
 
-    @SubscribeEvent
-    public static void onKeyInput(InputEvent.Key event) {
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
-        if (player == null) return;
-        if (mc.screen == null && event.getAction() != GLFW.GLFW_REPEAT) {
-            // ===== 自瞄切换 =====
-            if (AddonKeyBindings.TOGGLE_AIM_ASSIST != null) {
-                if (AddonKeyBindings.TOGGLE_AIM_ASSIST.matches(event.getKey(), event.getScanCode())) {
-                    if (AddonClientConfig.CLIENT != null && AddonClientConfig.CLIENT.aimAssistEnabled.get()) {
-                        String triggerMode = AddonClientConfig.CLIENT.aimAssistTriggerMode.get();
-                        if ("HOLD".equalsIgnoreCase(triggerMode)) {
-                            if (event.getAction() == GLFW.GLFW_PRESS) {
-                                AimAssist.setKeyHeld(true);
-                            } else if (event.getAction() == GLFW.GLFW_RELEASE) {
-                                AimAssist.setKeyHeld(false);
-                            }
-                        } else {
-                            if (event.getAction() == GLFW.GLFW_PRESS) {
-                                AimAssist.toggle();
-                            }
-                        }
-                    }
-                    return;
-                }
-            }
-            // ===== 切换技能栏快捷键开关 =====
-            if (AddonKeyBindings.TOGGLE_SKILL_KEYS != null) {
-                if (AddonKeyBindings.TOGGLE_SKILL_KEYS.matches(event.getKey(), event.getScanCode())) {
-                    if (event.getAction() == GLFW.GLFW_PRESS) {
-                        skillKeysEnabled = !skillKeysEnabled;
-                        String key = skillKeysEnabled
-                                ? "message.jujutsu_addon.keys_enabled"
-                                : "message.jujutsu_addon.keys_disabled";
-                        player.displayClientMessage(Component.translatable(key), true);
-                    }
-                    return;
-                }
-            }
-            // ===== 打开HUD编辑界面 =====
-            if (AddonKeyBindings.OPEN_HUD_EDIT != null) {
-                if (AddonKeyBindings.OPEN_HUD_EDIT.matches(event.getKey(), event.getScanCode())) {
-                    if (event.getAction() == GLFW.GLFW_PRESS) {
-                        mc.setScreen(new HUDEditScreen());
-                    }
-                    return;
-                }
-            }
-        }
-        if (!FeatureToggleManager.isSkillBarEnabled()) return;
-        if (mc.screen == null && event.getAction() == GLFW.GLFW_PRESS) {
-            // ===== 打开技能栏配置 =====
-            if (AddonKeyBindings.OPEN_SKILL_CONFIG != null && AddonKeyBindings.OPEN_SKILL_CONFIG.consumeClick()) {
-                mc.setScreen(new SkillBarConfigScreen());
-                return;
-            }
-
-            if (!AddonClientConfig.CLIENT.enableSkillBar.get()) return;
-
-            // ===== 下一个预设 =====
-            if (AddonKeyBindings.NEXT_PRESET != null && AddonKeyBindings.NEXT_PRESET.consumeClick()) {
-                SkillBarManager.nextPreset();
-                return;
-            }
-
-            // ===== 上一个预设 =====
-            if (AddonKeyBindings.PREV_PRESET != null && AddonKeyBindings.PREV_PRESET.consumeClick()) {
-                SkillBarManager.prevPreset();
-            }
-        }
-    }
+    // =================================================================================
+    // 客户端 Tick 处理
+    // =================================================================================
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
 
-        // ★★★ 新增：处理投射物插值 ★★★
-        ProjectileLerpCache.tick();
-        if (!FeatureToggleManager.isSkillBarEnabled()) {
-            stopAllChanneling(Minecraft.getInstance().player);
-            keysDown.clear();
-            channelingStartTime.clear();
-            return;
-        }
-
-        if (!FeatureToggleManager.isSkillBarEnabled()) {
-            stopAllChanneling(Minecraft.getInstance().player);
-            keysDown.clear();
-            channelingStartTime.clear();
-            return;
-        }
-
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
+
+        ProjectileLerpCache.tick();
+
+        // ★★★ 使用 consumeClick() 处理按键（支持键盘和鼠标）★★★
+        if (player != null && mc.screen == null) {
+            handleKeyBindings(player);
+        }
+
+        if (!FeatureToggleManager.isSkillBarEnabled()) {
+            stopAllChanneling(player);
+            keysDown.clear();
+            channelingStartTime.clear();
+            return;
+        }
+
         if (player == null || mc.screen != null) {
             stopAllChanneling(player);
             keysDown.clear();
             channelingStartTime.clear();
             return;
         }
+
         if (!AddonClientConfig.CLIENT.enableSkillBar.get() || !skillKeysEnabled) {
             stopAllChanneling(player);
             keysDown.clear();
@@ -182,10 +115,12 @@ public class ClientEvents {
 
         verifyChannelingState(player);
 
+        // 技能槽位按键处理（支持键盘和鼠标）
         for (int i = 0; i < AddonKeyBindings.SKILL_SLOT_KEYS.size(); i++) {
             KeyMapping keyMapping = AddonKeyBindings.SKILL_SLOT_KEYS.get(i);
-            boolean isDown = keyMapping.isDown();
+            boolean isDown = isKeyOrMouseDown(keyMapping);
             boolean wasDown = keysDown.contains(i);
+
             if (isDown && !wasDown) {
                 keysDown.add(i);
                 onSlotKeyPressed(player, i);
@@ -195,6 +130,79 @@ public class ClientEvents {
             }
         }
     }
+
+    /**
+     * ★★★ 使用 consumeClick() 处理所有按键绑定 ★★★
+     * 这是 Forge 的标准做法，自动处理键盘和鼠标
+     */
+    private static void handleKeyBindings(LocalPlayer player) {
+        Minecraft mc = Minecraft.getInstance();
+
+        // ===== 自瞄 =====
+        handleAimAssistKey();
+
+        // ===== 切换技能栏快捷键开关 =====
+        while (AddonKeyBindings.TOGGLE_SKILL_KEYS.consumeClick()) {
+            skillKeysEnabled = !skillKeysEnabled;
+            player.displayClientMessage(Component.translatable(
+                    skillKeysEnabled ? "message.jujutsu_addon.keys_enabled" : "message.jujutsu_addon.keys_disabled"
+            ), true);
+        }
+
+        // ===== 打开HUD编辑界面 =====
+        while (AddonKeyBindings.OPEN_HUD_EDIT.consumeClick()) {
+            mc.setScreen(new HUDEditScreen());
+        }
+
+        // ===== 打开誓约界面 =====
+        while (AddonKeyBindings.OPEN_VOW_SCREEN.consumeClick()) {
+            mc.setScreen(new VowListScreen());
+        }
+
+        // ===== 技能栏相关按键 =====
+        if (FeatureToggleManager.isSkillBarEnabled()) {
+            // 打开技能栏配置
+            while (AddonKeyBindings.OPEN_SKILL_CONFIG.consumeClick()) {
+                mc.setScreen(new SkillBarConfigScreen());
+            }
+
+            if (AddonClientConfig.CLIENT.enableSkillBar.get()) {
+                // 下一个预设
+                while (AddonKeyBindings.NEXT_PRESET.consumeClick()) {
+                    SkillBarManager.nextPreset();
+                }
+
+                // 上一个预设
+                while (AddonKeyBindings.PREV_PRESET.consumeClick()) {
+                    SkillBarManager.prevPreset();
+                }
+            }
+        }
+    }
+
+    /**
+     * ★★★ 自瞄按键处理 ★★★
+     */
+    private static void handleAimAssistKey() {
+        if (AddonClientConfig.CLIENT == null) return;
+        if (!AddonClientConfig.CLIENT.aimAssistEnabled.get()) return;
+
+        String triggerMode = AddonClientConfig.CLIENT.aimAssistTriggerMode.get();
+
+        if ("HOLD".equalsIgnoreCase(triggerMode)) {
+            // HOLD 模式：检测按住状态
+            AimAssist.setKeyHeld(isKeyOrMouseDown(AddonKeyBindings.TOGGLE_AIM_ASSIST));
+        } else {
+            // TOGGLE 模式：用 consumeClick()
+            while (AddonKeyBindings.TOGGLE_AIM_ASSIST.consumeClick()) {
+                AimAssist.toggle();
+            }
+        }
+    }
+
+    // =================================================================================
+    // 玩家登录/登出
+    // =================================================================================
 
     @SubscribeEvent
     public static void onPlayerLogin(ClientPlayerNetworkEvent.LoggingIn event) {
@@ -206,7 +214,7 @@ public class ClientEvents {
     public static void onPlayerLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         SkillBarManager.onPlayerLogout();
         resetState();
-        InfinityFieldClientCache.clear();  // ★★★ 加这行 ★★★
+        InfinityFieldClientCache.clear();
         ProjectileLerpCache.clear();
     }
 
@@ -217,19 +225,21 @@ public class ClientEvents {
         skillKeysEnabled = true;
     }
 
+    // =================================================================================
+    // 技能槽位按键处理
+    // =================================================================================
+
     private static void onSlotKeyPressed(LocalPlayer player, int slot) {
         // ★★★ 投射物反弹检测（最高优先级）★★★
         Ability slotAbility = SkillBarManager.getSlot(slot);
         if (slotAbility != null && isInfinityAbility(slotAbility)) {
-            // 检查是否开启了无下限
             if (JJKAbilities.hasToggled(player, JJKAbilities.INFINITY.get())) {
                 ReflectMode reflectMode = getReflectMode();
                 if (reflectMode != ReflectMode.NONE) {
-                    // 发送反弹包
                     Vec3 lookDir = player.getLookAngle();
                     boolean toCursor = (reflectMode == ReflectMode.TO_CURSOR);
                     AddonNetwork.sendToServer(new ReflectProjectilesC2SPacket(toCursor, lookDir));
-                    return;  // 不执行原本的技能触发
+                    return;
                 }
             }
         }
@@ -314,21 +324,31 @@ public class ClientEvents {
         AddonNetwork.sendToServer(new TriggerAbilityWithSyncC2SPacket(key));
     }
 
-    // ★★★ 获取当前反弹模式 ★★★
+    private static void onSlotKeyReleased(LocalPlayer player, int slot) {
+        Ability ability = channelingSlots.remove(slot);
+        if (ability == null) return;
+
+        ResourceLocation key = JJKAbilities.getKey(ability);
+        if (key == null) return;
+
+        stopChannelingClient(player);
+        AddonNetwork.sendToServer(new StopChannelingC2SPacket(key));
+    }
+
+    // =================================================================================
+    // 辅助方法
+    // =================================================================================
+
     private static ReflectMode getReflectMode() {
-        // 优先检测准星方向（因为 Ctrl 可能和滚轮冲突，需要更精确）
-        if (isKeyDown(AddonKeyBindings.REFLECT_TO_CURSOR_MODIFIER)) {
+        if (isKeyOrMouseDown(AddonKeyBindings.REFLECT_TO_CURSOR_MODIFIER)) {
             return ReflectMode.TO_CURSOR;
         }
-
-        if (isKeyDown(AddonKeyBindings.REFLECT_TO_OWNER_MODIFIER)) {
+        if (isKeyOrMouseDown(AddonKeyBindings.REFLECT_TO_OWNER_MODIFIER)) {
             return ReflectMode.TO_OWNER;
         }
-
         return ReflectMode.NONE;
     }
 
-    // ★★★ 检查是否是无下限技能 ★★★
     private static boolean isInfinityAbility(Ability ability) {
         ResourceLocation key = JJKAbilities.getKey(ability);
         return INFINITY_KEY.equals(key);
@@ -449,17 +469,6 @@ public class ClientEvents {
         AddonNetwork.sendToServer(new TriggerTenShadowsAbilityC2SPacket(key, required));
     }
 
-    private static void onSlotKeyReleased(LocalPlayer player, int slot) {
-        Ability ability = channelingSlots.remove(slot);
-        if (ability == null) return;
-
-        ResourceLocation key = JJKAbilities.getKey(ability);
-        if (key == null) return;
-
-        stopChannelingClient(player);
-        AddonNetwork.sendToServer(new StopChannelingC2SPacket(key));
-    }
-
     private static void stopChannelingClient(LocalPlayer player) {
         if (player == null) return;
         player.getCapability(SorcererDataHandler.INSTANCE).ifPresent(cap -> {
@@ -483,14 +492,19 @@ public class ClientEvents {
         channelingStartTime.clear();
     }
 
+    // =================================================================================
+    // 滚轮事件
+    // =================================================================================
+
     @SubscribeEvent
     public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.screen != null) return;
         if (AddonKeyBindings.INFINITY_SCROLL_MODIFIER == null) return;
-        if (!isKeyDown(AddonKeyBindings.INFINITY_SCROLL_MODIFIER)) return;
+        if (!isKeyOrMouseDown(AddonKeyBindings.INFINITY_SCROLL_MODIFIER)) return;
         if (!JJKAbilities.hasToggled(player, JJKAbilities.INFINITY.get())) return;
+
         double scrollDelta = event.getScrollDelta();
         if (scrollDelta != 0) {
             boolean increase = scrollDelta > 0;
@@ -499,11 +513,20 @@ public class ClientEvents {
         }
     }
 
-    private static boolean isKeyDown(KeyMapping keyMapping) {
+    // =================================================================================
+    // 按键检测（支持键盘和鼠标）
+    // =================================================================================
+
+    /**
+     * 检测 KeyMapping 是否被按下（支持键盘和鼠标）
+     */
+    private static boolean isKeyOrMouseDown(KeyMapping keyMapping) {
         if (keyMapping == null || keyMapping.isUnbound()) return false;
+
         Minecraft mc = Minecraft.getInstance();
         InputConstants.Key key = keyMapping.getKey();
         long window = mc.getWindow().getWindow();
+
         if (key.getType() == InputConstants.Type.KEYSYM) {
             return InputConstants.isKeyDown(window, key.getValue());
         } else if (key.getType() == InputConstants.Type.MOUSE) {

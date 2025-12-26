@@ -3,6 +3,7 @@ package com.jujutsuaddon.addon.client.skillbar.render;
 import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
 import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
+import com.jujutsuaddon.addon.vow.manager.VowManager; // 引入誓约管理器
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
@@ -26,6 +27,9 @@ public class AbilityStatus {
     public boolean canUse = true;
     public int cooldown = 0;
     public Ability.Status statusCode = Ability.Status.SUCCESS;
+
+    // ★★★ 新增：誓约封印状态 ★★★
+    public boolean isBanned = false;
 
     // 冲突状态
     public boolean summonConflict = false;
@@ -100,6 +104,17 @@ public class AbilityStatus {
         } catch (Exception e) {
             status.cost = 0;
             status.maxCooldown = 0;
+        }
+
+        // ★★★ 检查誓约封印 ★★★
+        // 调用 VowManager 检查玩家是否通过誓约封印了此技能
+        try {
+            if (VowManager.isAbilityBanned(player, ability)) {
+                status.isBanned = true;
+                status.canUse = false; // 封印后不可用
+            }
+        } catch (Exception ignored) {
+            // 防止 VowManager 初始化前调用导致崩溃
         }
 
         // 十影召唤物特殊状态
@@ -196,30 +211,20 @@ public class AbilityStatus {
 
     /**
      * 获取显示用的伤害值
-     * ★ 修复：始终显示 addonDamage，因为这是实际造成的伤害
      */
     public float getDisplayDamage() {
         if (!canPredictDamage) return -1;
         return addonDamage;
     }
 
-    /**
-     * 判断伤害是否被增加
-     */
     public boolean isDamageIncreased() {
         return damageChange == AbilityDamagePredictor.PredictionResult.DamageChange.INCREASED;
     }
 
-    /**
-     * 判断伤害是否被减少
-     */
     public boolean isDamageDecreased() {
         return damageChange == AbilityDamagePredictor.PredictionResult.DamageChange.DECREASED;
     }
 
-    /**
-     * 格式化伤害显示
-     */
     public String formatDamage(float damage) {
         if (damage < 0) return "?";
         if (damage == 0) return "0";
@@ -235,21 +240,16 @@ public class AbilityStatus {
         return String.format("%.1f", damage);
     }
 
-    /**
-     * ★ 新增：格式化显示，带变化指示
-     */
     public String formatDamageWithChange() {
         if (!canPredictDamage) return "?";
 
         String damageStr = formatDamage(addonDamage);
 
-        // 添加暴击显示
         if (critDamage > addonDamage * 1.1f) {
             String critStr = formatDamage(critDamage);
             damageStr = damageStr + " §7(§c" + critStr + "§7)";
         }
 
-        // 添加变化指示
         return switch (damageChange) {
             case INCREASED -> "§a↑§r " + damageStr;
             case DECREASED -> "§c↓§r " + damageStr;

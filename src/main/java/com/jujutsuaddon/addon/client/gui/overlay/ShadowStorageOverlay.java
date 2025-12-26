@@ -1,10 +1,10 @@
 package com.jujutsuaddon.addon.client.gui.overlay;
 
-import com.jujutsuaddon.addon.capability.AddonShadowStorageData;
+import com.jujutsuaddon.addon.capability.curse.AddonShadowStorageData;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig.AnchorPoint;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
-import com.jujutsuaddon.addon.client.util.HudPositionHelper;
+import com.jujutsuaddon.addon.client.render.HudPositionHelper;
 import com.jujutsuaddon.addon.util.helper.tenshadows.TenShadowsHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;

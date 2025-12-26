@@ -1,17 +1,13 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/damage/core/DamageCore.java
 package com.jujutsuaddon.addon.damage.core;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 
 /**
  * 伤害计算核心
  *
- * ★★★ 唯一的伤害公式实现 ★★★
- *
- * 核心公式（方案B）：
- * - basePart = originalDamage × preservation（基础只吃保留）
- * - panelPart = totalPanel × roleMultiplier × speedModifier × panelMultiplier
- * - rawDamage = (basePart + panelPart) × skillMult
+ * ★★★ 正确公式 ★★★
+ * {[(基础 × 保留) × (面板 × 乘法 × 独立 × 属性 × 攻速) + (加法 × 职业)] × 平衡} × 输出
  */
 public final class DamageCore {
 
@@ -29,28 +25,41 @@ public final class DamageCore {
     // ==================== 咒术师分支 ====================
 
     private static DamageResult calculateSorcerer(DamageContext ctx) {
+        double balancer = ctx.balancerMultiplier() * ctx.skillConfigMultiplier();
 
-        // 技能总倍率（平衡器 × 配置）
-        double totalSkillMult = ctx.balancerMultiplier() * ctx.skillConfigMultiplier();
+        // 1. 基础部分 = 基础 × 保留
+        double basePart = ctx.originalBaseDamage() * ctx.preservation();
 
-        // 1. 基础部分：只吃保留率
-        //    ★★★ 方案B：不吃职业、不吃外部 ★★★
-        double basePart = ctx.originalBaseDamage()
-                * ctx.preservation();
+        double scaledDamage = basePart;
+        double additionPart = 0;
 
-        // 2. 面板部分：吃职业、攻速、外部
-        double panelPart = 0;
         if (ctx.enablePanelScaling()) {
-            panelPart = ctx.totalPanel()
-                    * ctx.roleMultiplier()      // 职业
-                    * ctx.speedModifier()       // 攻速
-                    * ctx.panelMultiplier();    // 外部
+            // 2. 面板乘区 = 面板 × 乘法 × 独立 × 属性 × 攻速
+            double panelMultiplier = ctx.totalPanel()
+                    * (1.0 + ctx.externalMultBase())   // 乘法乘区
+                    * ctx.externalMultTotal()          // 独立乘区
+                    * ctx.independentAttrMult()        // 属性乘区
+                    * ctx.speedModifier();             // 攻速
+
+            // ★★★ 核心变更：基础 × 面板乘区（相乘而非相加）★★★
+            scaledDamage = basePart * panelMultiplier;
+
+            // 3. 加法部分 = 加法 × 职业（独立加上）
+            additionPart = ctx.externalAddition() * ctx.roleMultiplier();
         }
 
-        // 3. 合计后统一乘平衡器
-        double rawTotal = (basePart + panelPart) * totalSkillMult;
+        // 4. 合计 × 平衡
+        double beforeOutput = (scaledDamage + additionPart) * balancer;
 
-        // 4. 计算暴击伤害
+        // 5. 最后 × 输出
+        double rawTotal = beforeOutput * ctx.cursedEnergyOutput();
+
+        // ★ NaN 保护 ★
+        if (Double.isNaN(rawTotal) || Double.isInfinite(rawTotal)) {
+            rawTotal = ctx.originalBaseDamage();
+        }
+
+        // 6. 计算暴击伤害
         double critDamage = rawTotal * ctx.critDamage();
         double expectedDamage = rawTotal;
 
@@ -63,32 +72,46 @@ public final class DamageCore {
                 expectedDamage,
                 critDamage,
                 basePart,
-                panelPart,
+                scaledDamage - basePart + additionPart,  // 面板贡献 = 缩放后 - 基础 + 加法
                 ctx.speedModifier(),
-                totalSkillMult
+                balancer
         );
     }
 
     // ==================== 天与咒缚分支 ====================
 
     private static DamageResult calculateHeavenlyRestriction(DamageContext ctx) {
+        double balancer = ctx.balancerMultiplier() * ctx.skillConfigMultiplier();
 
-        double classMultiplier = ctx.roleMultiplier();
+        // ★ 天与咒缚：面板乘区直接作为伤害基础（没有技能基础伤害）★
+        double panelMultiplier = ctx.totalPanel()
+                * (1.0 + ctx.externalMultBase())
+                * ctx.externalMultTotal()
+                * ctx.independentAttrMult()
+                * ctx.speedModifier();
 
-        double rawDamage = ctx.totalPanel()
-                * classMultiplier
-                * ctx.speedModifier()
-                * ctx.panelMultiplier();
+        // 加法部分
+        double additionPart = ctx.externalAddition() * ctx.roleMultiplier();
 
-        // 保留公式检查（方案B：保留部分不吃外部）
+        // 合计 × 平衡
+        double beforeOutput = (panelMultiplier + additionPart) * balancer;
+
+        // × 输出
+        double rawDamage = beforeOutput * ctx.cursedEnergyOutput();
+
+        // 保留公式检查（有技能时，保底不低于原始伤害的一定比例）
         if (ctx.ability() != null) {
             double preservationRatio = AddonConfig.COMMON.hrMeleePreservation.get();
             double preservedOriginal = ctx.originalBaseDamage() * preservationRatio;
-            // ★★★ 删除了 baseMultiplier ★★★
 
             if (preservedOriginal > rawDamage) {
                 rawDamage = preservedOriginal;
             }
+        }
+
+        // ★ NaN 保护 ★
+        if (Double.isNaN(rawDamage) || Double.isInfinite(rawDamage)) {
+            rawDamage = ctx.originalBaseDamage();
         }
 
         double critDamage = rawDamage * ctx.critDamage();
@@ -105,7 +128,7 @@ public final class DamageCore {
                 rawDamage,
                 0,
                 ctx.speedModifier(),
-                1.0
+                balancer
         );
     }
 

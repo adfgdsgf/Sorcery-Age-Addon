@@ -1,4 +1,3 @@
-// src/main/java/com/jujutsuaddon/addon/mixin/accessor/LivingEntityAccessor.java
 package com.jujutsuaddon.addon.mixin.access;
 
 import net.minecraft.world.entity.LivingEntity;
@@ -9,9 +8,11 @@ import javax.annotation.Nullable;
 
 @Mixin(LivingEntity.class)
 public interface LivingEntityAccessor {
+    // 你的其他 Accessor
     @Accessor("lastHurtByPlayer")
     @Nullable
     Player jujutsu_addon$getLastHurtByPlayer();
+
     @Accessor("lastHurtByPlayer")
     void jujutsu_addon$setLastHurtByPlayer(@Nullable Player player);
 
@@ -20,4 +21,9 @@ public interface LivingEntityAccessor {
 
     @Accessor("lastHurtByPlayerTime")
     void jujutsu_addon$setLastHurtByPlayerTime(int value);
+
+    // ★★★ 核心：允许访问 protected 的 lastHurt 字段 ★★★
+    // 用于重置伤害判定，防止反噬伤害因为数值低被系统吞掉
+    @Accessor("lastHurt")
+    void jujutsu_addon$setLastHurt(float value);
 }

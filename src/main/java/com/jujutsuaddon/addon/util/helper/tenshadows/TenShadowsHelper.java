@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.util.helper.tenshadows;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;

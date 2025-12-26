@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.network.c2s;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.conflict.InfinityConflictResolver;
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.SyncInfinityPressureS2CPacket;
 import net.minecraft.network.FriendlyByteBuf;
@@ -53,8 +53,10 @@ public class SyncInfinityPressureC2SPacket {
                     // ★★★ 同步回客户端 ★★★
                     AddonNetwork.sendToPlayer(new SyncInfinityPressureS2CPacket(newLevel), player);
 
+                    // ★★★ 改为百分比显示 ★★★
+                    int percent = newLevel * 10;  // 1→10%, 5→50%, 10→100%
                     player.displayClientMessage(
-                            Component.translatable("message.jujutsu_addon.infinity_pressure", newLevel),
+                            Component.translatable("message.jujutsu_addon.infinity_output", percent + "%"),
                             true
                     );
                 }

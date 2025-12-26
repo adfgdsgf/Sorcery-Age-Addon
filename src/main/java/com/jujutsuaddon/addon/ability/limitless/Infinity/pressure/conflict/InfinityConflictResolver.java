@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.conflict;
 
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;

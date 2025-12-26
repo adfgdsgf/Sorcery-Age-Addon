@@ -1,7 +1,7 @@
 package com.jujutsuaddon.addon.mixin.projectile;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ControlledProjectileTick;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.Projectile;

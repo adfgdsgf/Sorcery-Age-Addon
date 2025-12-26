@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.event;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.compat.mob.*;
 import net.minecraft.network.chat.Component;

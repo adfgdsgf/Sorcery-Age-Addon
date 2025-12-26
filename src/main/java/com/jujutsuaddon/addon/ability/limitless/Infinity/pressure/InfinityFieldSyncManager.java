@@ -2,7 +2,7 @@ package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePointCalculator;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.InfinityFieldData;
 import com.jujutsuaddon.addon.network.s2c.InfinityFieldSyncS2CPacket;

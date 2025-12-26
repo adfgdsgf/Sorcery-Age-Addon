@@ -1,9 +1,8 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/ability/limitless/Infinity/pressure/damage/PressureDamageCalculator.java
 package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.damage;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.balance.character.CharacterBalancer;
-import com.jujutsuaddon.addon.damage.cache.AttributeCache;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;

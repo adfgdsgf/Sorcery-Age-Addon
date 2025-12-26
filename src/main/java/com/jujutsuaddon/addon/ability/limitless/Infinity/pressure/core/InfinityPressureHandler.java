@@ -8,9 +8,8 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.Collisi
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.entity.PushForceApplier;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile.ProjectilePressureHandler;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PressureBypassChecker;
-import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityAnalyzer;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.VelocityController;
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;

@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/client/util/AbilityDamagePredictor.java
 package com.jujutsuaddon.addon.client.util;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.client.cache.DamagePredictionCache;
 import com.jujutsuaddon.addon.damage.analysis.AbilityDamageData;
 import com.jujutsuaddon.addon.damage.core.DamageContext;
@@ -181,21 +181,37 @@ public class AbilityDamagePredictor {
 
         public enum DamageChange { INCREASED, DECREASED, NONE }
 
+        // ★★★ 格式化逻辑 ★★★
         public String formatDamage(float damage) {
             if (damage < 0) return "?";
             if (damage == 0) return "0";
 
             String baseStr;
-            if (damage >= 10000) baseStr = String.format("%.1fW", damage / 10000);
-            else if (damage >= 1000) baseStr = String.format("%.1fK", damage / 1000);
-            else if (damage >= 100) baseStr = String.format("%.0f", damage);
-            else baseStr = String.format("%.1f", damage);
+            // 1. 万以上 (10000+): 1.25W (两位小数)
+            if (damage >= 10000) {
+                baseStr = String.format("%.2fW", damage / 10000);
+            }
+            // 2. 千以上 (1000~9999): 1.05K (两位小数)
+            else if (damage >= 1000) {
+                baseStr = String.format("%.2fK", damage / 1000);
+            }
+            // 3. 百以上 (100~999): 150 (整数)
+            else if (damage >= 100) {
+                baseStr = String.format("%.0f", damage);
+            }
+            // 4. 百以下 (<100): 50.55 (两位小数)
+            else {
+                baseStr = String.format("%.2f", damage);
+            }
 
-            if (this.canPredict && this.critDamage > damage * 1.1f) {
+            // 暴击伤害格式化
+            if (this.canPredict && this.critDamage > damage * 1.01f) {
                 String critStr;
-                if (critDamage >= 10000) critStr = String.format("%.1fW", critDamage / 10000);
-                else if (critDamage >= 1000) critStr = String.format("%.1fK", critDamage / 1000);
-                else critStr = String.format("%.0f", critDamage);
+                if (critDamage >= 10000) critStr = String.format("%.2fW", critDamage / 10000);
+                else if (critDamage >= 1000) critStr = String.format("%.2fK", critDamage / 1000);
+                else if (critDamage >= 100) critStr = String.format("%.0f", critDamage);
+                else critStr = String.format("%.2f", critDamage);
+
                 return baseStr + " §7(§c" + critStr + "§7)";
             }
             return baseStr;

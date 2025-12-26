@@ -1,9 +1,9 @@
 package com.jujutsuaddon.addon.client.skillbar.render;
 
-import com.jujutsuaddon.addon.client.AddonKeyBindings;
+import com.jujutsuaddon.addon.client.keybind.AddonKeyBindings;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarData;
 import com.jujutsuaddon.addon.client.skillbar.SkillBarManager;
-import com.jujutsuaddon.addon.client.util.RenderHelper;
+import com.jujutsuaddon.addon.client.render.RenderHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

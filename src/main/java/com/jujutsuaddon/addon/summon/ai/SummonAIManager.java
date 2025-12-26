@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.summon.ai;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.util.helper.SummonAIHelper;
 import net.minecraft.world.entity.LivingEntity;
 import radon.jujutsu_kaisen.entity.base.SummonEntity;

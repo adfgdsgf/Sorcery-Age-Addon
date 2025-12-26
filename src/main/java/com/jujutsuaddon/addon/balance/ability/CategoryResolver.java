@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/balance/ability/CategoryResolver.java
 package com.jujutsuaddon.addon.balance.ability;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.context.TamedCostContext;
 import net.minecraft.world.entity.LivingEntity;
 import radon.jujutsu_kaisen.ability.base.Ability;

@@ -2,7 +2,7 @@ package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePointCalculator;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 

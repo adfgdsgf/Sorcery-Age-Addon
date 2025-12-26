@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.summon;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.balance.ability.AbilityBalancer;
 import com.jujutsuaddon.addon.damage.cache.DamageUtil;
 import com.jujutsuaddon.addon.context.TamedCostContext;

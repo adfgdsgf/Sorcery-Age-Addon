@@ -2,7 +2,7 @@ package com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.projectile;
 
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PlayerMovementTracker;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.ProjectileDeflectionHelper;
-import com.jujutsuaddon.addon.api.IFrozenProjectile;
+import com.jujutsuaddon.addon.api.ability.IFrozenProjectile;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.s2c.ProjectilePowerSyncS2CPacket;
 import com.jujutsuaddon.addon.network.s2c.ProjectileSmoothMoveS2CPacket;

@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.util.helper;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import net.minecraft.world.entity.Entity;
 
 import java.util.*;

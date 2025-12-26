@@ -4,8 +4,8 @@ import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.PressureCalcul
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.BalancePointCalculator;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.core.PressureConfig;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PressureBypassChecker;
-import com.jujutsuaddon.addon.api.IInfinityPressureAccessor;
-import com.jujutsuaddon.addon.client.InfinityFieldClientCache;
+import com.jujutsuaddon.addon.api.ability.IInfinityPressureAccessor;
+import com.jujutsuaddon.addon.client.cache.InfinityFieldClientCache;
 import com.jujutsuaddon.addon.network.InfinityFieldData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;

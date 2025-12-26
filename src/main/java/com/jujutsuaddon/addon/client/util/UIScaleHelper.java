@@ -343,6 +343,66 @@ public class UIScaleHelper {
         return new int[]{buttonY, btnHeight, btnSmall, btnMed, btnLarge};
     }
 
+    // ==================== 誓约列表界面 ====================
+    /**
+     * 誓约列表：计算条目布局
+     * 返回 [条目高度, 条目间距, 快捷按钮宽度, 快捷按钮高度, 按钮右边距, 按钮垂直居中偏移]
+     */
+    public static int[] calculateVowListEntryLayout() {
+        int[] actualSize = getActualPixelSize();
+        int actualPixelHeight = actualSize[1];
+        int entryHeight, entryGap, btnWidth, btnHeight, btnMarginRight, btnOffsetY;
+        if (actualPixelHeight >= 1080) {
+            entryHeight = 54;
+            entryGap = 5;
+            btnWidth = 55;
+            btnHeight = 20;
+            btnMarginRight = 10;
+        } else if (actualPixelHeight >= 720) {
+            entryHeight = 50;
+            entryGap = 4;
+            btnWidth = 50;
+            btnHeight = 18;
+            btnMarginRight = 8;
+        } else {
+            entryHeight = 44;
+            entryGap = 3;
+            btnWidth = 44;
+            btnHeight = 16;
+            btnMarginRight = 6;
+        }
+        // 按钮垂直居中
+        btnOffsetY = (entryHeight - btnHeight) / 2;
+        return new int[]{entryHeight, entryGap, btnWidth, btnHeight, btnMarginRight, btnOffsetY};
+    }
+    /**
+     * 誓约列表：计算列表区域布局
+     * 返回 [listX, listY, listWidth, listHeight, margin]
+     */
+    public static int[] calculateVowListAreaLayout(int screenWidth, int screenHeight) {
+        int[] actualSize = getActualPixelSize();
+        int actualPixelHeight = actualSize[1];
+        int margin, topSpace, bottomSpace;
+        if (actualPixelHeight >= 1080) {
+            margin = 25;
+            topSpace = 45;
+            bottomSpace = 55;
+        } else if (actualPixelHeight >= 720) {
+            margin = 20;
+            topSpace = 40;
+            bottomSpace = 50;
+        } else {
+            margin = 15;
+            topSpace = 35;
+            bottomSpace = 45;
+        }
+        int listX = margin;
+        int listY = topSpace;
+        int listWidth = screenWidth - margin * 2;
+        int listHeight = screenHeight - topSpace - bottomSpace;
+        return new int[]{listX, listY, listWidth, listHeight, margin};
+    }
+
     // ==================== 确认对话框 ====================
 
     public static int[] getDialogSize(int screenWidth, int screenHeight) {

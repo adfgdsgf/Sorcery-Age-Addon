@@ -2,6 +2,7 @@ package com.jujutsuaddon.addon.client.gui.overlay;
 
 import com.jujutsuaddon.addon.client.config.AddonClientConfig;
 import com.jujutsuaddon.addon.client.config.AddonClientConfig.AnchorPoint;
+import com.jujutsuaddon.addon.client.render.RenderHelper;
 import com.jujutsuaddon.addon.client.util.FeatureToggleManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -254,7 +255,7 @@ public class AbilityCooldownOverlay {
                 try {
                     String name = entry.ability.getName().getString();
                     if (!name.isEmpty()) {
-                        String initial = com.jujutsuaddon.addon.client.util.RenderHelper.getAbbreviation(name, 2);
+                        String initial = RenderHelper.getAbbreviation(name, 2);
                         graphics.drawCenteredString(mc.font, initial, x + ICON_SIZE / 2, y + 5, 0xFFFFFF);
                     }
                 } catch (Exception ignored) {}

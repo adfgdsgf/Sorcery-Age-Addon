@@ -1,7 +1,7 @@
 // 文件路径: src/main/java/com/jujutsuaddon/addon/damage/cache/DamageUtil.java
 package com.jujutsuaddon.addon.damage.cache;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.balance.ability.CategoryBenchmark;
 import com.jujutsuaddon.addon.balance.ability.CategoryResolver;
 import com.jujutsuaddon.addon.summon.SummonScalingHelper;
@@ -9,7 +9,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.Map;
+import java.util.Set;
 
 /**
  * 伤害工具类 - 委托给 AttributeCache
@@ -39,20 +39,31 @@ public class DamageUtil {
 
     public static double getCritDamageMultiplier(LivingEntity entity) {
         try {
-            return AttributeCache.getCritDamageSilent(entity);  // ★ 改这里
+            return AttributeCache.getCritDamageSilent(entity);
         } catch (Throwable t) {
             return 1.5;
         }
     }
 
+    /**
+     * 计算外部倍率（三乘区版本）
+     *
+     * @param entity              实体
+     * @param isMelee             是否近战
+     * @param includeCritExpectation 是否包含暴击期望
+     * @param silent              是否静默模式（不输出日志）
+     * @return 综合倍率
+     */
     public static double calculateExternalMultiplier(LivingEntity entity, boolean isMelee,
                                                      boolean includeCritExpectation, boolean silent) {
-        boolean isAdditiveMode = AddonConfig.COMMON.useAdditiveExternalAttributes.get();
-        double externalMultiplier = AttributeCache.calculateExternalMultiplier(entity, isMelee, isAdditiveMode);
+        // 使用三乘区系统
+        AttributeCache.ExternalMultiplierResult result =
+                AttributeCache.calculateExternalMultiplierDetailed(entity, isMelee);
+
+        double externalMultiplier = result.getMultiplierOnly();
 
         // 暴击期望
         if (includeCritExpectation && AddonConfig.COMMON.enableCritSystem.get()) {
-            // ★ 改这里：使用 AttributeCache
             double critChance = silent ?
                     AttributeCache.getCritChanceSilent(entity) :
                     AttributeCache.getCritChance(entity);
@@ -62,11 +73,7 @@ public class DamageUtil {
 
             if (critChance > 0 && critDamage > 1.0) {
                 double critExpectation = critChance * (critDamage - 1.0);
-                if (isAdditiveMode) {
-                    externalMultiplier += critExpectation;
-                } else {
-                    externalMultiplier *= (1.0 + critExpectation);
-                }
+                externalMultiplier *= (1.0 + critExpectation);
             }
         }
 
@@ -77,7 +84,18 @@ public class DamageUtil {
         return calculateExternalMultiplier(entity, isMelee, false, false);
     }
 
-    public static Map<Attribute, Double> getMultiplierAttributeCache() {
-        return AttributeCache.getMultiplierAttributeCache();
+    /**
+     * 获取扫描到的属性集合
+     */
+    public static Set<Attribute> getScannedAttributes() {
+        return AttributeCache.getScannedAttributes();
+    }
+
+    /**
+     * @deprecated 使用 getScannedAttributes() 代替
+     */
+    @Deprecated
+    public static Set<Attribute> getMultiplierAttributeCache() {
+        return AttributeCache.getScannedAttributes();
     }
 }

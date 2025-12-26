@@ -1,7 +1,6 @@
 package com.jujutsuaddon.addon.client.skillbar.render;
 
-import com.jujutsuaddon.addon.client.util.AbilityDamagePredictor;
-import com.jujutsuaddon.addon.client.util.RenderHelper;
+import com.jujutsuaddon.addon.client.render.RenderHelper;
 import com.jujutsuaddon.addon.util.helper.TechniqueHelper;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,7 +12,7 @@ import radon.jujutsu_kaisen.capability.data.sorcerer.CursedTechnique;
 import javax.annotation.Nullable;
 
 import static com.jujutsuaddon.addon.client.skillbar.SkillBarConstants.*;
-import static com.jujutsuaddon.addon.client.util.RenderHelper.HeaderColors.*;
+import static com.jujutsuaddon.addon.client.render.RenderHelper.HeaderColors.*;
 
 public class EntryRenderer {
 
@@ -176,13 +175,19 @@ public class EntryRenderer {
         int indent = entry.getIndentPixels();
         int startX = listX + 2 + indent;
         int contentX = startX + 2;
-        // ★★★ 融合式神和死亡式神特殊处理 ★★★
+        // ★★★ 状态变量 ★★★
         boolean isFusion = status.isFusion;
         boolean isDead = status.isDead;
+        boolean isBanned = status.isBanned; // ★★★ 新增
+
         // 背景和边框颜色
         int bgColor;
         int borderColor;
-        if (isDead) {
+        if (isBanned) {
+            // ★★★ 封印状态：深红黑背景 ★★★
+            bgColor = RenderHelper.Colors.BG_BANNED;
+            borderColor = RenderHelper.Colors.BORDER_BANNED;
+        } else if (isDead) {
             // ★★★ 死亡式神：红色背景 ★★★
             bgColor = 0x60441111;
             borderColor = 0xFFAA3333;
@@ -192,22 +197,29 @@ public class EntryRenderer {
             borderColor = RenderHelper.getFusionPulsingBorderColor();
         } else {
             bgColor = RenderHelper.getIconBgColor(status.isDead, status.techniqueNotActive,
-                    status.canUse, status.isActive, status.hasSummon, status.summonConflict);
+                    status.canUse, status.isActive, status.hasSummon, status.summonConflict, isBanned);
             borderColor = RenderHelper.getBorderColor(
                     status.isDead, status.techniqueNotActive,
                     status.canUse, status.isActive, status.hasSummon,
                     status.summonConflict, true,
-                    status.conditionsNotMet);
+                    status.conditionsNotMet, isBanned);
         }
         graphics.fill(startX, y, listX + listWidth - 8, y + ITEM_HEIGHT - 2, bgColor);
         graphics.fill(startX, y, startX + 1, y + ITEM_HEIGHT - 2, borderColor);
+
         // ★★★ 融合式神：额外的内边框光效 ★★★
-        if (isFusion && !isDead) {
+        if (isFusion && !isDead && !isBanned) {
             int innerGlow = 0x30AA55FF;
             graphics.fill(startX + 1, y + 1, listX + listWidth - 9, y + ITEM_HEIGHT - 3, innerGlow);
         }
+
         // 图标
-        if (isDead) {
+        if (isBanned) {
+            // ★★★ 封印状态：灰色图标 + 禁止符号 ★★★
+            RenderHelper.renderAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, true);
+            // 绘制红叉
+            graphics.drawCenteredString(font, "✕", contentX + ENTRY_ICON_SIZE / 2, y + 4, 0xFF0000);
+        } else if (isDead) {
             // ★★★ 死亡式神：灰色图标 + ☠ 覆盖 ★★★
             RenderHelper.renderAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, true);
             graphics.drawString(font, "☠", contentX + 4, y + 4, 0xFF4444, true);
@@ -221,26 +233,33 @@ public class EntryRenderer {
             boolean grayed = !status.canUse || status.summonConflict;
             RenderHelper.renderAbilityIcon(graphics, ability, contentX, y, ENTRY_ICON_SIZE, grayed);
         }
+
         // 名称（为伤害显示留出空间）
         int nameColor;
-        if (isDead) {
+        if (isBanned) {
+            nameColor = RenderHelper.Colors.TEXT_BANNED; // ★ 深红
+        } else if (isDead) {
             nameColor = 0xFF6666;  // 红色
         } else if (isFusion) {
             nameColor = status.isActive || status.hasSummon ? 0xDDAAFF : 0xBB99DD;  // 紫色
         } else {
             nameColor = RenderHelper.getTextColor(status.isDead, status.techniqueNotActive,
-                    status.canUse, status.isActive, status.hasSummon, status.summonConflict);
+                    status.canUse, status.isActive, status.hasSummon, status.summonConflict, isBanned);
         }
+
         int damageDisplayWidth = status.canPredictDamage ? 40 : 15;
         int nameMaxWidth = listWidth - 85 - indent - damageDisplayWidth;
-        // ★★★ 融合式神：名称前加 ◆ ★★★
+
         String displayName = ability.getName().getString();
-        if (isFusion && !isDead) {
+        if (isBanned) {
+            displayName = "[封] " + displayName;
+        } else if (isFusion && !isDead) {
             displayName = "◆ " + displayName;
         } else if (isDead) {
             displayName = "☠ " + displayName;
         }
         renderTruncatedText(graphics, displayName, contentX + 20, y + 4, nameMaxWidth, nameColor);
+
         // ★★★ 伤害显示（死亡式神显示"已死亡"）★★★
         if (isDead) {
             String deadText = Component.translatable("gui.jujutsu_addon.shikigami.dead").getString();
@@ -250,6 +269,7 @@ public class EntryRenderer {
         } else {
             renderDamageDisplay(graphics, status, y);
         }
+
         // 状态指示器
         int indicatorX = contentX + 12;
         int indicatorY = y + 10;
@@ -266,14 +286,16 @@ public class EntryRenderer {
         } else if (status.summonConflict) {
             graphics.drawString(font, "!", indicatorX + 2, indicatorY, 0xFFAA00, false);
         }
-        // ★★★ 开关按钮（死亡式神显示 "---"）★★★
-        if (isDead) {
+
+        // ★★★ 开关按钮（死亡或被封印时显示 "---"）★★★
+        if (isDead || isBanned) {
             renderDeadButton(graphics, y);
         } else if (status.isToggleable || status.isSummon) {
             renderToggleButton(graphics, ability, status, y, mouseX, mouseY);
         }
-        // 冷却条（死亡式神不显示）
-        if (!isDead && status.cooldown > 0 && status.maxCooldown > 0) {
+
+        // 冷却条（死亡或封印不显示）
+        if (!isDead && !isBanned && status.cooldown > 0 && status.maxCooldown > 0) {
             float progress = 1.0f - (float) status.cooldown / status.maxCooldown;
             int barWidth = Math.min(50, listWidth - 100 - indent);
             int barX = contentX + 20;

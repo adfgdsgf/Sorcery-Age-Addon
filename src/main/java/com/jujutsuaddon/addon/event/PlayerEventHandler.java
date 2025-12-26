@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.event;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.ability.limitless.Infinity.pressure.util.PlayerMovementTracker;
 import com.jujutsuaddon.addon.damage.ServerDamagePredictor;

@@ -1,6 +1,6 @@
 package com.jujutsuaddon.addon.util.helper;
 
-import com.jujutsuaddon.addon.AddonConfig;
+import com.jujutsuaddon.addon.config.AddonConfig;
 import com.jujutsuaddon.addon.JujutsuAddon;
 import com.jujutsuaddon.addon.compat.mob.MobConfigManager;
 import com.jujutsuaddon.addon.mixin.access.LivingEntityAccessor;
