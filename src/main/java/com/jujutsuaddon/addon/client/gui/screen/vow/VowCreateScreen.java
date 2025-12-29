@@ -2,12 +2,14 @@ package com.jujutsuaddon.addon.client.gui.screen.vow;
 
 import com.jujutsuaddon.addon.api.vow.IBenefit;
 import com.jujutsuaddon.addon.api.vow.ICondition;
+import com.jujutsuaddon.addon.client.cache.ClientVowDataCache; // ★ 导入缓存类
 import com.jujutsuaddon.addon.client.gui.util.VowGuiColors;
 import com.jujutsuaddon.addon.client.gui.widget.vow.SelectionPanelWidget;
 import com.jujutsuaddon.addon.client.gui.widget.vow.WeightBarWidget;
 import com.jujutsuaddon.addon.client.util.VowGuiHelper;
 import com.jujutsuaddon.addon.network.AddonNetwork;
 import com.jujutsuaddon.addon.network.c2s.CreateVowC2SPacket;
+import com.jujutsuaddon.addon.vow.CustomBindingVow; // ★ 导入 vow 类
 import com.jujutsuaddon.addon.vow.VowType;
 import com.jujutsuaddon.addon.vow.benefit.BenefitEntry;
 import com.jujutsuaddon.addon.vow.benefit.BenefitParams;
@@ -58,6 +60,24 @@ public class VowCreateScreen extends Screen {
     public VowCreateScreen(Screen parent) {
         super(Component.translatable("screen.jujutsuaddon.vow_create"));
         this.parent = parent;
+        // ★★★ 初始化默认名称 ★★★
+        this.vowName = generateDefaultName();
+    }
+
+    /**
+     * ★★★ 生成默认名称 (Vow #X) ★★★
+     * 避免硬编码，使用 Translation Key
+     */
+    private String generateDefaultName() {
+        int count = 0;
+        // 从缓存获取当前列表大小
+        List<CustomBindingVow> list = ClientVowDataCache.getAllVows();
+        if (list != null) {
+            count = list.size();
+        }
+        // 建议在 lang 文件中添加: "input.jujutsuaddon.vow.default_name": "Vow #%s"
+        // 或者中文: "input.jujutsuaddon.vow.default_name": "束缚 #%s"
+        return Component.translatable("input.jujutsuaddon.vow.default_name", count + 1).getString();
     }
 
     @Override
@@ -91,6 +111,7 @@ public class VowCreateScreen extends Screen {
         nameInput = new EditBox(this.font, inputX, 35, inputWidth, 18,
                 Component.translatable("input.jujutsuaddon.vow.name"));
         nameInput.setMaxLength(32);
+        // ★ 这里会自动填入构造函数里生成的 vowName
         nameInput.setValue(vowName);
         nameInput.setResponder(s -> {
             vowName = s;
@@ -187,6 +208,10 @@ public class VowCreateScreen extends Screen {
                 updateWeightBar();
             }
         });
+
+        // ★★★ 新增：设置具体的搜索提示 ★★★
+        conditionPanel.setSearchHint(Component.translatable("widget.jujutsuaddon.search.hint.condition"));
+
         this.addRenderableWidget(conditionPanel);
 
         // 收益选择面板
@@ -218,6 +243,10 @@ public class VowCreateScreen extends Screen {
                 updateWeightBar();
             }
         });
+
+        // ★★★ 新增：设置具体的搜索提示 ★★★
+        benefitPanel.setSearchHint(Component.translatable("widget.jujutsuaddon.search.hint.benefit"));
+
         this.addRenderableWidget(benefitPanel);
 
         // 权重条

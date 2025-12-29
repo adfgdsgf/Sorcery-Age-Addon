@@ -965,6 +965,7 @@
 
   "input.jujutsuaddon.vow.name": "誓约名称",
   "input.jujutsuaddon.vow.type": "誓约类型",
+  "input.jujutsuaddon.vow.default_name": "誓约 #%s",
   "label.jujutsuaddon.vow.name": "名称：",
 
   "panel.jujutsuaddon.conditions": "条件",
@@ -972,6 +973,8 @@
 
   "widget.jujutsuaddon.search": "搜索",
   "widget.jujutsuaddon.search.hint": "输入关键词搜索...",
+  "widget.jujutsuaddon.search.hint.condition": "搜索条件...",
+  "widget.jujutsuaddon.search.hint.benefit": "搜索收益...",
   "widget.jujutsuaddon.selected": "已选",
   "widget.jujutsuaddon.weight.available": "可用权重",
   "widget.jujutsuaddon.weight.cost": "消耗",

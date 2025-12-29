@@ -26,7 +26,7 @@ import java.util.function.Function;
 
 /**
  * 选择面板组件
- * 包含下拉菜单支持和本地化修复
+ * 修复：输入框无法点击、焦点丢失、坐标不同步的问题
  */
 public class SelectionPanelWidget<T> extends AbstractWidget {
 
@@ -72,7 +72,6 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
     private ParamDefinition.Entry draggingEntry = null;
     private int draggingSliderX = 0;
 
-    // ★★★ 新增：当前激活的下拉菜单 ★★★
     @Nullable
     private DropdownWidget activeDropdown = null;
 
@@ -106,25 +105,27 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
 
     private void initSearchBox() {
         int searchY = getY() + layout.headerHeight + layout.padding;
+        // 初始创建，位置稍后会在 render 中同步
         this.searchBox = new EditBox(font, getX() + layout.padding, searchY,
                 getWidth() - layout.padding * 2, layout.searchHeight,
                 Component.translatable("widget.jujutsuaddon.search"));
         this.searchBox.setHint(Component.translatable("widget.jujutsuaddon.search.hint"));
         this.searchBox.setResponder(this::onSearchChanged);
+        this.searchBox.setBordered(true);
+        this.searchBox.setVisible(true);
+        this.searchBox.setTextColor(0xFFFFFF);
     }
 
-    // ==================== 辅助方法：本地化 ====================
+    public void setSearchHint(Component hint) {
+        if (this.searchBox != null) {
+            this.searchBox.setHint(hint);
+        }
+    }
 
-    /**
-     * 获取参数值的本地化文本
-     * 用于处理技能名称等需要翻译的字符串
-     */
     private Component getLocalizedParamValue(String value) {
         if (value.contains(".")) {
-            // 如果包含点，说明已经是完整的 translation key (如 vow.condition.xxx)
             return Component.translatable(value);
         } else {
-            // 如果是纯单词 (如 infinity)，假设是技能ID，加上前缀
             return Component.translatable("ability.jujutsu_kaisen." + value);
         }
     }
@@ -373,6 +374,19 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
     protected void renderWidget(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
 
+        // ★★★ 核心修复：强制每帧同步输入框位置 ★★★
+        // 确保输入框的判定区域与视觉区域完全一致
+        int searchY = y + layout.headerHeight + layout.padding;
+        int searchW = w - layout.padding * 2;
+
+        // 只有当位置或大小改变时才更新，避免不必要的计算（虽然 EditBox 内部处理很快）
+        if (searchBox.getX() != x + layout.padding || searchBox.getY() != searchY || searchBox.getWidth() != searchW) {
+            searchBox.setX(x + layout.padding);
+            searchBox.setY(searchY);
+            searchBox.setWidth(searchW);
+            searchBox.setHeight(layout.searchHeight);
+        }
+
         graphics.fill(x, y, x + w, y + h, VowGuiColors.PANEL_BG);
         graphics.renderOutline(x, y, w, h, VowGuiColors.PANEL_BORDER);
 
@@ -387,12 +401,11 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
             graphics.renderTooltip(font, descGetter.apply(hoveredItem), mouseX, mouseY);
         }
 
-        // ★★★ 渲染下拉菜单（在Scissor之外，确保最顶层显示） ★★★
         if (activeDropdown != null) {
             if (activeDropdown.isOpen()) {
                 activeDropdown.renderWidget(graphics, mouseX, mouseY, partialTick);
             } else {
-                activeDropdown = null; // 如果关闭了，清理引用
+                activeDropdown = null;
             }
         }
     }
@@ -559,22 +572,17 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
                 boolean hovered = GuiControlHelper.isInCheckbox(mouseX, mouseY, checkX, checkY, layout.checkboxSize);
                 GuiControlHelper.renderCheckbox(graphics, font, checkX, checkY, layout.checkboxSize, checked, hovered);
             }
-            // ★ 修改：渲染选择按钮（带箭头）
             case SELECTION -> {
                 String currentVal = (String) params.getOrDefault(entry.getKey(), entry.getStringDefault());
-                // 使用本地化方法
                 Component displayVal = getLocalizedParamValue(currentVal);
 
                 boolean hovered = GuiControlHelper.isInArea(mouseX, mouseY, controlX, controlY, layout.sliderWidth, layout.sliderHeight);
 
-                // 绘制按钮背景
                 int btnColor = hovered ? VowGuiColors.ENTRY_BG_HOVERED : VowGuiColors.SLOT_EMPTY_BG;
                 graphics.fill(controlX, controlY, controlX + layout.sliderWidth, controlY + layout.sliderHeight, btnColor);
                 graphics.renderOutline(controlX, controlY, layout.sliderWidth, layout.sliderHeight, VowGuiColors.PANEL_BORDER);
 
-                // 绘制文字 (居中)
                 int textWidth = font.width(displayVal);
-                // 如果文字太长，截断
                 if (textWidth > layout.sliderWidth - 12) {
                     String truncated = font.plainSubstrByWidth(displayVal.getString(), layout.sliderWidth - 14) + "..";
                     displayVal = Component.literal(truncated);
@@ -585,7 +593,6 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
                 int textY = controlY + (layout.sliderHeight - font.lineHeight) / 2 + 1;
                 graphics.drawString(font, displayVal, textX, textY, VowGuiColors.TEXT_NORMAL, false);
 
-                // 画个小箭头 ▼
                 graphics.drawString(font, "▼", controlX + layout.sliderWidth - 8, textY, 0x888888, false);
             }
         }
@@ -629,19 +636,26 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // ★ 1. 优先处理下拉菜单
         if (activeDropdown != null && activeDropdown.isOpen()) {
             if (activeDropdown.mouseClicked(mouseX, mouseY, button)) {
-                return true; // 下拉菜单处理了点击
+                return true;
             }
-            // 如果没处理（点到外部），activeDropdown 会在 render 中被清理或在此处关闭
             if (!activeDropdown.isOpen()) activeDropdown = null;
-            // 继续执行，看是否点到了其他东西
         }
 
         clearDragState();
-        if (searchBox.mouseClicked(mouseX, mouseY, button)) {
+
+        // ★★★ 核心修复：手动管理焦点 ★★★
+        // 1. 尝试让搜索框处理点击
+        boolean searchClicked = searchBox.mouseClicked(mouseX, mouseY, button);
+
+        if (searchClicked) {
+            // 2. 如果点中了搜索框，强制设为焦点
+            searchBox.setFocused(true);
             return true;
+        } else {
+            // 3. 如果没点中，强制失去焦点（这样点击列表时输入框就不会继续闪烁了）
+            searchBox.setFocused(false);
         }
 
         int listX = getX() + layout.padding;
@@ -720,18 +734,16 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
                         return true;
                     }
                 }
-                // ★ 修改：处理选择按钮点击 -> 打开下拉菜单
                 case SELECTION -> {
                     if (GuiControlHelper.isInArea(mouseX, mouseY, controlX, controlY, layout.sliderWidth, layout.sliderHeight)) {
                         List<String> options = entry.getValidValues();
                         if (options != null && !options.isEmpty()) {
                             String current = (String) params.getOrDefault(entry.getKey(), entry.getStringDefault());
 
-                            // 实例化 DropdownWidget，传入翻译函数
                             activeDropdown = new DropdownWidget(
                                     controlX, controlY, layout.sliderWidth, layout.sliderHeight,
                                     options, current,
-                                    this::getLocalizedParamValue, // ★ 传入翻译函数
+                                    this::getLocalizedParamValue,
                                     (selected) -> {
                                         params.put(entry.getKey(), selected);
                                         notifyParamChanged(item);
@@ -796,7 +808,6 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        // ★ 优先滚动下拉菜单
         if (activeDropdown != null && activeDropdown.isOpen()) {
             if (activeDropdown.mouseScrolled(mouseX, mouseY, delta)) return true;
         }
@@ -813,14 +824,22 @@ public class SelectionPanelWidget<T> extends AbstractWidget {
         return false;
     }
 
+    // ★★★ 核心修复：按键事件手动转发 ★★★
+    // 只有当搜索框有焦点时，才把按键事件传给它
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        return searchBox.keyPressed(keyCode, scanCode, modifiers);
+        if (searchBox.isFocused()) {
+            return searchBox.keyPressed(keyCode, scanCode, modifiers);
+        }
+        return false;
     }
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        return searchBox.charTyped(codePoint, modifiers);
+        if (searchBox.isFocused()) {
+            return searchBox.charTyped(codePoint, modifiers);
+        }
+        return false;
     }
 
     @Override
